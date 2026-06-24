@@ -50,7 +50,7 @@
                     <div style="display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; padding-right: 5px;">
                         @foreach (var ticket in Model.OpenTickets)
                         {
-                            <div class="ticket-card" id="ticket-card-@ticket.Id" onclick="selectTicket(@Json.Serialize(ticket))" style="background-color: #12121A; border: 1.5px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+                            <div class="ticket-card" id="ticket-card-@ticket.Id" onclick="selectTicket(this)" data-ticket="@System.Text.Json.JsonSerializer.Serialize(ticket)" style="background-color: #12121A; border: 1.5px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
                                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
                                     <span>@ticket.CreatedDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
                                     <span class="badge badge-danger" style="font-size: 9px; padding: 2px 4px;">OPEN</span>
@@ -76,7 +76,7 @@
                     <div style="display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; padding-right: 5px;">
                         @foreach (var ticket in Model.ResolvedTickets)
                         {
-                            <div class="ticket-card" id="ticket-card-@ticket.Id" onclick="selectTicket(@Json.Serialize(ticket))" style="background-color: #12121A; border: 1.5px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+                            <div class="ticket-card" id="ticket-card-@ticket.Id" onclick="selectTicket(this)" data-ticket="@System.Text.Json.JsonSerializer.Serialize(ticket)" style="background-color: #12121A; border: 1.5px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
                                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
                                     <span>@ticket.CreatedDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
                                     <span class="badge badge-success" style="font-size: 9px; padding: 2px 4px;">RESOLVED</span>
@@ -178,7 +178,8 @@
             }
         }
 
-        function selectTicket(rawTicket) {
+        function selectTicket(element) {
+            var rawTicket = JSON.parse(element.getAttribute("data-ticket"));
             if (!rawTicket) return;
             
             var ticket = {

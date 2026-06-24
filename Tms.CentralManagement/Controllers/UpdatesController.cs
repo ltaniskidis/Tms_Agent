@@ -284,7 +284,7 @@ namespace Tms.CentralManagement.Controllers
                                 BinaryFileUrl = latestUpdate.BinaryFileUrl,
                                 SecurityCode = latestUpdate.SecurityCode,
                                 ReleaseNotes = latestUpdate.ReleaseNotes.Select(rn => rn.NotesContent).ToList(),
-                                Scripts = latestUpdate.Scripts.OrderBy(s => s.SequenceOrder).Select(s => new ScriptDto
+                                Scripts = (latestUpdate.Scripts ?? new List<SqlScript>()).OrderBy(s => s.SequenceOrder).Select(s => new ScriptDto
                                 {
                                     Id = s.Id,
                                     ScriptName = s.ScriptName,

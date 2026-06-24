@@ -19,3 +19,5 @@ PublishAndSetup/
 
 # Local packages/publish directories
 Tms.CentralManagement/wwwroot/packages/
+SentEmails/
+Tms.CentralManagement/SentEmails/

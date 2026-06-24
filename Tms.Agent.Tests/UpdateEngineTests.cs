@@ -189,5 +189,68 @@ SELECT 4;
             Assert.Equal(string.Empty, UpdateEngine.GetDatabaseNameFromConnectionString("Invalid Connection String"));
             Assert.Equal(string.Empty, UpdateEngine.GetDatabaseNameFromConnectionString("Server=localhost;Integrated Security=True;"));
         }
+
+        [Fact]
+        public async Task Test_SendSupportEmail_And_CheckBroadcasts()
+        {
+            var serverUrl = "http://localhost:5007";
+            var apiKey = "TMS-KEY-409B441F2E7B4954";
+            var engine = new UpdateEngine();
+
+            // Create a dummy attachment file
+            var dummyFile = Path.Combine(Path.GetTempPath(), "dummy_screenshot.png");
+            File.WriteAllText(dummyFile, "Fake image bytes");
+
+            try
+            {
+                bool emailResult = await engine.SendSupportEmailAsync(
+                    serverUrl,
+                    apiKey,
+                    "Δοκιμαστικό Θέμα",
+                    "Αυτό είναι ένα δοκιμαστικό email από το test runner.",
+                    dummyFile
+                );
+
+                Assert.True(emailResult, "Αποστολή email απέτυχε.");
+
+                // Verify that the email file was created locally on the server (under SentEmails/)
+                var sentEmailsDir = Path.Combine("..", "..", "..", "..", "Tms.CentralManagement", "SentEmails");
+                // Also check relative to workspace root directory just in case
+                var sentEmailsWorkspaceDir = Path.Combine("..", "..", "..", "Tms.CentralManagement", "SentEmails");
+                
+                bool foundFile = false;
+                if (Directory.Exists(sentEmailsDir) && Directory.GetFiles(sentEmailsDir, "SupportEmail_*.txt").Length > 0)
+                {
+                    foundFile = true;
+                }
+                else if (Directory.Exists(sentEmailsWorkspaceDir) && Directory.GetFiles(sentEmailsWorkspaceDir, "SupportEmail_*.txt").Length > 0)
+                {
+                    foundFile = true;
+                }
+                
+                Assert.True(foundFile, "Δεν βρέθηκε το αποθηκευμένο αρχείο email στον φάκελο SentEmails/");
+
+                // Check for updates / broadcasts
+                var checkResponse = await engine.CheckForUpdatesAsync(
+                    serverUrl,
+                    "test-client",
+                    "test-machine",
+                    "Both",
+                    "1.5.8",
+                    apiKey,
+                    new System.Collections.Generic.List<LocalProfile>()
+                );
+
+                Assert.NotNull(checkResponse);
+                Assert.NotNull(checkResponse.Broadcasts);
+            }
+            finally
+            {
+                if (File.Exists(dummyFile))
+                {
+                    File.Delete(dummyFile);
+                }
+            }
+        }
     }
 }

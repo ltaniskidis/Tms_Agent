@@ -355,6 +355,48 @@
                             <TextBlock Text="Logs Εγκατάστασης" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
+
+                    <!-- Support Link -->
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Support">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentView}" Value="Support">
+                                        <Setter Property="Background" Value="#252538"/>
+                                        <Setter Property="Foreground" Value="#6366F1"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="✉️" Margin="0,0,10,0" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Επικοινωνία / Support" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Broadcasts Link -->
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Broadcasts">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentView}" Value="Broadcasts">
+                                        <Setter Property="Background" Value="#252538"/>
+                                        <Setter Property="Foreground" Value="#6366F1"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <Grid>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="📢" Margin="0,0,10,0" FontSize="14" VerticalAlignment="Center"/>
+                                <TextBlock Text="Ενημερώσεις &amp; Νέα" VerticalAlignment="Center"/>
+                                <TextBlock Text="🔴" Margin="5,0,0,0" FontSize="10" VerticalAlignment="Center" Foreground="#EF4444" 
+                                           Visibility="{Binding HasUnreadBroadcasts, Converter={StaticResource BoolToVis}}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Button>
                 </StackPanel>
 
                 <Border Grid.Row="3" Margin="5" BorderBrush="#2B2B3C" BorderThickness="0,1,0,0" Padding="0,10,0,0">
@@ -968,6 +1010,148 @@
                                 <Button Content="Αποθήκευση" Style="{StaticResource PrimaryButton}" Width="120" 
                                         Command="{Binding SaveUserCommand}" IsEnabled="{Binding IsUserEditingEnabled}"/>
                             </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+            
+            <!-- Support Panel View -->
+            <Grid Grid.Row="1" x:Name="SupportPanel" Margin="0,15,0,0">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="Support">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Title -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                        <TextBlock Text="✉️ Επικοινωνία / Support" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <TextBlock Text="Στείλτε άμεσα ένα αίτημα υποστήριξης στην ομάδα μας για οποιοδήποτε πρόβλημα προκύψει." FontSize="12" Foreground="#A0A0B0" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- Form Content -->
+                    <Border Grid.Row="1" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="8" Padding="25" VerticalAlignment="Top" MaxWidth="700" HorizontalAlignment="Left">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/> <!-- Status Msg -->
+                                <RowDefinition Height="Auto"/> <!-- Subject -->
+                                <RowDefinition Height="Auto"/> <!-- Body -->
+                                <RowDefinition Height="Auto"/> <!-- Attachment -->
+                                <RowDefinition Height="Auto"/> <!-- Submit Button -->
+                            </Grid.RowDefinitions>
+
+                            <!-- Status message -->
+                            <TextBlock Grid.Row="0" Text="{Binding SupportStatusMessage}" FontSize="12" Foreground="#6366F1" Margin="0,0,0,15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+
+                            <!-- Subject -->
+                            <StackPanel Grid.Row="1" Margin="0,0,0,15">
+                                <TextBlock Text="Θέμα Μηνύματος:" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SupportSubject, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsNotSendingSupportEmail}" Foreground="#FFFFFF"/>
+                            </StackPanel>
+
+                            <!-- Body -->
+                            <StackPanel Grid.Row="2" Margin="0,0,0,15">
+                                <TextBlock Text="Περιγραφή Προβλήματος / Κείμενο:" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SupportBody, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" Height="150" VerticalScrollBarVisibility="Auto" AcceptsTab="True" IsEnabled="{Binding IsNotSendingSupportEmail}" Foreground="#FFFFFF"/>
+                            </StackPanel>
+
+                            <!-- Attachment -->
+                            <StackPanel Grid.Row="3" Margin="0,0,0,25">
+                                <TextBlock Text="Επισύναψη Αρχείου (π.χ. Screenshot):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding SupportAttachmentName, Mode=OneWay}" IsReadOnly="True" Grid.Column="0" Margin="0,0,10,0" IsEnabled="False" Background="#0F0F12"/>
+                                    <Button Content="Επιλογή..." Style="{StaticResource OutlineButton}" Grid.Column="1" Padding="15,5,15,5" Command="{Binding SelectAttachmentCommand}" IsEnabled="{Binding IsNotSendingSupportEmail}"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <!-- Submit -->
+                            <Button Grid.Row="4" Content="🚀 Αποστολή στο Support" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Width="200" Command="{Binding SendSupportEmailCommand}" IsEnabled="{Binding IsNotSendingSupportEmail}"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- Broadcasts Panel View -->
+            <Grid Grid.Row="1" x:Name="BroadcastsPanel" Margin="0,15,0,0">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="Broadcasts">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Title -->
+                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
+                        <TextBlock Text="📢 Ενημερώσεις &amp; Νέα" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <TextBlock Text="Διαβάστε τα τελευταία μηνύματα, ενημερώσεις και ανακοινώσεις από την κεντρική διαχείριση." FontSize="12" Foreground="#A0A0B0" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- Broadcasts List -->
+                    <Border Grid.Row="1" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="8" Padding="20" Margin="0,0,0,20">
+                        <Grid>
+                            <ListBox ItemsSource="{Binding BroadcastsList}" Background="Transparent" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#1C1C28" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="6" Padding="15" Margin="0,0,0,12" HorizontalAlignment="Stretch">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+
+                                                <!-- Header: Date & Title -->
+                                                <TextBlock Grid.Row="0" Text="{Binding CreatedDate, StringFormat='dd/MM/yyyy HH:mm'}" FontSize="11" Foreground="#6366F1" FontWeight="SemiBold" Margin="0,0,0,5"/>
+                                                <TextBlock Grid.Row="1" Text="{Binding Title}" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,8"/>
+                                                
+                                                <!-- Content -->
+                                                <TextBlock Grid.Row="2" Text="{Binding Content}" FontSize="13" Foreground="#E5E7EB" TextWrapping="Wrap" LineHeight="18"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Focusable" Value="False"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="true">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
                         </Grid>
                     </Border>
                 </Grid>

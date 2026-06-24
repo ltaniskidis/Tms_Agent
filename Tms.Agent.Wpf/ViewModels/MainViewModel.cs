@@ -446,12 +446,84 @@ namespace Tms.Agent.Wpf.ViewModels
         public bool IsUserOwner => SelectedUser?.Username.Equals("owner", StringComparison.OrdinalIgnoreCase) == true || EditUserUsername.Equals("owner", StringComparison.OrdinalIgnoreCase);
         public bool IsUserEditingEnabled => !IsUserOwner;
 
+        // Support Email Properties
+        private string _supportSubject = string.Empty;
+        public string SupportSubject
+        {
+            get => _supportSubject;
+            set => SetProperty(ref _supportSubject, value);
+        }
+
+        private string _supportBody = string.Empty;
+        public string SupportBody
+        {
+            get => _supportBody;
+            set => SetProperty(ref _supportBody, value);
+        }
+
+        private string _supportAttachmentPath = string.Empty;
+        public string SupportAttachmentPath
+        {
+            get => _supportAttachmentPath;
+            set
+            {
+                if (SetProperty(ref _supportAttachmentPath, value))
+                {
+                    OnPropertyChanged(nameof(SupportAttachmentName));
+                }
+            }
+        }
+
+        public string SupportAttachmentName => string.IsNullOrEmpty(SupportAttachmentPath) 
+            ? "Κανένα επιλεγμένο αρχείο" 
+            : Path.GetFileName(SupportAttachmentPath);
+
+        private bool _isSendingSupportEmail;
+        public bool IsSendingSupportEmail
+        {
+            get => _isSendingSupportEmail;
+            set
+            {
+                if (SetProperty(ref _isSendingSupportEmail, value))
+                {
+                    OnPropertyChanged(nameof(IsNotSendingSupportEmail));
+                }
+            }
+        }
+
+        public bool IsNotSendingSupportEmail => !_isSendingSupportEmail;
+
+        private string _supportStatusMessage = string.Empty;
+        public string SupportStatusMessage
+        {
+            get => _supportStatusMessage;
+            set => SetProperty(ref _supportStatusMessage, value);
+        }
+
+        // Broadcast Messages Properties
+        private bool _hasUnreadBroadcasts;
+        public bool HasUnreadBroadcasts
+        {
+            get => _hasUnreadBroadcasts;
+            set => SetProperty(ref _hasUnreadBroadcasts, value);
+        }
+
+        private System.Collections.ObjectModel.ObservableCollection<BroadcastMessageDto> _broadcastsList = new();
+        public System.Collections.ObjectModel.ObservableCollection<BroadcastMessageDto> BroadcastsList
+        {
+            get => _broadcastsList;
+            set => SetProperty(ref _broadcastsList, value);
+        }
+
         // Commands
         public ICommand SaveUserCommand { get; }
         public ICommand DeleteUserCommand { get; }
         public ICommand NewUserCommand { get; }
 
         public ICommand NavigateCommand { get; }
+        public ICommand SelectAttachmentCommand { get; }
+        public ICommand SendSupportEmailCommand { get; }
+        public ICommand MarkBroadcastsReadCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand UpdateProfileCommand { get; }
         public ICommand SaveProfileCommand { get; }
@@ -491,6 +563,10 @@ namespace Tms.Agent.Wpf.ViewModels
                 if (CurrentView == "Users")
                 {
                     LoadLocalUsers();
+                }
+                else if (CurrentView == "Broadcasts")
+                {
+                    MarkBroadcastsAsRead();
                 }
             });
             CheckUpdatesCommand = new RelayCommand(async () => await CheckForUpdatesAsync());
@@ -542,6 +618,10 @@ namespace Tms.Agent.Wpf.ViewModels
             SaveUserCommand = new RelayCommand(SaveLocalUser);
             DeleteUserCommand = new RelayCommand(DeleteLocalUser);
             NewUserCommand = new RelayCommand(ClearUserEditor);
+
+            SelectAttachmentCommand = new RelayCommand(SelectAttachment);
+            SendSupportEmailCommand = new RelayCommand(async () => await SendSupportEmailAsync());
+            MarkBroadcastsReadCommand = new RelayCommand(MarkBroadcastsAsRead);
 
             LoadProfiles();
             
@@ -1056,6 +1136,39 @@ namespace Tms.Agent.Wpf.ViewModels
             {
                 StatusMessage = "Όλες οι παρακολουθούμενες εταιρείες είναι ενημερωμένες.";
             }
+
+            // Handle Broadcast Messages
+            if (response.Broadcasts != null)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    BroadcastsList.Clear();
+                    foreach (var b in response.Broadcasts)
+                    {
+                        BroadcastsList.Add(b);
+                    }
+                });
+
+                // Load seen broadcast IDs
+                var seenIds = new List<int>();
+                try
+                {
+                    var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
+                    var file = Path.Combine(appDataPath, "seen_broadcasts.json");
+                    if (File.Exists(file))
+                    {
+                        var json = File.ReadAllText(file);
+                        seenIds = JsonSerializer.Deserialize<List<int>>(json) ?? new List<int>();
+                    }
+                }
+                catch
+                {
+                    // Ignore
+                }
+
+                bool hasUnread = response.Broadcasts.Any(b => !seenIds.Contains(b.Id));
+                HasUnreadBroadcasts = hasUnread;
+            }
         }
 
         private async Task RunUpdateAsync(ProfileUiWrapper wrapper)
@@ -1464,6 +1577,76 @@ namespace Tms.Agent.Wpf.ViewModels
             else
             {
                 UserSyncStatus = "Αποθηκεύτηκε τοπικά (Σφάλμα σύνδεσης / Central Server εκτός σύνδεσης).";
+            }
+        }
+
+        private void SelectAttachment()
+        {
+            var openFileDialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Filter = "All Files (*.*)|*.*|Image Files (*.png;*.jpg;*.jpeg;*.gif)|*.png;*.jpg;*.jpeg;*.gif"
+            };
+
+            if (openFileDialog.ShowDialog() == true)
+            {
+                SupportAttachmentPath = openFileDialog.FileName;
+            }
+        }
+
+        private async Task SendSupportEmailAsync()
+        {
+            if (string.IsNullOrWhiteSpace(SupportSubject) || string.IsNullOrWhiteSpace(SupportBody))
+            {
+                SupportStatusMessage = "⚠️ Το θέμα και το περιεχόμενο είναι υποχρεωτικά.";
+                return;
+            }
+
+            IsSendingSupportEmail = true;
+            SupportStatusMessage = "Αποστολή email στο support...";
+
+            try
+            {
+                bool success = await _updateEngine.SendSupportEmailAsync(ServerUrl, ApiKey, SupportSubject, SupportBody, SupportAttachmentPath);
+                if (success)
+                {
+                    SupportStatusMessage = "✅ Το email στάλθηκε επιτυχώς στο support!";
+                    SupportSubject = string.Empty;
+                    SupportBody = string.Empty;
+                    SupportAttachmentPath = string.Empty;
+                }
+                else
+                {
+                    SupportStatusMessage = "❌ Αποτυχία αποστολής email. Δοκιμάστε ξανά αργότερα.";
+                }
+            }
+            catch (Exception ex)
+            {
+                SupportStatusMessage = $"❌ Σφάλμα: {ex.Message}";
+            }
+            finally
+            {
+                IsSendingSupportEmail = false;
+            }
+        }
+
+        public void MarkBroadcastsAsRead()
+        {
+            HasUnreadBroadcasts = false;
+            try
+            {
+                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
+                if (!Directory.Exists(appDataPath))
+                {
+                    Directory.CreateDirectory(appDataPath);
+                }
+                var file = Path.Combine(appDataPath, "seen_broadcasts.json");
+                var ids = BroadcastsList.Select(b => b.Id).ToList();
+                var json = JsonSerializer.Serialize(ids);
+                File.WriteAllText(file, json);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save seen broadcasts: {ex.Message}");
             }
         }
     }

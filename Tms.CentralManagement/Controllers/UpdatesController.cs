@@ -6,6 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Tms.CentralManagement.Data;
 using Tms.Shared.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
+using System.IO;
 
 namespace Tms.CentralManagement.Controllers
 {
@@ -14,10 +17,12 @@ namespace Tms.CentralManagement.Controllers
     public class UpdatesController : ControllerBase
     {
         private readonly CentralDbContext _context;
+        private readonly IConfiguration _configuration;
 
-        public UpdatesController(CentralDbContext context)
+        public UpdatesController(CentralDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         // 1. Check for updates from Agents
@@ -333,6 +338,20 @@ namespace Tms.CentralManagement.Controllers
 
             await _context.SaveChangesAsync();
 
+            // Fetch active broadcast messages for this client
+            var broadcasts = await _context.BroadcastMessages
+                .Where(b => b.IsActive && (string.IsNullOrEmpty(b.TargetClientApiKey) || b.TargetClientApiKey == request.ApiKey))
+                .OrderByDescending(b => b.CreatedDate)
+                .Select(b => new BroadcastMessageDto
+                {
+                    Id = b.Id,
+                    Title = b.Title,
+                    Content = b.Content,
+                    CreatedDate = b.CreatedDate
+                })
+                .ToListAsync();
+            response.Broadcasts = broadcasts;
+
             response.HasUpdates = response.Updates.Any();
             return Ok(response);
         }
@@ -518,6 +537,149 @@ namespace Tms.CentralManagement.Controllers
 
             await _context.SaveChangesAsync();
             return Ok();
+        }
+
+        // 8. Agent: Send support email
+        [HttpPost("send-support-email")]
+        public async Task<IActionResult> SendSupportEmail(
+            [FromForm] string subject,
+            [FromForm] string body,
+            [FromForm] string apiKey,
+            IFormFile? attachment)
+        {
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                return BadRequest("API Key is required.");
+            }
+
+            var client = await _context.Clients
+                .Include(c => c.Profiles)
+                .FirstOrDefaultAsync(c => c.ApiKey == apiKey);
+
+            if (client == null)
+            {
+                return Unauthorized("Invalid API Key.");
+            }
+
+            // Append machine detail info to email body
+            var fullBody = $"Στοιχεία Μηχανήματος:\n" +
+                           $"Όνομα: {client.MachineName}\n" +
+                           $"ApiKey: {client.ApiKey}\n" +
+                           $"Έκδοση Agent: {client.AgentVersion}\n" +
+                           $"Ημερομηνία: {DateTime.Now}\n\n" +
+                           $"Κείμενο:\n{body}";
+
+            var mailSubject = $"[TMS Agent Support] {subject} - {client.MachineName}";
+
+            // Target Emails
+            var toAddresses = new[] { "support@cleverdata.gr", "l.taniskidis@cleverdata.gr", "e.kordouli@cleverdata.gr" };
+            bool emailSent = false;
+            string smtpError = string.Empty;
+
+            try
+            {
+                var smtpSection = _configuration.GetSection("SmtpSettings");
+                var server = smtpSection["Server"];
+                var portStr = smtpSection["Port"];
+                var username = smtpSection["Username"];
+                var password = smtpSection["Password"];
+                var enableSslStr = smtpSection["EnableSsl"];
+                var sender = smtpSection["Sender"];
+
+                if (!string.IsNullOrEmpty(server) && !string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
+                {
+                    using (var mail = new System.Net.Mail.MailMessage())
+                    {
+                        mail.From = new System.Net.Mail.MailAddress(sender ?? username);
+                        foreach (var addr in toAddresses)
+                        {
+                            mail.To.Add(addr);
+                        }
+                        mail.Subject = mailSubject;
+                        mail.Body = fullBody;
+
+                        if (attachment != null && attachment.Length > 0)
+                        {
+                            using (var stream = attachment.OpenReadStream())
+                            {
+                                var mailAttachment = new System.Net.Mail.Attachment(stream, attachment.FileName);
+                                mail.Attachments.Add(mailAttachment);
+
+                                int port = int.TryParse(portStr, out var p) ? p : 587;
+                                bool enableSsl = bool.TryParse(enableSslStr, out var ssl) ? ssl : true;
+
+                                using (var smtp = new System.Net.Mail.SmtpClient(server, port))
+                                {
+                                    smtp.Credentials = new System.Net.NetworkCredential(username, password);
+                                    smtp.EnableSsl = enableSsl;
+                                    await smtp.SendMailAsync(mail);
+                                    emailSent = true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            int port = int.TryParse(portStr, out var p) ? p : 587;
+                            bool enableSsl = bool.TryParse(enableSslStr, out var ssl) ? ssl : true;
+
+                            using (var smtp = new System.Net.Mail.SmtpClient(server, port))
+                            {
+                                smtp.Credentials = new System.Net.NetworkCredential(username, password);
+                                smtp.EnableSsl = enableSsl;
+                                await smtp.SendMailAsync(mail);
+                                emailSent = true;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    smtpError = "SMTP settings are missing or incomplete.";
+                }
+            }
+            catch (Exception ex)
+            {
+                smtpError = ex.ToString();
+            }
+
+            if (!emailSent)
+            {
+                try
+                {
+                    var sentEmailsDir = Path.Combine(Directory.GetCurrentDirectory(), "SentEmails");
+                    if (!Directory.Exists(sentEmailsDir))
+                    {
+                        Directory.CreateDirectory(sentEmailsDir);
+                    }
+
+                    var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                    var textFile = Path.Combine(sentEmailsDir, $"SupportEmail_{timestamp}.txt");
+
+                    var fileContent = $"SMTP Error: {smtpError}\n" +
+                                      $"To: {string.Join(", ", toAddresses)}\n" +
+                                      $"Subject: {mailSubject}\n" +
+                                      $"Body:\n{fullBody}\n";
+
+                    if (attachment != null && attachment.Length > 0)
+                    {
+                        fileContent += $"Attachment Name: {attachment.FileName} ({attachment.Length} bytes)\n";
+
+                        var attFile = Path.Combine(sentEmailsDir, $"SupportEmail_{timestamp}_{attachment.FileName}");
+                        using (var fs = new FileStream(attFile, FileMode.Create))
+                        {
+                            await attachment.CopyToAsync(fs);
+                        }
+                    }
+
+                    await System.IO.File.WriteAllTextAsync(textFile, fileContent, System.Text.Encoding.UTF8);
+                }
+                catch (Exception fileEx)
+                {
+                    Console.WriteLine($"Failed to write local email file: {fileEx}");
+                }
+            }
+
+            return Ok(new { Success = true });
         }
     }
 }

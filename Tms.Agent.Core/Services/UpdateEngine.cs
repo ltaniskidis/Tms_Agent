@@ -139,6 +139,37 @@ namespace Tms.Agent.Core.Services
             }
         }
 
+        public async Task<bool> SendSupportEmailAsync(string serverUrl, string apiKey, string subject, string body, string? attachmentPath)
+        {
+            var url = $"{serverUrl.TrimEnd('/')}/api/updates/send-support-email";
+
+            try
+            {
+                using (var content = new MultipartFormDataContent())
+                {
+                    content.Add(new StringContent(apiKey ?? string.Empty), "apiKey");
+                    content.Add(new StringContent(subject ?? string.Empty), "subject");
+                    content.Add(new StringContent(body ?? string.Empty), "body");
+
+                    if (!string.IsNullOrEmpty(attachmentPath) && File.Exists(attachmentPath))
+                    {
+                        var fileBytes = await File.ReadAllBytesAsync(attachmentPath);
+                        var fileContent = new ByteArrayContent(fileBytes);
+                        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream");
+                        content.Add(fileContent, "attachment", Path.GetFileName(attachmentPath));
+                    }
+
+                    var response = await _httpClient.PostAsync(url, content);
+                    return response.IsSuccessStatusCode;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error sending support email: {ex.Message}");
+                return false;
+            }
+        }
+
         // 3. Execute update workflow
         public async Task<bool> RunUpdateAsync(
             string serverUrl, 

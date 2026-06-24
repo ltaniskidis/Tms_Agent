@@ -51,6 +51,7 @@ namespace Tms.Shared.Models
         public List<ProfileConfigCommandDto> ConfigCommands { get; set; } = new();
         public List<AgentUserDto> LocalUsers { get; set; } = new();
         public AgentPermissionsDto Permissions { get; set; } = new();
+        public List<BroadcastMessageDto> Broadcasts { get; set; } = new();
     }
 
     public class ProfileConfigCommandDto
@@ -135,5 +136,13 @@ namespace Tms.Shared.Models
     {
         public string ApiKey { get; set; } = string.Empty;
         public List<AgentUserDto> Users { get; set; } = new();
+    }
+
+    public class BroadcastMessageDto
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public DateTime CreatedDate { get; set; }
     }
 }

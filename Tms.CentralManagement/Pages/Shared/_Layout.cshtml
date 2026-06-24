@@ -292,6 +292,12 @@
                 <a href="/ConsoleUsers" class="@(ViewContext.RouteData.Values["page"]?.ToString() == "/ConsoleUsers" ? "active" : "")">
                     <span>🔑</span> Χρήστες Κονσόλας
                 </a>
+                @if (User.IsInRole("SuperAdmin"))
+                {
+                    <a href="/Broadcasts" class="@(ViewContext.RouteData.Values["page"]?.ToString() == "/Broadcasts" ? "active" : "")">
+                        <span>📢</span> Ενημερώσεις &amp; Νέα
+                    </a>
+                }
             </nav>
             <div class="footer-info">
                 Χρήστης: <strong>@User.Identity.Name</strong>

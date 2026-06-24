@@ -1,0 +1,142 @@
+@page
+@model Tms.CentralManagement.Pages.BroadcastsModel
+@{
+    ViewData["Title"] = "Διαχείριση Ενημερώσεων & Διαφημίσεων";
+}
+
+<header>
+    <div>
+        <h1>📢 Διαχείριση Ενημερώσεων &amp; Διαφημίσεων</h1>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Δημιουργήστε και στείλτε ενημερωτικά μηνύματα, νέα, ή διαφημίσεις απευθείας στους Agents.</p>
+    </div>
+</header>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div style="background-color: rgba(16, 185, 129, 0.15); border: 1.5px solid var(--success); color: var(--success); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        ✅ @Model.SuccessMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div style="background-color: rgba(239, 68, 68, 0.15); border: 1.5px solid var(--danger); color: var(--danger); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        ❌ @Model.ErrorMessage
+    </div>
+}
+
+<div style="display: flex; gap: 20px; align-items: flex-start;">
+    <!-- Broadcasts List Table -->
+    <div style="flex: 1.5;">
+        <div class="card">
+            <div class="card-title">
+                <span>Ιστορικό Ενημερώσεων (@Model.Broadcasts.Count)</span>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Ημερομηνία</th>
+                        <th style="width: 25%;">Τίτλος</th>
+                        <th style="width: 30%;">Περιεχόμενο</th>
+                        <th style="width: 15%;">Στόχευση</th>
+                        <th style="width: 10%;">Κατάσταση</th>
+                        <th>Ενέργειες</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Broadcasts.Any())
+                    {
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                                Δεν έχουν δημιουργηθεί ενημερώσεις ακόμα.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var broadcast in Model.Broadcasts)
+                        {
+                            <tr>
+                                <td style="font-size: 12px; color: var(--text-secondary);">
+                                    @broadcast.CreatedDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                                </td>
+                                <td>
+                                    <strong>@broadcast.Title</strong>
+                                </td>
+                                <td style="white-space: pre-line; font-size: 13px; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">@broadcast.Content</td>
+                                <td>
+                                    @if (string.IsNullOrWhiteSpace(broadcast.TargetClientApiKey))
+                                    {
+                                        <span class="badge badge-secondary">Όλοι οι Agents</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-info" style="font-family: monospace; font-size: 10px;" title="@broadcast.TargetClientApiKey">
+                                            ApiKey: @(broadcast.TargetClientApiKey.Length > 8 ? broadcast.TargetClientApiKey.Substring(0, 8) + "..." : broadcast.TargetClientApiKey)
+                                        </span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (broadcast.IsActive)
+                                    {
+                                        <span class="badge badge-success">Ενεργό</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-danger">Ανενεργό</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div style="display: flex; gap: 8px;">
+                                        <form method="post" asp-page-handler="ToggleActive" asp-route-id="@broadcast.Id" style="margin:0;">
+                                            <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                                @(broadcast.IsActive ? "Απενεργοποίηση" : "Ενεργοποίηση")
+                                            </button>
+                                        </form>
+                                        <form method="post" asp-page-handler="DeleteBroadcast" asp-route-id="@broadcast.Id" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την ενημέρωση;');" style="margin:0;">
+                                            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                                🗑️ Διαγραφή
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Create Broadcast Form -->
+    <div style="flex: 1; min-width: 320px;">
+        <div class="card">
+            <div class="card-title">
+                <span>📢 Νέα Ενημέρωση / Διαφήμιση</span>
+            </div>
+
+            <form method="post" asp-page-handler="AddBroadcast">
+                <div class="form-group">
+                    <label>Τίτλος Μηνύματος</label>
+                    <input type="text" name="title" class="form-control" placeholder="π.χ. Προγραμματισμένη Συντήρηση 2026" required />
+                </div>
+
+                <div class="form-group">
+                    <label>Περιεχόμενο</label>
+                    <textarea name="content" class="form-control" style="min-height: 120px;" placeholder="Γράψτε το κείμενο που θα εμφανίζεται στον Agent..." required></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Στόχευση Πελάτη (ApiKey - Προαιρετικό)</label>
+                    <input type="text" name="targetClientApiKey" class="form-control" placeholder="Αφήστε κενό για αποστολή σε όλους τους Agents" />
+                    <p style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Αν θέλετε να εμφανιστεί μόνο σε συγκεκριμένο πελάτη, εισάγετε το API Key του.</p>
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button type="submit" class="btn" style="width: 100%;">🚀 Δημοσίευση Ενημέρωσης</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

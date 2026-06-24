@@ -117,6 +117,28 @@ namespace Tms.Agent.Core.Services
             }
         }
 
+        // 2b. Sync local users back to central management
+        public async Task<bool> SyncUsersAsync(string serverUrl, string apiKey, List<AgentUserDto> users)
+        {
+            var url = $"{serverUrl.TrimEnd('/')}/api/updates/sync-users";
+            var request = new SyncUsersRequest
+            {
+                ApiKey = apiKey,
+                Users = users
+            };
+
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync(url, request);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error syncing users to central server: {ex.Message}");
+                return false;
+            }
+        }
+
         // 3. Execute update workflow
         public async Task<bool> RunUpdateAsync(
             string serverUrl, 

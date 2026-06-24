@@ -91,6 +91,30 @@ namespace Tms.CentralManagement.Controllers
                 Role = u.Role
             }).ToList();
 
+            // Inject console users that have Scope 'Agent' or 'Both'
+            var consoleSyncedUsers = await _context.ConsoleUsers
+                .Where(u => u.Scope == "Agent" || u.Scope == "Both")
+                .ToListAsync();
+
+            foreach (var cu in consoleSyncedUsers)
+            {
+                var existing = response.LocalUsers.FirstOrDefault(u => u.Username.Equals(cu.Username, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    existing.Password = cu.PasswordHash;
+                    existing.Role = cu.Username.Equals("owner", StringComparison.OrdinalIgnoreCase) ? "Owner" : (cu.Role == "SuperAdmin" ? "Admin" : "Operator");
+                }
+                else
+                {
+                    response.LocalUsers.Add(new AgentUserDto
+                    {
+                        Username = cu.Username,
+                        Password = cu.PasswordHash,
+                        Role = cu.Username.Equals("owner", StringComparison.OrdinalIgnoreCase) ? "Owner" : (cu.Role == "SuperAdmin" ? "Admin" : "Operator")
+                    });
+                }
+            }
+
             // Sync permissions
             if (client.Permissions != null)
             {
@@ -452,6 +476,48 @@ namespace Tms.CentralManagement.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { id = version.Id, isActive = version.IsActive });
+        }
+
+        // 7. Agent: Sync local users back to Central Server
+        [HttpPost("sync-users")]
+        public async Task<IActionResult> SyncUsers([FromBody] SyncUsersRequest request)
+        {
+            if (string.IsNullOrEmpty(request.ApiKey))
+            {
+                return Unauthorized("API Key is required.");
+            }
+
+            var client = await _context.Clients
+                .Include(c => c.LocalUsers)
+                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey);
+
+            if (client == null)
+            {
+                return Unauthorized("Invalid API Key.");
+            }
+
+            // Remove existing local users
+            _context.AgentUsers.RemoveRange(client.LocalUsers);
+
+            // Add new local users (filtering out owner username just in case)
+            foreach (var userDto in request.Users)
+            {
+                if (userDto.Username.ToLower() == "owner" || userDto.Role.ToLower() == "owner")
+                {
+                    continue;
+                }
+
+                client.LocalUsers.Add(new AgentUser
+                {
+                    ClientMachineId = client.Id,
+                    Username = userDto.Username,
+                    Password = userDto.Password,
+                    Role = userDto.Role
+                });
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok();
         }
     }
 }

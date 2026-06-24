@@ -130,4 +130,10 @@ namespace Tms.Shared.Models
         public bool CanOperatorViewLogs { get; set; } = true;
         public bool CanOperatorRunUpdates { get; set; } = false;
     }
+
+    public class SyncUsersRequest
+    {
+        public string ApiKey { get; set; } = string.Empty;
+        public List<AgentUserDto> Users { get; set; } = new();
+    }
 }

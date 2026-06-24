@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.0";
+        public string AppVersion => "1.5.8";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings
@@ -38,26 +38,14 @@ namespace Tms.Agent.Wpf.ViewModels
         public string ServerUrl
         {
             get => _serverUrl;
-            set
-            {
-                if (SetProperty(ref _serverUrl, value))
-                {
-                    SaveAgentSettings();
-                }
-            }
+            set => SetProperty(ref _serverUrl, value);
         }
 
         private string _apiKey = string.Empty;
         public string ApiKey
         {
             get => _apiKey;
-            set
-            {
-                if (SetProperty(ref _apiKey, value))
-                {
-                    SaveAgentSettings();
-                }
-            }
+            set => SetProperty(ref _apiKey, value);
         }
 
         private string _machineRole = "Both"; // SqlServer, Client, Both
@@ -68,7 +56,6 @@ namespace Tms.Agent.Wpf.ViewModels
             {
                 if (SetProperty(ref _machineRole, value))
                 {
-                    SaveAgentSettings();
                     OnPropertyChanged(nameof(IsRoleSqlServer));
                     OnPropertyChanged(nameof(IsRoleClient));
                     OnPropertyChanged(nameof(IsRoleBoth));
@@ -394,7 +381,76 @@ namespace Tms.Agent.Wpf.ViewModels
         // Events
         public event Action<string, string>? UpdateDetected;
 
+        // Local User Management
+        public ObservableCollection<AgentUserDto> LocalUsersList { get; } = new();
+
+        private AgentUserDto? _selectedUser;
+        public AgentUserDto? SelectedUser
+        {
+            get => _selectedUser;
+            set
+            {
+                if (SetProperty(ref _selectedUser, value))
+                {
+                    if (value != null)
+                    {
+                        EditUserUsername = value.Username;
+                        EditUserPassword = value.Password;
+                        EditUserRole = value.Role;
+                    }
+                    else
+                    {
+                        ClearUserEditor();
+                    }
+                    OnPropertyChanged(nameof(IsUserOwner));
+                    OnPropertyChanged(nameof(IsUserEditingEnabled));
+                }
+            }
+        }
+
+        private string _editUserUsername = string.Empty;
+        public string EditUserUsername
+        {
+            get => _editUserUsername;
+            set
+            {
+                if (SetProperty(ref _editUserUsername, value))
+                {
+                    OnPropertyChanged(nameof(IsUserOwner));
+                    OnPropertyChanged(nameof(IsUserEditingEnabled));
+                }
+            }
+        }
+
+        private string _editUserPassword = string.Empty;
+        public string EditUserPassword
+        {
+            get => _editUserPassword;
+            set => SetProperty(ref _editUserPassword, value);
+        }
+
+        private string _editUserRole = "Operator";
+        public string EditUserRole
+        {
+            get => _editUserRole;
+            set => SetProperty(ref _editUserRole, value);
+        }
+
+        private string _userSyncStatus = string.Empty;
+        public string UserSyncStatus
+        {
+            get => _userSyncStatus;
+            set => SetProperty(ref _userSyncStatus, value);
+        }
+
+        public bool IsUserOwner => SelectedUser?.Username.Equals("owner", StringComparison.OrdinalIgnoreCase) == true || EditUserUsername.Equals("owner", StringComparison.OrdinalIgnoreCase);
+        public bool IsUserEditingEnabled => !IsUserOwner;
+
         // Commands
+        public ICommand SaveUserCommand { get; }
+        public ICommand DeleteUserCommand { get; }
+        public ICommand NewUserCommand { get; }
+
         public ICommand NavigateCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand UpdateProfileCommand { get; }
@@ -411,6 +467,8 @@ namespace Tms.Agent.Wpf.ViewModels
         public ICommand CancelAdminLoginCommand { get; }
         public ICommand NextWizardCommand { get; }
         public ICommand CancelWizardCommand { get; }
+        public ICommand SaveSettingsCommand { get; }
+        public ICommand DiscardSettingsCommand { get; }
 
         public MainViewModel()
         {
@@ -427,7 +485,14 @@ namespace Tms.Agent.Wpf.ViewModels
             _apiKey = settings.ApiKey;
 
             // Commands Setup
-            NavigateCommand = new RelayCommand<string>(view => CurrentView = view ?? "Dashboard");
+            NavigateCommand = new RelayCommand<string>(view =>
+            {
+                CurrentView = view ?? "Dashboard";
+                if (CurrentView == "Users")
+                {
+                    LoadLocalUsers();
+                }
+            });
             CheckUpdatesCommand = new RelayCommand(async () => await CheckForUpdatesAsync());
             
             UpdateProfileCommand = new RelayCommand<ProfileUiWrapper>(p =>
@@ -471,6 +536,12 @@ namespace Tms.Agent.Wpf.ViewModels
             CancelAdminLoginCommand = new RelayCommand(CancelAdminLogin);
             NextWizardCommand = new RelayCommand(async () => await NextWizardAsync());
             CancelWizardCommand = new RelayCommand(CancelWizard);
+            SaveSettingsCommand = new RelayCommand(SaveSettingsExecute);
+            DiscardSettingsCommand = new RelayCommand(DiscardSettingsExecute);
+
+            SaveUserCommand = new RelayCommand(SaveLocalUser);
+            DeleteUserCommand = new RelayCommand(DeleteLocalUser);
+            NewUserCommand = new RelayCommand(ClearUserEditor);
 
             LoadProfiles();
             
@@ -506,6 +577,44 @@ namespace Tms.Agent.Wpf.ViewModels
                 MachineRole = MachineRole,
                 ApiKey = ApiKey
             });
+        }
+
+        private void SaveSettingsExecute()
+        {
+            if (IsSettingsLocked)
+            {
+                System.Windows.MessageBox.Show(
+                    "Δεν έχετε δικαίωμα να αλλάξετε τις ρυθμίσεις. Απαιτείται σύνδεση ως Owner.",
+                    "TMS Agent - Σφάλμα",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Error);
+                return;
+            }
+
+            SaveAgentSettings();
+            
+            // Trigger update check to sync with new credentials/server URL immediately
+            _ = CheckForUpdatesAsync();
+
+            System.Windows.MessageBox.Show(
+                "Οι ρυθμίσεις του Agent αποθηκεύτηκαν επιτυχώς!",
+                "TMS Agent - Επιτυχία",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
+        }
+
+        private void DiscardSettingsExecute()
+        {
+            var settings = _settingsManager.LoadSettings();
+            ServerUrl = settings.ServerUrl;
+            ApiKey = settings.ApiKey;
+            MachineRole = settings.MachineRole;
+
+            System.Windows.MessageBox.Show(
+                "Οι ρυθμίσεις επανήλθαν στις αποθηκευμένες τιμές.",
+                "TMS Agent",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Information);
         }
 
         private void LoadProfiles()
@@ -1157,6 +1266,205 @@ namespace Tms.Agent.Wpf.ViewModels
             }
             IsWizardOpen = false;
             PendingUpdateWrapper = null;
+        }
+
+        // Local User Management Helper Methods
+        public void LoadLocalUsers()
+        {
+            LocalUsersList.Clear();
+            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
+            var usersFilePath = Path.Combine(appDataPath, "users.json");
+
+            if (File.Exists(usersFilePath))
+            {
+                try
+                {
+                    var json = File.ReadAllText(usersFilePath);
+                    var users = JsonSerializer.Deserialize<List<AgentUserDto>>(json);
+                    if (users != null)
+                    {
+                        foreach (var u in users)
+                        {
+                            if (!u.Username.Equals("owner", StringComparison.OrdinalIgnoreCase))
+                            {
+                                LocalUsersList.Add(u);
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to load local users: {ex.Message}");
+                }
+            }
+            ClearUserEditor();
+        }
+
+        private void ClearUserEditor()
+        {
+            SelectedUser = null;
+            EditUserUsername = string.Empty;
+            EditUserPassword = string.Empty;
+            EditUserRole = "Operator";
+            UserSyncStatus = string.Empty;
+        }
+
+        private async void SaveLocalUser()
+        {
+            if (string.IsNullOrWhiteSpace(EditUserUsername))
+            {
+                System.Windows.MessageBox.Show("Το όνομα χρήστη είναι υποχρεωτικό.", "Προειδοποίηση", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var username = EditUserUsername.Trim();
+            var password = EditUserPassword.Trim();
+            var role = EditUserRole;
+
+            if (username.Equals("owner", StringComparison.OrdinalIgnoreCase))
+            {
+                System.Windows.MessageBox.Show("Δεν επιτρέπεται η προσθήκη ή επεξεργασία του χρήστη 'owner' τοπικά. Ο owner διαχειρίζεται κεντρικά από τον Central Server.", "Σφάλμα", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            if (SelectedUser == null)
+            {
+                // Add new user
+                if (LocalUsersList.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+                {
+                    System.Windows.MessageBox.Show($"Υπάρχει ήδη χρήστης με το όνομα '{username}'.", "Προειδοποίηση", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var newUser = new AgentUserDto
+                {
+                    Username = username,
+                    Password = password,
+                    Role = role
+                };
+                LocalUsersList.Add(newUser);
+            }
+            else
+            {
+                // Edit existing user
+                var existingUser = LocalUsersList.FirstOrDefault(u => u.Username.Equals(SelectedUser.Username, StringComparison.OrdinalIgnoreCase));
+                if (existingUser != null)
+                {
+                    // Check username changes & duplicates
+                    if (!SelectedUser.Username.Equals(username, StringComparison.OrdinalIgnoreCase) &&
+                        LocalUsersList.Any(u => u.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        System.Windows.MessageBox.Show($"Υπάρχει ήδη χρήστης με το όνομα '{username}'.", "Προειδοποίηση", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        return;
+                    }
+
+                    existingUser.Username = username;
+                    existingUser.Password = password;
+                    existingUser.Role = role;
+                }
+            }
+
+            SaveUsersToJson();
+            await SyncUsersToServerAsync();
+            LoadLocalUsers();
+        }
+
+        private async void DeleteLocalUser()
+        {
+            if (SelectedUser == null) return;
+
+            if (SelectedUser.Username.Equals("owner", StringComparison.OrdinalIgnoreCase))
+            {
+                System.Windows.MessageBox.Show("Δεν επιτρέπεται η διαγραφή του χρήστη 'owner' τοπικά.", "Σφάλμα", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            var confirmResult = System.Windows.MessageBox.Show($"Είστε σίγουροι ότι θέλετε να διαγράψετε τον χρήστη '{SelectedUser.Username}';\nΗ διαγραφή θα συγχρονιστεί και με τον Central Server.", "Επιβεβαίωση Διαγραφής", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (confirmResult != MessageBoxResult.Yes) return;
+
+            var userToRemove = LocalUsersList.FirstOrDefault(u => u.Username.Equals(SelectedUser.Username, StringComparison.OrdinalIgnoreCase));
+            if (userToRemove != null)
+            {
+                LocalUsersList.Remove(userToRemove);
+            }
+
+            SaveUsersToJson();
+            await SyncUsersToServerAsync();
+            LoadLocalUsers();
+        }
+
+        private void SaveUsersToJson()
+        {
+            try
+            {
+                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
+                if (!Directory.Exists(appDataPath))
+                {
+                    Directory.CreateDirectory(appDataPath);
+                }
+                var usersFilePath = Path.Combine(appDataPath, "users.json");
+
+                // Read existing owner if present to preserve it
+                AgentUserDto? ownerUser = null;
+                if (File.Exists(usersFilePath))
+                {
+                    try
+                    {
+                        var existingJson = File.ReadAllText(usersFilePath);
+                        var existingUsers = JsonSerializer.Deserialize<List<AgentUserDto>>(existingJson);
+                        if (existingUsers != null)
+                        {
+                            ownerUser = existingUsers.FirstOrDefault(u => u.Username.Equals("owner", StringComparison.OrdinalIgnoreCase));
+                        }
+                    }
+                    catch { }
+                }
+
+                var allUsers = new List<AgentUserDto>();
+                if (ownerUser != null)
+                {
+                    allUsers.Add(ownerUser);
+                }
+
+                // Add all non-owner users from the list
+                foreach (var u in LocalUsersList)
+                {
+                    if (!u.Username.Equals("owner", StringComparison.OrdinalIgnoreCase))
+                    {
+                        allUsers.Add(u);
+                    }
+                }
+
+                var json = JsonSerializer.Serialize(allUsers, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(usersFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to write local users: {ex.Message}");
+            }
+        }
+
+        private async Task SyncUsersToServerAsync()
+        {
+            if (string.IsNullOrWhiteSpace(ServerUrl) || string.IsNullOrWhiteSpace(ApiKey))
+            {
+                UserSyncStatus = "Αποθηκεύτηκε τοπικά (Δεν έχει ρυθμιστεί API Key/Server URL).";
+                return;
+            }
+
+            UserSyncStatus = "Συγχρονισμός σε εξέλικξη...";
+            // Filter out system owner user before sending to server
+            var usersToSend = LocalUsersList.Where(u => !u.Username.Equals("owner", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            bool success = await _updateEngine.SyncUsersAsync(ServerUrl, ApiKey, usersToSend);
+            if (success)
+            {
+                UserSyncStatus = "Οι αλλαγές συγχρονίστηκαν επιτυχώς με τον Central Server.";
+            }
+            else
+            {
+                UserSyncStatus = "Αποθηκεύτηκε τοπικά (Σφάλμα σύνδεσης / Central Server εκτός σύνδεσης).";
+            }
         }
     }
 

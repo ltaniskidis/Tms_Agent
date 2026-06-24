@@ -27,7 +27,10 @@
 
             <div class="form-group">
                 <label for="password">Κωδικός Πρόσβασης</label>
-                <input type="password" id="password" name="Password" class="form-control" placeholder="Εισάγετε κωδικό" required />
+                <div class="password-container">
+                    <input type="password" id="password" name="Password" class="form-control" placeholder="Εισάγετε κωδικό" required />
+                    <button type="button" id="togglePassword" class="toggle-password-btn">👁️</button>
+                </div>
             </div>
 
             <button type="submit" class="btn btn-login">
@@ -36,6 +39,15 @@
         </form>
     </div>
 </div>
+
+<script>
+    document.getElementById('togglePassword').addEventListener('click', function () {
+        const passwordInput = document.getElementById('password');
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        this.textContent = type === 'password' ? '👁️' : '🙈';
+    });
+</script>
 
 <style>
     .login-wrapper {
@@ -111,6 +123,37 @@
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
+    }
+
+    .password-container {
+        position: relative;
+        display: flex;
+        align-items: center;
+        width: 100%;
+    }
+
+    .password-container .form-control {
+        width: 100%;
+        padding-right: 40px;
+    }
+
+    .toggle-password-btn {
+        position: absolute;
+        right: 10px;
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 16px;
+        padding: 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s ease;
+    }
+
+    .toggle-password-btn:hover {
+        color: var(--accent);
     }
 
     .form-control {

@@ -78,6 +78,93 @@
             </Setter>
         </Style>
 
+        <!-- ComboBoxItem Style -->
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#16161F" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Padding" Value="8,5,8,5" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="border" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="true">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter TargetName="border" Property="Background" Value="#6366F1"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="true">
+                                <Setter TargetName="border" Property="Background" Value="#4F46E5"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ComboBox Style -->
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#16161F"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="BorderBrush" Value="#2B2B3C"/>
+            <Setter Property="BorderThickness" Value="1.5"/>
+            <Setter Property="Padding" Value="8,5,8,5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <ToggleButton Grid.ColumnSpan="2" 
+                                          Background="{TemplateBinding Background}" 
+                                          BorderBrush="{TemplateBinding BorderBrush}" 
+                                          BorderThickness="{TemplateBinding BorderThickness}" 
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          ClickMode="Press" Focusable="false">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                                            <Grid HorizontalAlignment="Right" Width="24" Margin="0,0,5,0">
+                                                <TextBlock Text="▼" Foreground="#A0A0B0" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                                            </Grid>
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            
+                            <ContentPresenter Grid.Column="0" IsHitTestVisible="False" 
+                                              Content="{TemplateBinding SelectionBoxItem}" 
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" 
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}" 
+                                              Margin="{TemplateBinding Padding}" 
+                                              VerticalAlignment="Center" HorizontalAlignment="Left"/>
+                            
+                            <Popup x:Name="PART_Popup" Grid.ColumnSpan="2" Placement="Bottom" 
+                                   IsOpen="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}}" 
+                                   AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+                                <Border x:Name="dropDownBorder" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="6" 
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" 
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <Border.Effect>
+                                        <DropShadowEffect Color="Black" BlurRadius="10" ShadowDepth="3" Opacity="0.4"/>
+                                    </Border.Effect>
+                                    <ScrollViewer x:Name="PART_ScrollViewer" SnapsToDevicePixels="True" VerticalScrollBarVisibility="Auto">
+                                        <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Standard Button Style -->
         <Style TargetType="Button" x:Key="PrimaryButton">
             <Setter Property="Background" Value="#6366F1" />
@@ -151,7 +238,7 @@
     <Grid>
         <Grid.ColumnDefinitions>
             <!-- Sidebar -->
-            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="240" />
             <!-- Main Content Area -->
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
@@ -207,8 +294,46 @@
                             </Style>
                         </Button.Style>
                         <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="🏢" Margin="0,0,10,0" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Προφίλ Εταιρειών" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Agent Settings Link -->
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="AgentSettings">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentView}" Value="AgentSettings">
+                                        <Setter Property="Background" Value="#252538"/>
+                                        <Setter Property="Foreground" Value="#6366F1"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <StackPanel Orientation="Horizontal">
                             <TextBlock Text="⚙️" Margin="0,0,10,0" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text="Ρυθμίσεις Εταιρειών" VerticalAlignment="Center"/>
+                            <TextBlock Text="Ρυθμίσεις Agent" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Local Users Link (Admin/Owner only) -->
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="Users" Visibility="{Binding IsAdmin, Converter={StaticResource BoolToVis}}">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentView}" Value="Users">
+                                        <Setter Property="Background" Value="#252538"/>
+                                        <Setter Property="Foreground" Value="#6366F1"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="👥" Margin="0,0,10,0" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Διαχείριση Χρηστών" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -235,28 +360,14 @@
                 <Border Grid.Row="3" Margin="5" BorderBrush="#2B2B3C" BorderThickness="0,1,0,0" Padding="0,10,0,0">
                     <StackPanel>
                         <TextBlock Text="Ρόλος Χρήστη:" FontSize="10" Foreground="#A0A0B0" Margin="0,0,0,3"/>
-                        <Grid Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="{Binding CurrentRoleText}" FontSize="12" FontWeight="Bold" Foreground="{Binding RoleColor}" VerticalAlignment="Center"/>
-                            <Button Grid.Column="1" Content="{Binding RoleActionButtonText}" Style="{StaticResource OutlineButton}" Padding="8,4,8,4" FontSize="10" Command="{Binding ToggleRoleCommand}"/>
-                        </Grid>
+                        <StackPanel Margin="0,0,0,12">
+                            <TextBlock Text="{Binding CurrentRoleText}" FontSize="12" FontWeight="Bold" Foreground="{Binding RoleColor}" VerticalAlignment="Center" Margin="0,0,0,5"/>
+                            <Button Content="{Binding RoleActionButtonText}" Style="{StaticResource OutlineButton}" Padding="8,4,8,4" FontSize="10" Command="{Binding ToggleRoleCommand}" HorizontalAlignment="Stretch"/>
+                        </StackPanel>
                         
-                        <TextBlock Text="Διεύθυνση Central Server:" FontSize="10" Foreground="#A0A0B0" Margin="0,0,0,3"/>
-                        <TextBox Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}" Padding="5" FontSize="11" Margin="0,0,0,8" IsReadOnly="{Binding IsSettingsLocked}"/>
+                        <TextBlock Text="Πληροφορίες Agent:" FontSize="10" Foreground="#A0A0B0" Margin="0,0,0,3"/>
+                        <TextBlock Text="{Binding StatusMessage}" FontSize="11" FontWeight="SemiBold" Foreground="#10B981" Margin="0,0,0,0" TextWrapping="Wrap"/>
                         
-                        <TextBlock Text="API Key Πιστοποίησης:" FontSize="10" Foreground="#A0A0B0" Margin="0,3,0,3"/>
-                        <TextBox Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" Padding="5" FontSize="11" Margin="0,0,0,8" IsReadOnly="{Binding IsSettingsLocked}"/>
-                        
-                        <TextBlock Text="Ρόλος Μηχανήματος:" FontSize="10" Foreground="#A0A0B0" Margin="0,3,0,3"/>
-                        <RadioButton Content="Sql Server (Βάση)" IsChecked="{Binding IsRoleSqlServer}" Foreground="#FFFFFF" FontSize="11" Margin="2,1,0,1" IsEnabled="{Binding IsOwner}"/>
-                        <RadioButton Content="Απλός Client" IsChecked="{Binding IsRoleClient}" Foreground="#FFFFFF" FontSize="11" Margin="2,1,0,1" IsEnabled="{Binding IsOwner}"/>
-                        <RadioButton Content="Και τα δύο" IsChecked="{Binding IsRoleBoth}" Foreground="#FFFFFF" FontSize="11" Margin="2,1,0,10" IsEnabled="{Binding IsOwner}"/>
-                        
-                        <TextBlock Text="Client Machine Info:" FontSize="10" Foreground="#A0A0B0"/>
-                        <TextBlock Text="{Binding StatusMessage}" FontSize="11" FontWeight="SemiBold" Foreground="#10B981" Margin="0,2,0,0"/>
                         <TextBlock Text="{Binding SystemVersionWarning}" FontSize="11" FontWeight="Bold" Foreground="#F59E0B" Margin="0,5,0,0" TextWrapping="Wrap">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
@@ -612,6 +723,254 @@
                              VerticalScrollBarVisibility="Auto" 
                              TextWrapping="Wrap"/>
                 </Border>
+            </Grid>
+
+            <!-- Agent Settings View -->
+            <Grid Grid.Row="1" x:Name="AgentSettingsPanel" Margin="0,15,0,0">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="AgentSettings">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                    <TextBlock Text="Ρυθμίσεις Συστήματος Agent" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
+                    <TextBlock Text="Διαχείριση των κεντρικών παραμέτρων σύνδεσης του Agent με τον Central Server." FontSize="12" Foreground="#A0A0B0" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel MaxWidth="600" HorizontalAlignment="Left" Margin="0,0,20,0">
+                        
+                        <!-- Lock Warning Banner if not Owner -->
+                        <Border Background="#1E1B4B" BorderBrush="#312E81" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,0,20" 
+                                Visibility="{Binding IsSettingsLocked, Converter={StaticResource BoolToVis}}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="🔒" FontSize="18" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="Οι ρυθμίσεις είναι κλειδωμένες" FontSize="13" FontWeight="Bold" Foreground="#E0E7FF"/>
+                                    <TextBlock Text="Μόνο ο χρήστης με ρόλο 'Owner' έχει δικαίωμα να αλλάξει τις παραμέτρους σύνδεσης. Συνδεθείτε ως owner για να τις ξεκλειδώσετε." 
+                                               FontSize="11" Foreground="#A5B4FC" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
+                        <!-- Card: Connection Settings -->
+                        <Border Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,20">
+                            <StackPanel>
+                                <TextBlock Text="🔌 Παράμετροι Σύνδεσης" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
+
+                                <!-- Server URL -->
+                                <TextBlock Text="Διεύθυνση Central Server (URL):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}" 
+                                         Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
+                                         Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,15"
+                                         IsReadOnly="{Binding IsSettingsLocked}"/>
+
+                                <!-- API Key -->
+                                <TextBlock Text="API Key Πιστοποίησης:" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" 
+                                         Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
+                                         Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,5"
+                                         IsReadOnly="{Binding IsSettingsLocked}"/>
+                                <TextBlock Text="Το API Key χρησιμοποιείται για την αναγνώριση και έγκριση του Agent από το Central Management." 
+                                           FontSize="11" Foreground="#6B7280" Margin="0,0,0,15"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card: Machine Role -->
+                        <Border Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,25">
+                            <StackPanel>
+                                <TextBlock Text="⚙️ Ρόλος Μηχανήματος" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
+                                <TextBlock Text="Καθορίστε αν το τρέχον μηχάνημα φιλοξενεί τον SQL Server, είναι απλός Client ή και τα δύο:" 
+                                           FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+                                <StackPanel Margin="5,0,0,5">
+                                    <RadioButton Content="SQL Server (Φιλοξενεί τη Βάση Δεδομένων)" IsChecked="{Binding IsRoleSqlServer}" 
+                                                 Foreground="#FFFFFF" FontSize="12" Margin="0,0,0,10" IsEnabled="{Binding IsOwner}"/>
+                                    <RadioButton Content="Απλός Client (Εκτελεί μόνο την εφαρμογή)" IsChecked="{Binding IsRoleClient}" 
+                                                 Foreground="#FFFFFF" FontSize="12" Margin="0,0,0,10" IsEnabled="{Binding IsOwner}"/>
+                                    <RadioButton Content="Και τα δύο (SQL Server &amp; Client)" IsChecked="{Binding IsRoleBoth}" 
+                                                 Foreground="#FFFFFF" FontSize="12" Margin="0,0,0,5" IsEnabled="{Binding IsOwner}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Action Buttons -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
+                            <!-- Test Connection -->
+                            <Button Content="Έλεγχος Σύνδεσης" Style="{StaticResource OutlineButton}" Width="150" Height="36" Margin="0,0,12,0" 
+                                    Command="{Binding CheckUpdatesCommand}"/>
+                            
+                            <!-- Discard Changes -->
+                            <Button Content="Επαναφορά" Style="{StaticResource OutlineButton}" Width="120" Height="36" Margin="0,0,12,0" 
+                                    Command="{Binding DiscardSettingsCommand}" IsEnabled="{Binding IsOwner}"/>
+
+                            <!-- Save Changes -->
+                            <Button Content="Αποθήκευση" Style="{StaticResource PrimaryButton}" Width="140" Height="36" 
+                                    Command="{Binding SaveSettingsCommand}" IsEnabled="{Binding IsOwner}"/>
+                        </StackPanel>
+
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- Users Management View -->
+            <Grid Grid.Row="1" x:Name="UsersPanel" Margin="0,15,0,0">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="Users">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                    <TextBlock Text="Διαχείριση Τοπικών Χρηστών" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF"/>
+                    <TextBlock Text="Προσθέστε ή επεξεργαστείτε τους χρήστες με δικαίωμα σύνδεσης στον τοπικό Agent." FontSize="12" Foreground="#A0A0B0" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <!-- Content Grid: Left List, Right Editor -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.2*" />
+                        <ColumnDefinition Width="1.5*" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left: Users list -->
+                    <Border Grid.Column="0" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="8" Padding="15" Margin="0,0,15,20">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            
+                            <TextBlock Grid.Row="0" Text="Εγγεγραμμένοι Χρήστες" FontSize="13" FontWeight="SemiBold" Foreground="#A0A0B0" Margin="0,0,0,10"/>
+                            
+                            <ListBox Grid.Row="1" ItemsSource="{Binding LocalUsersList}" SelectedItem="{Binding SelectedUser}" 
+                                     Background="Transparent" BorderThickness="0" ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border BorderBrush="#2B2B3C" BorderThickness="0,0,0,1" Padding="10,8,10,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0">
+                                                    <TextBlock Text="{Binding Username}" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" />
+                                                    <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                                        <TextBlock Text="{Binding Role, StringFormat='Ρόλος: {0}'}" FontSize="11" Foreground="#A0A0B0"/>
+                                                        <TextBlock Text="  |  " FontSize="11" Foreground="#505060"/>
+                                                        <TextBlock x:Name="scopeText" Text="Εφαρμογή: Agent" FontSize="11" Foreground="#A0A0B0"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                                <TextBlock x:Name="lockIcon" Grid.Column="1" Text="🔒" FontSize="12" VerticalAlignment="Center" Visibility="Collapsed"/>
+                                            </Grid>
+                                        </Border>
+                                        <DataTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding Username}" Value="owner">
+                                                <Setter TargetName="lockIcon" Property="Visibility" Value="Visible"/>
+                                                <Setter TargetName="scopeText" Property="Text" Value="Εφαρμογή: Κονσόλα &amp; Agent"/>
+                                            </DataTrigger>
+                                        </DataTemplate.Triggers>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="true">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="true">
+                                                            <Setter Property="Background" Value="#1E1E2C"/>
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="true">
+                                                            <Setter Property="Background" Value="#252538"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+                        </Grid>
+                    </Border>
+
+                    <!-- Right: Editor Form -->
+                    <Border Grid.Column="1" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="8" Padding="20" Margin="0,0,0,20">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Text="👤 Στοιχεία Χρήστη" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,20"/>
+
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <!-- Sync status message -->
+                                    <TextBlock Text="{Binding UserSyncStatus}" FontSize="12" Foreground="#6366F1" Margin="0,0,0,15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+
+                                    <!-- Username field -->
+                                    <TextBlock Text="Όνομα Χρήστη (Username):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding EditUserUsername, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,15" 
+                                             IsEnabled="{Binding IsUserEditingEnabled}" Foreground="#FFFFFF"/>
+
+                                    <!-- Password field -->
+                                    <TextBlock Text="Κωδικός Πρόσβασης (Password):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding EditUserPassword, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,15" 
+                                             IsEnabled="{Binding IsUserEditingEnabled}" Foreground="#FFFFFF"/>
+
+                                    <!-- Role Selection -->
+                                    <TextBlock Text="Ρόλος Χρήστη:" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                    <ComboBox SelectedValuePath="Content" SelectedValue="{Binding EditUserRole}" Margin="0,0,0,25" Height="30" IsEnabled="{Binding IsUserEditingEnabled}">
+                                        <ComboBoxItem Content="Operator" />
+                                        <ComboBoxItem Content="Admin" />
+                                    </ComboBox>
+                                </StackPanel>
+                            </ScrollViewer>
+
+                            <!-- Actions -->
+                            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,15,0,0">
+                                <Button Content="Καθαρισμός" Style="{StaticResource OutlineButton}" Width="100" Margin="0,0,10,0" 
+                                        Command="{Binding NewUserCommand}"/>
+                                <Button Content="Διαγραφή" Style="{StaticResource DangerButton}" Width="100" Margin="0,0,10,0" 
+                                        Command="{Binding DeleteUserCommand}" IsEnabled="{Binding IsUserEditingEnabled}"/>
+                                <Button Content="Αποθήκευση" Style="{StaticResource PrimaryButton}" Width="120" 
+                                        Command="{Binding SaveUserCommand}" IsEnabled="{Binding IsUserEditingEnabled}"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </Grid>
             </Grid>
         </Grid>
 

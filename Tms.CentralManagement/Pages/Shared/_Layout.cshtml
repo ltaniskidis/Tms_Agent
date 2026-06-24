@@ -289,6 +289,9 @@
                 <a href="/Logs" class="@(ViewContext.RouteData.Values["page"]?.ToString() == "/Logs" ? "active" : "")">
                     <span>📋</span> Ιστορικό Ενημερώσεων
                 </a>
+                <a href="/ConsoleUsers" class="@(ViewContext.RouteData.Values["page"]?.ToString() == "/ConsoleUsers" ? "active" : "")">
+                    <span>🔑</span> Χρήστες Κονσόλας
+                </a>
             </nav>
             <div class="footer-info">
                 Χρήστης: <strong>@User.Identity.Name</strong>

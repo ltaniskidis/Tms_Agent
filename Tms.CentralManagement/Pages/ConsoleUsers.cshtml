@@ -1,0 +1,204 @@
+@page
+@model Tms.CentralManagement.Pages.ConsoleUsersModel
+@{
+    ViewData["Title"] = "Διαχείριση Χρηστών Κονσόλας";
+}
+
+<header>
+    <div>
+        <h1>🔑 Διαχείριση Χρηστών Κονσόλας</h1>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Διαχειριστείτε τους χρήστες με πρόσβαση στην κεντρική κονσόλα (συμπεριλαμβανομένου του Owner για τον Agent).</p>
+    </div>
+</header>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div style="background-color: rgba(16, 185, 129, 0.15); border: 1.5px solid var(--success); color: var(--success); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        ✅ @Model.SuccessMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div style="background-color: rgba(239, 68, 68, 0.15); border: 1.5px solid var(--danger); color: var(--danger); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        ❌ @Model.ErrorMessage
+    </div>
+}
+
+<div style="display: flex; gap: 20px; align-items: flex-start;">
+    <!-- Users List Table -->
+    <div style="flex: 1.5;">
+        <div class="card">
+            <div class="card-title">
+                <span>Εγγεγραμμένοι Χρήστες (@Model.Users.Count)</span>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Όνομα Χρήστη</th>
+                        <th>Ρόλος</th>
+                        <th>Εφαρμογή</th>
+                        <th>Κωδικός (Plain)</th>
+                        <th>Ενέργειες</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in Model.Users)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@user.Username</strong>
+                                @if (user.Username.Equals(User.Identity?.Name, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <span style="font-size: 10px; background-color: #312E81; color: #E0E7FF; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Εσείς</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.Role == "SuperAdmin")
+                                {
+                                    <span class="badge badge-danger">SuperAdmin</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-info">Operator</span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.Scope == "Both")
+                                {
+                                    <span class="badge badge-success" style="background-color: var(--accent);">Κονσόλα &amp; Agent</span>
+                                }
+                                else if (user.Scope == "Agent")
+                                {
+                                    <span class="badge badge-info" style="background-color: #3B82F6;">Agent</span>
+                                }
+                                else
+                                {
+                                    <span class="badge badge-secondary">Κονσόλα</span>
+                                }
+                            </td>
+                            <td>
+                                <span style="font-family: monospace; font-size: 13px;">••••••••</span>
+                                <button type="button" class="btn btn-outline" style="padding: 2px 6px; font-size: 10px; margin-left: 5px;" onclick="alert('Ο τρέχων κωδικός είναι: @user.PasswordHash')">👁️</button>
+                            </td>
+                            <td>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px;" onclick="openEditModal(@user.Id, '@user.Username', '@user.Role', '@user.Scope')">
+                                        ✏️ Αλλαγή
+                                    </button>
+                                    @if (!user.Username.Equals(User.Identity?.Name, StringComparison.OrdinalIgnoreCase) && !user.Username.Equals("owner", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <form method="post" asp-page-handler="DeleteUser" asp-route-userId="@user.Id" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον χρήστη;');" style="margin:0;">
+                                            <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                                🗑️ Διαγραφή
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add User Form -->
+    <div style="flex: 1;">
+        <div class="card">
+            <div class="card-title">
+                <span>➕ Προσθήκη Νέου Χρήστη</span>
+            </div>
+
+            <form method="post" asp-page-handler="AddUser">
+                <div class="form-group">
+                    <label>Όνομα Χρήστη (Username)</label>
+                    <input type="text" name="username" class="form-control" placeholder="Username" required />
+                </div>
+                <div class="form-group">
+                    <label>Κωδικός Πρόσβασης (Password)</label>
+                    <input type="text" name="password" class="form-control" placeholder="Password" required />
+                </div>
+                <div class="form-group">
+                    <label>Ρόλος</label>
+                    <select name="role" class="form-control" style="background-color: #12121A;">
+                        <option value="SuperAdmin">SuperAdmin</option>
+                        <option value="Operator">Operator</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Εφαρμογή (Πού εφαρμόζεται ο χρήστης)</label>
+                    <select name="scope" class="form-control" style="background-color: #12121A;">
+                        <option value="Console">Κονσόλα (Web)</option>
+                        <option value="Agent">Agent</option>
+                        <option value="Both">Κονσόλα &amp; Agent (Και τα 2)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn" style="width: 100%; margin-top: 10px;">➕ Δημιουργία Χρήστη</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal (Overlay) -->
+<div id="editModal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+    <div class="card" style="width: 450px; background-color: #111116; border: 1.5px solid var(--border-color); padding: 25px;">
+        <div class="card-title" style="margin-bottom: 20px;">
+            <span>✏️ Επεξεργασία Χρήστη: <span id="editUsernameSpan" style="color: white;"></span></span>
+        </div>
+        <form method="post" asp-page-handler="EditUser">
+            <input type="hidden" name="userId" id="editUserId" />
+            <div class="form-group">
+                <label>Νέος Κωδικός Πρόσβασης (Αφήστε κενό αν δεν θέλετε αλλαγή)</label>
+                <input type="text" name="password" class="form-control" placeholder="Νέος κωδικός" />
+            </div>
+            <div class="form-group">
+                <label>Ρόλος</label>
+                <select name="role" id="editUserRole" class="form-control" style="background-color: #12121A;">
+                    <option value="SuperAdmin">SuperAdmin</option>
+                    <option value="Operator">Operator</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Εφαρμογή (Πού εφαρμόζεται ο χρήστης)</label>
+                <select name="scope" id="editUserScope" class="form-control" style="background-color: #12121A;">
+                    <option value="Console">Κονσόλα (Web)</option>
+                    <option value="Agent">Agent</option>
+                    <option value="Both">Κονσόλα &amp; Agent (Και τα 2)</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="btn btn-outline" onclick="closeEditModal()">Ακύρωση</button>
+                <button type="submit" class="btn">💾 Αποθήκευση</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function openEditModal(id, username, role, scope) {
+            document.getElementById('editUserId').value = id;
+            document.getElementById('editUsernameSpan').innerText = username;
+            document.getElementById('editUserRole').value = role;
+            document.getElementById('editUserScope').value = scope;
+            
+            var modal = document.getElementById('editModal');
+            modal.style.display = 'flex';
+        }
+
+        function closeEditModal() {
+            var modal = document.getElementById('editModal');
+            modal.style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            var modal = document.getElementById('editModal');
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+    </script>
+}

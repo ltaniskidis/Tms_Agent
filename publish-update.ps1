@@ -1,7 +1,8 @@
 # PowerShell Script to Package and Publish a new Update Version for TMS
 
 param (
-    [string]$Version
+    [string]$Version,
+    [string]$ScopeChoice
 )
 
 Write-Host "=============================================" -ForegroundColor Cyan
@@ -22,11 +23,15 @@ if ($Version -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 # 2. Prompt for Scope (Server, Client, Server & Client)
-Write-Host "Which components does this update affect?" -ForegroundColor Yellow
-Write-Host "1) Server"
-Write-Host "2) Client"
-Write-Host "3) Server & Client (Both)"
-$choice = Read-Host "Selection (1-3)"
+if ([string]::IsNullOrEmpty($ScopeChoice)) {
+    Write-Host "Which components does this update affect?" -ForegroundColor Yellow
+    Write-Host "1) Server"
+    Write-Host "2) Client"
+    Write-Host "3) Server & Client (Both)"
+    $choice = Read-Host "Selection (1-3)"
+} else {
+    $choice = $ScopeChoice
+}
 
 switch ($choice) {
     "1" { $scope = "Server" }

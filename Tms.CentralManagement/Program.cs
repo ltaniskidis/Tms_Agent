@@ -121,6 +121,36 @@ using (var scope = app.Services.CreateScope())
                     updateCommand.ExecuteNonQuery();
                 }
             }
+
+            // 3. ConsoleUsers columns check
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "PRAGMA table_info(ConsoleUsers);";
+                var columns = new List<string>();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        columns.Add(reader["name"].ToString() ?? "");
+                    }
+                }
+
+                if (!columns.Contains("Scope", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE ConsoleUsers ADD COLUMN Scope TEXT NOT NULL DEFAULT 'Console';";
+                        alterCommand.ExecuteNonQuery();
+                    }
+
+                    // Update existing owner to Both
+                    using (var updateCommand = connection.CreateCommand())
+                    {
+                        updateCommand.CommandText = "UPDATE ConsoleUsers SET Scope = 'Both' WHERE lower(Username) = 'owner';";
+                        updateCommand.ExecuteNonQuery();
+                    }
+                }
+            }
         }
     }
     catch (Exception ex)
@@ -368,13 +398,134 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.5"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.5",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη Διαχείρισης Χρηστών Κονσόλας και Agents",
+            BinaryFileUrl = "/packages/app_1.5.5.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διεπαφή διαχείρισης χρηστών κονσόλας και αυτόματη αρχική τροφοδοσία του owner." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Δυνατότητα αλλαγής κωδικού του owner από την κονσόλα και αυτόματης διάδοσης σε όλους τους Agents." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διεπαφή τοπικής διαχείρισης χρηστών (Admin/Operator) στον Agent και αυτόματου συγχρονισμού στην κεντρική κονσόλα." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αναβάθμιση ασφάλειας σύνδεσης με προτεραιότητα στη βάση τοπικών χρηστών." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.6"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.6",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη Στήλης/Πεδίου Εφαρμογής (Scope) στους Χρήστες",
+            BinaryFileUrl = "/packages/app_1.5.6.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη στήλης/πεδίου στην κονσόλα και στον Agent που δείχνει αν ο χρήστης εφαρμόζεται σε Κονσόλα, Agent ή και στα δύο." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.7"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.7",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Δυναμική Επιλογή Εφαρμογής (Scope) στους Χρήστες",
+            BinaryFileUrl = "/packages/app_1.5.7.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Δυνατότητα ορισμού και επεξεργασίας της εμβέλειας (Scope) του χρήστη (Κονσόλα, Agent ή και τα 2) κατά τη δημιουργία/επεξεργασία στην κονσόλα." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Αυτόματος συγχρονισμός και αποστολή όλων των χρηστών της κονσόλας με scope Agent ή Both στους Agents." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.8"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.8",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Απόκρυψη του χρήστη owner από τη διεπαφή του Agent",
+            BinaryFileUrl = "/packages/app_1.5.8.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Πλήρης απόκρυψη του global owner χρήστη από τη λίστα διαχείρισης χρηστών στον Agent για λόγους ασφαλείας, διατηρώντας τον μόνο στο τοπικό αρχείο users.json για την ταυτοποίηση." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser
         {
             Username = "admin",
             PasswordHash = "clever2026",
-            Role = "SuperAdmin"
+            Role = "SuperAdmin",
+            Scope = "Console"
+        });
+        hasChanges = true;
+    }
+
+    if (!context.ConsoleUsers.Any(u => u.Username.ToLower() == "owner"))
+    {
+        context.ConsoleUsers.Add(new ConsoleUser
+        {
+            Username = "owner",
+            PasswordHash = "clever2026owner",
+            Role = "SuperAdmin",
+            Scope = "Both"
         });
         hasChanges = true;
     }

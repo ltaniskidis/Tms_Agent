@@ -178,6 +178,7 @@ namespace Tms.CentralManagement.Data
         public string Username { get; set; } = string.Empty;
         public string PasswordHash { get; set; } = string.Empty;
         public string Role { get; set; } = "Operator"; // SuperAdmin, Operator
+        public string Scope { get; set; } = "Console"; // Console, Agent, Both
     }
 
     public class AgentUser

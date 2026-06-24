@@ -18,6 +18,9 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
+        // Prevent application shutdown when the LoginWindow closes
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
         // Auto-register startup task in Task Scheduler since we are running as Admin
         RegisterStartupTask();
 
@@ -33,6 +36,9 @@ public partial class App : System.Windows.Application
             LoggedInUser = loginWindow.LoggedInUser;
             UserRole = loginWindow.UserRole;
         }
+
+        // Restore shutdown mode to close when MainWindow closes
+        ShutdownMode = ShutdownMode.OnMainWindowClose;
 
         var mainWindow = new MainWindow();
 

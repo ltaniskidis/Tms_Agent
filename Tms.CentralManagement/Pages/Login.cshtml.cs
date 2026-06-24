@@ -50,7 +50,7 @@ namespace Tms.CentralManagement.Pages
 
             if (user == null || user.PasswordHash != Password)
             {
-                ErrorMessage = "Λανθασμένο όνομα χρήστη ή κωδικός πρόσβασης.";
+                ErrorMessage = "Λάθος Στοιχεία Χρήστη";
                 return Page();
             }
 

@@ -734,6 +734,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.14"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.14",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διόρθωση JS επιλογής support tickets στην κονσόλα",
+            BinaryFileUrl = "/packages/app_1.5.14.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διόρθωση JS σφάλματος κατά την επιλογή support ticket στην κονσόλα διαχείρισης λόγω Casing." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

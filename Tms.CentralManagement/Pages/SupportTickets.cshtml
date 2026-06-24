@@ -178,7 +178,22 @@
             }
         }
 
-        function selectTicket(ticket) {
+        function selectTicket(rawTicket) {
+            if (!rawTicket) return;
+            
+            var ticket = {
+                id: rawTicket.id !== undefined ? rawTicket.id : rawTicket.Id,
+                subject: rawTicket.subject || rawTicket.Subject || '',
+                body: rawTicket.body || rawTicket.Body || '',
+                createdDate: rawTicket.createdDate || rawTicket.CreatedDate,
+                machineName: rawTicket.machineName || rawTicket.MachineName || '',
+                clientGuid: rawTicket.clientGuid || rawTicket.ClientGuid || '',
+                status: rawTicket.status || rawTicket.Status || 'Open',
+                adminResponse: rawTicket.adminResponse || rawTicket.AdminResponse || '',
+                responseDate: rawTicket.responseDate || rawTicket.ResponseDate,
+                attachmentFileName: rawTicket.attachmentFileName || rawTicket.AttachmentFileName || ''
+            };
+
             // Remove active classes from all cards
             var cards = document.querySelectorAll(".ticket-card");
             cards.forEach(c => {
@@ -207,7 +222,7 @@
             // Handle badge
             var badge = document.getElementById("activeStatusBadge");
             badge.textContent = ticket.status.toUpperCase();
-            if (ticket.status === 'Open') {
+            if (ticket.status.toLowerCase() === 'open') {
                 badge.className = "badge badge-danger";
                 document.getElementById("responseFormContainer").style.display = "block";
                 document.getElementById("responseHistoryContainer").style.display = "none";

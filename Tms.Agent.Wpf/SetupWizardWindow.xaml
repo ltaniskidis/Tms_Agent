@@ -1,0 +1,278 @@
+<Window x:Class="Tms.Agent.Wpf.SetupWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="TMS Agent - Οδηγός Εγκατάστασης" 
+        Height="420" Width="550"
+        Icon="logo.ico"
+        Background="#0F0F12"
+        Foreground="#FFFFFF"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        FontFamily="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+
+    <Window.Resources>
+        <!-- TextBox Style -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#16161F" />
+            <Setter Property="BorderBrush" Value="#2B2B3C" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="Padding" Value="10,8,10,8" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="border" CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="false" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="#6366F1"/>
+                                <Setter Property="Background" Value="#1C1C2A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Primary Button Style -->
+        <Style TargetType="Button" x:Key="PrimaryButton">
+            <Setter Property="Background" Value="#6366F1" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="16,8,16,8" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="6" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#4F46E5"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#3B3B4F"/>
+                                <Setter Property="Foreground" Value="#888899"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Outline Button Style -->
+        <Style TargetType="Button" x:Key="OutlineButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#A0A0B0" />
+            <Setter Property="BorderBrush" Value="#2B2B3C" />
+            <Setter Property="BorderThickness" Value="1.5" />
+            <Setter Property="Padding" Value="12,6,12,6" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="BorderBrush" Value="#6366F1"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="BorderBrush" Value="#1B1B2C"/>
+                                <Setter Property="Foreground" Value="#555566"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <!-- Left steps sidebar -->
+            <ColumnDefinition Width="170"/>
+            <!-- Right steps contents -->
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="0,0,1,0">
+            <Grid Margin="15,20,15,20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Header info -->
+                <StackPanel Grid.Row="0" Margin="0,0,0,30">
+                    <TextBlock Text="🚀 TMS Setup" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF"/>
+                    <TextBlock Text="Οδηγός Εγκατάστασης" FontSize="10" Foreground="#A0A0B0" Margin="0,2,0,0"/>
+                </StackPanel>
+
+                <!-- Steps indicators -->
+                <StackPanel Grid.Row="1">
+                    <!-- Step 1 Indicator -->
+                    <StackPanel x:Name="Step1Indicator" Orientation="Horizontal" Opacity="1.0" Margin="0,0,0,25">
+                        <Border x:Name="Step1NumberBorder" Width="22" Height="22" CornerRadius="11" Background="#6366F1" Margin="0,0,8,0">
+                            <TextBlock Text="1" Foreground="#FFFFFF" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Σύνδεση" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Step 2 Indicator -->
+                    <StackPanel x:Name="Step2Indicator" Orientation="Horizontal" Opacity="0.5" Margin="0,0,0,25">
+                        <Border x:Name="Step2NumberBorder" Width="22" Height="22" CornerRadius="11" Background="#2B2B3C" Margin="0,0,8,0">
+                            <TextBlock Text="2" Foreground="#A0A0B0" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Ρόλος &amp; Εκκίνηση" FontSize="12" Foreground="#A0A0B0" VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Step 3 Indicator -->
+                    <StackPanel x:Name="Step3Indicator" Orientation="Horizontal" Opacity="0.5">
+                        <Border x:Name="Step3NumberBorder" Width="22" Height="22" CornerRadius="11" Background="#2B2B3C" Margin="0,0,8,0">
+                            <TextBlock Text="3" Foreground="#A0A0B0" FontWeight="Bold" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock Text="Ολοκλήρωση" FontSize="12" Foreground="#A0A0B0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Help Info -->
+                <TextBlock Grid.Row="2" Text="Έκδοση 1.5.18" FontSize="10" Foreground="#555566" HorizontalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <!-- Right Content Panels -->
+        <Grid Grid.Column="1" Margin="25,20,25,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/> <!-- Step view content -->
+                <RowDefinition Height="Auto"/> <!-- Divider -->
+                <RowDefinition Height="50"/> <!-- Navigation controls -->
+            </Grid.RowDefinitions>
+
+            <!-- Step Views -->
+            <Grid Grid.Row="0">
+                <!-- STEP 1: Connection Parameters -->
+                <Grid x:Name="Step1Panel" Visibility="Visible">
+                    <StackPanel>
+                        <TextBlock Text="🔌 1. Σύνδεση με Central Server" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,5"/>
+                        <TextBlock Text="Εισάγετε τη διεύθυνση URL του διακομιστή και το API Key πιστοποίησης του Agent." FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,20" TextWrapping="Wrap"/>
+
+                        <!-- Server URL -->
+                        <TextBlock Text="ΔΙΕΥΘΥΝΣΗ CENTRAL SERVER (URL)" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                        <TextBox x:Name="ServerUrlInput" Text="http://localhost:5007" Margin="0,0,0,15"/>
+
+                        <!-- API Key -->
+                        <TextBlock Text="API KEY ΠΙΣΤΟΠΟΙΗΣΗΣ" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                        <TextBox x:Name="ApiKeyInput" Text="" Margin="0,0,0,5"/>
+                        <TextBlock Text="Το API Key σάς παρέχεται από την κονσόλα διαχείρισης." FontSize="10" Foreground="#6B7280"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- STEP 2: Role & Boot Options -->
+                <Grid x:Name="Step2Panel" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="⚙️ 2. Ρόλος &amp; Εκκίνηση" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,5"/>
+                        <TextBlock Text="Ορίστε τον ρόλο αυτού του υπολογιστή και την εκκίνηση του προγράμματος." FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,20" TextWrapping="Wrap"/>
+
+                        <!-- Machine Role Selection -->
+                        <TextBlock Text="ΡΟΛΟΣ ΕΓΚΑΤΑΣΤΑΣΗΣ (MACHINE ROLE)" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,8"/>
+                        <StackPanel Margin="5,0,0,15">
+                            <RadioButton x:Name="RoleBothRadio" Content="Και τα δύο (SQL Server &amp; Client)" IsChecked="True" Foreground="#FFFFFF" FontSize="12" Margin="0,0,0,8"/>
+                            <RadioButton x:Name="RoleClientRadio" Content="Απλός Client (Μόνο η εφαρμογή)" Foreground="#FFFFFF" FontSize="12" Margin="0,0,0,8"/>
+                            <RadioButton x:Name="RoleSqlServerRadio" Content="SQL Server (Φιλοξενεί τη Βάση Δεδομένων)" Foreground="#FFFFFF" FontSize="12" Margin="0,0,0,8"/>
+                        </StackPanel>
+
+                        <!-- Start with Windows -->
+                        <TextBlock Text="ΑΥΤΟΜΑΤΗ ΕΚΚΙΝΗΣΗ" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                        <CheckBox x:Name="StartWithWindowsCheckbox" Content="Εκκίνηση με τα Windows (ως Service / Boot)" IsChecked="True" Foreground="#FFFFFF" FontSize="12" VerticalContentAlignment="Center"/>
+                        <TextBlock Text="Επιτρέπει στον Agent να εκτελείται στο παρασκήνιο κατά την εκκίνηση των Windows, χωρίς UAC prompts." FontSize="10" Foreground="#6B7280" Margin="18,4,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- STEP 3: Verification & Finish -->
+                <Grid x:Name="Step3Panel" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="🏁 3. Επαλήθευση &amp; Ολοκλήρωση" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,5"/>
+                        <TextBlock Text="Πραγματοποιήστε δοκιμή σύνδεσης με τον διακομιστή για έλεγχο των ρυθμίσεων." FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,15" TextWrapping="Wrap"/>
+
+                        <!-- Test Connection Action -->
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="TestConnectionButton" Grid.Column="0" Content="Έλεγχος Σύνδεσης" Style="{StaticResource OutlineButton}" Click="TestConnectionButton_Click" Height="34"/>
+                            
+                            <!-- Inline Loading Indicator -->
+                            <TextBlock x:Name="LoadingText" Grid.Column="1" Text="🔄 Έλεγχος σε εξέλιξη..." Foreground="#A5B4FC" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Margin="15,0,0,0" Visibility="Collapsed"/>
+                        </Grid>
+
+                        <!-- Connection Alert Banner -->
+                        <Border x:Name="StatusBanner" CornerRadius="6" Padding="12,8,12,8" Margin="0,0,0,12" Visibility="Collapsed">
+                            <TextBlock x:Name="StatusText" Text="Σύνδεση επιτυχής!" FontSize="12" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        </Border>
+
+                        <!-- Summary Table -->
+                        <Border Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="6" Padding="12">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="130"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="Server URL:" Foreground="#A0A0B0" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="SummaryUrlText" Grid.Row="0" Grid.Column="1" Text="http://localhost:5007" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4" TextTrimming="CharacterEllipsis"/>
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="API Key:" Foreground="#A0A0B0" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="SummaryApiKeyText" Grid.Row="1" Grid.Column="1" Text="-" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4" TextTrimming="CharacterEllipsis"/>
+
+                                <TextBlock Grid.Row="2" Grid.Column="0" Text="Ρόλος Εγκατάστασης:" Foreground="#A0A0B0" FontSize="11" Margin="0,0,0,4"/>
+                                <TextBlock x:Name="SummaryRoleText" Grid.Row="2" Grid.Column="1" Text="SqlServer &amp; Client" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold" Margin="0,0,0,4"/>
+
+                                <TextBlock Grid.Row="3" Grid.Column="0" Text="Εκκίνηση Service:" Foreground="#A0A0B0" FontSize="11"/>
+                                <TextBlock x:Name="SummaryServiceText" Grid.Row="3" Grid.Column="1" Text="Ναι" Foreground="#FFFFFF" FontSize="11" FontWeight="SemiBold"/>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+
+            <!-- Bottom Divider -->
+            <Border Grid.Row="1" BorderBrush="#2B2B3C" BorderThickness="0,0,0,1" Margin="0,0,0,10"/>
+
+            <!-- Navigation Controls -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Back button (Left aligned) -->
+                <Button x:Name="BackButton" Grid.Column="0" Content="⬅️ Πίσω" Style="{StaticResource OutlineButton}" Width="100" HorizontalAlignment="Left" Click="BackButton_Click" IsEnabled="False"/>
+
+                <!-- Next / Finish buttons (Right aligned) -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Grid.ColumnSpan="1" Margin="0">
+                    <Button x:Name="NextButton" Content="Επόμενο ➡️" Style="{StaticResource PrimaryButton}" Width="110" Click="NextButton_Click" Margin="0,0,10,0"/>
+                    <Button x:Name="FinishButton" Content="🏁 Ολοκλήρωση" Style="{StaticResource PrimaryButton}" Background="#10B981" Width="130" Click="FinishButton_Click" Visibility="Collapsed"/>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

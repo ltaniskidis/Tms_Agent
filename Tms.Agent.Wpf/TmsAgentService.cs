@@ -76,7 +76,7 @@ namespace Tms.Agent.Wpf
                             clientId,
                             machineName,
                             settings.MachineRole,
-                            "1.5.17", // Bumped version
+                            "1.5.18", // Bumped version
                             settings.ApiKey,
                             profiles,
                             settings.StartWithWindows,

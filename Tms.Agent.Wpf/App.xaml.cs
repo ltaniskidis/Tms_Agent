@@ -41,6 +41,20 @@ public partial class App : System.Windows.Application
         // If launched normally (not silent startup), require login
         if (!e.Args.Contains("--startup", StringComparer.OrdinalIgnoreCase))
         {
+            // Check if settings exist and are configured
+            var settingsManager = new Tms.Agent.Core.Services.SettingsManager();
+            var settings = settingsManager.LoadSettings();
+
+            if (string.IsNullOrEmpty(settings.ApiKey) || string.IsNullOrEmpty(settings.ServerUrl))
+            {
+                var wizard = new SetupWizardWindow();
+                if (wizard.ShowDialog() != true)
+                {
+                    Shutdown();
+                    return;
+                }
+            }
+
             var loginWindow = new LoginWindow();
             if (loginWindow.ShowDialog() != true)
             {

@@ -867,6 +867,33 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.18"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.18",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Προσθήκη Οδηγού Εγκατάστασης (Setup Wizard) κατά την πρώτη εκκίνηση",
+            BinaryFileUrl = "/packages/app_1.5.18.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη διαδραστικού οδηγού εγκατάστασης Setup Wizard για εύκολη ρύθμιση της διεύθυνσης Server, API Key, ρόλου και αυτόματης εκκίνησης." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αυτόματη ανίχνευση μη ρυθμισμένης εγκατάστασης κατά την εκκίνηση της εφαρμογής και προβολή του wizard." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

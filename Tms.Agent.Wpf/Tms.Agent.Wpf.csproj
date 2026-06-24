@@ -3,7 +3,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Tms.Agent.Core\Tms.Agent.Core.csproj" />
     <ProjectReference Include="..\Tms.Shared\Tms.Shared.csproj" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="9.0.0" />
     <Resource Include="logo.png" />
+    <Resource Include="logo.ico" />
   </ItemGroup>
 
   <PropertyGroup>

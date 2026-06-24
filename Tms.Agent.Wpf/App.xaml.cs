@@ -16,6 +16,20 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Contains("--service", StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                System.ServiceProcess.ServiceBase.Run(new TmsAgentService());
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Service start failed: {ex.Message}");
+            }
+            Shutdown();
+            return;
+        }
+
         base.OnStartup(e);
 
         // Prevent application shutdown when the LoginWindow closes

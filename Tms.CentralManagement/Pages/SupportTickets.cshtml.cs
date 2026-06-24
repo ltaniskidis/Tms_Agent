@@ -36,13 +36,39 @@ namespace Tms.CentralManagement.Pages
         [TempData]
         public string ErrorMessage { get; set; } = string.Empty;
 
+        public string GetStatusLabel(string status)
+        {
+            return status switch
+            {
+                "Open" => "Ανοιχτό",
+                "Received" => "Παραλήφθηκε",
+                "Assigned" => "Ανατέθηκε",
+                "UnderReview" => "Σε έλεγχο",
+                "Resolved" => "Επιλύθηκε",
+                _ => status
+            };
+        }
+
+        public string GetStatusBadgeClass(string status)
+        {
+            return status switch
+            {
+                "Open" => "badge-danger",
+                "Received" => "badge-info",
+                "Assigned" => "badge-warning",
+                "UnderReview" => "badge-purple",
+                "Resolved" => "badge-success",
+                _ => "badge-secondary"
+            };
+        }
+
         public async Task OnGetAsync()
         {
             var tickets = await _context.SupportTickets
                 .OrderByDescending(t => t.CreatedDate)
                 .ToListAsync();
 
-            OpenTickets = tickets.Where(t => t.Status == "Open").ToList();
+            OpenTickets = tickets.Where(t => t.Status != "Resolved").ToList();
             ResolvedTickets = tickets.Where(t => t.Status == "Resolved").ToList();
         }
 
@@ -78,21 +104,8 @@ namespace Tms.CentralManagement.Pages
             return PhysicalFile(filePath, contentType, originalName);
         }
 
-        public async Task<IActionResult> OnPostReplyAsync(int id, string replyText)
+        private async Task<(bool Success, string Error, string RecipientEmails)> SendResolutionEmailAsync(SupportTicket ticket, string replyText)
         {
-            if (string.IsNullOrWhiteSpace(replyText))
-            {
-                ErrorMessage = "Η απάντηση δεν μπορεί να είναι κενή.";
-                return RedirectToPage();
-            }
-
-            var ticket = await _context.SupportTickets.FindAsync(id);
-            if (ticket == null)
-            {
-                ErrorMessage = "Το αίτημα support δεν βρέθηκε.";
-                return RedirectToPage();
-            }
-
             // Find client profile emails to send response
             var client = await _context.Clients
                 .Include(c => c.Profiles)
@@ -120,13 +133,6 @@ namespace Tms.CentralManagement.Pages
 
             string recipientEmails = string.Join(",", emailSet);
 
-            ticket.Status = "Resolved";
-            ticket.AdminResponse = replyText.Trim();
-            ticket.ResponseDate = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-
-            // Prepare and send email response
             bool emailSent = false;
             string smtpError = string.Empty;
             var toAddresses = string.IsNullOrWhiteSpace(recipientEmails) 
@@ -240,6 +246,32 @@ namespace Tms.CentralManagement.Pages
                 }
             }
 
+            return (emailSent, smtpError, recipientEmails);
+        }
+
+        public async Task<IActionResult> OnPostReplyAsync(int id, string replyText)
+        {
+            if (string.IsNullOrWhiteSpace(replyText))
+            {
+                ErrorMessage = "Η απάντηση δεν μπορεί να είναι κενή.";
+                return RedirectToPage();
+            }
+
+            var ticket = await _context.SupportTickets.FindAsync(id);
+            if (ticket == null)
+            {
+                ErrorMessage = "Το αίτημα support δεν βρέθηκε.";
+                return RedirectToPage();
+            }
+
+            ticket.Status = "Resolved";
+            ticket.AdminResponse = replyText.Trim();
+            ticket.ResponseDate = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+
+            var (emailSent, smtpError, recipientEmails) = await SendResolutionEmailAsync(ticket, ticket.AdminResponse);
+
             string successMsg = $"Το αίτημα επισημάνθηκε ως Επιλυμένο.";
             if (emailSent)
             {
@@ -255,6 +287,60 @@ namespace Tms.CentralManagement.Pages
             }
 
             SuccessMessage = successMsg;
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnPostUpdateStatusAsync(int id, string status)
+        {
+            var ticket = await _context.SupportTickets.FindAsync(id);
+            if (ticket == null)
+            {
+                ErrorMessage = "Το αίτημα support δεν βρέθηκε.";
+                return RedirectToPage();
+            }
+
+            var oldStatus = ticket.Status;
+            ticket.Status = status;
+
+            bool sentEmail = false;
+            string recipientEmails = "";
+
+            if (status == "Resolved")
+            {
+                ticket.ResponseDate = DateTime.UtcNow;
+                if (string.IsNullOrEmpty(ticket.AdminResponse))
+                {
+                    ticket.AdminResponse = "Το αίτημα επισημάνθηκε ως Επιλυμένο.";
+                }
+
+                var (emailSent, smtpError, emails) = await SendResolutionEmailAsync(ticket, ticket.AdminResponse);
+                sentEmail = emailSent;
+                recipientEmails = emails;
+            }
+            else
+            {
+                if (ticket.AdminResponse == "Το αίτημα επισημάνθηκε ως Επιλυμένο.")
+                {
+                    ticket.AdminResponse = null;
+                }
+            }
+
+            await _context.SaveChangesAsync();
+
+            string msg = $"Η κατάσταση του αιτήματος άλλαξε από '{GetStatusLabel(oldStatus)}' σε '{GetStatusLabel(status)}'.";
+            if (status == "Resolved")
+            {
+                if (sentEmail)
+                {
+                    msg += $" Στάλθηκε απαντητικό email στα: {recipientEmails}";
+                }
+                else
+                {
+                    msg += $" Η απάντηση αποθηκεύτηκε τοπικά.";
+                }
+            }
+            SuccessMessage = msg;
+
             return RedirectToPage();
         }
     }

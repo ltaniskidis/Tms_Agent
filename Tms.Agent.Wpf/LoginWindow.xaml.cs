@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Input;
 using Tms.Shared.Models;
+using Tms.Agent.Core.Services;
 
 namespace Tms.Agent.Wpf
 {
@@ -15,11 +16,28 @@ namespace Tms.Agent.Wpf
     {
         public string LoggedInUser { get; private set; } = string.Empty;
         public string UserRole { get; private set; } = string.Empty;
+        private readonly SettingsManager _settingsManager = new();
 
         public LoginWindow()
         {
             InitializeComponent();
             UsernameInput.Focus();
+
+            try
+            {
+                var settings = _settingsManager.LoadSettings();
+                if (settings.RememberMe)
+                {
+                    UsernameInput.Text = settings.SavedUsername ?? string.Empty;
+                    PasswordInput.Password = settings.SavedPassword ?? string.Empty;
+                    PasswordTextInput.Text = settings.SavedPassword ?? string.Empty;
+                    RememberMeCheckbox.IsChecked = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load saved login credentials: {ex.Message}");
+            }
         }
 
         private bool _isPasswordVisible = false;
@@ -72,8 +90,8 @@ namespace Tms.Agent.Wpf
                 return;
             }
 
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var usersFilePath = Path.Combine(appDataPath, "TmsAgent", "users.json");
+            var appDataPath = Tms.Agent.Core.Services.PathHelper.GetAgentDataFolder();
+            var usersFilePath = Path.Combine(appDataPath, "users.json");
             bool hasOwnerInJson = false;
 
             // 1. Check local cached users from users.json first
@@ -95,6 +113,7 @@ namespace Tms.Agent.Wpf
                             {
                                 LoggedInUser = user.Username;
                                 UserRole = user.Role; // Owner, Admin, or Operator
+                                SaveLoginCredentials(username, password);
                                 DialogResult = true;
                                 Close();
                                 return;
@@ -113,6 +132,7 @@ namespace Tms.Agent.Wpf
             {
                 LoggedInUser = "Owner";
                 UserRole = "Owner";
+                SaveLoginCredentials(username, password);
                 DialogResult = true;
                 Close();
                 return;
@@ -126,6 +146,31 @@ namespace Tms.Agent.Wpf
             else
             {
                 ShowError("Λάθος Στοιχεία Χρήστη");
+            }
+        }
+
+        private void SaveLoginCredentials(string username, string password)
+        {
+            try
+            {
+                var settings = _settingsManager.LoadSettings();
+                if (RememberMeCheckbox.IsChecked == true)
+                {
+                    settings.RememberMe = true;
+                    settings.SavedUsername = username;
+                    settings.SavedPassword = password;
+                }
+                else
+                {
+                    settings.RememberMe = false;
+                    settings.SavedUsername = string.Empty;
+                    settings.SavedPassword = string.Empty;
+                }
+                _settingsManager.SaveSettings(settings);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to save login credentials: {ex.Message}");
             }
         }
 

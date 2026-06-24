@@ -115,6 +115,7 @@ namespace Tms.CentralManagement.Data
         public DateTime RegistrationDate { get; set; } = DateTime.UtcNow;
         public string ApiKey { get; set; } = string.Empty;
         public bool IsUpgradeEnabled { get; set; } = true;
+        public bool StartWithWindows { get; set; } = false;
 
         public List<ClientProfile> Profiles { get; set; } = new();
         public List<ClientDatabase> Databases { get; set; } = new();

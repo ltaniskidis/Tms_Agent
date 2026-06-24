@@ -94,7 +94,7 @@ namespace Tms.CentralManagement.Pages
             return RedirectToPage();
         }
 
-        public async Task<IActionResult> OnPostUpdateClientSettingsAsync(int id, string machineName, string machineRole, bool isUpgradeEnabled, bool canOperatorViewLogs, bool canOperatorRunUpdates)
+        public async Task<IActionResult> OnPostUpdateClientSettingsAsync(int id, string machineName, string machineRole, bool isUpgradeEnabled, bool canOperatorViewLogs, bool canOperatorRunUpdates, bool startWithWindows)
         {
             var client = await _context.Clients
                 .Include(c => c.Permissions)
@@ -116,6 +116,7 @@ namespace Tms.CentralManagement.Pages
             }
 
             client.IsUpgradeEnabled = isUpgradeEnabled;
+            client.StartWithWindows = startWithWindows;
 
             if (client.Permissions == null)
             {

@@ -53,7 +53,7 @@
                             <div class="ticket-card" id="ticket-card-@ticket.Id" onclick="selectTicket(this)" data-ticket="@System.Text.Json.JsonSerializer.Serialize(ticket)" style="background-color: #12121A; border: 1.5px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
                                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
                                     <span>@ticket.CreatedDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
-                                    <span class="badge badge-danger" style="font-size: 9px; padding: 2px 4px;">OPEN</span>
+                                    <span class="badge @Model.GetStatusBadgeClass(ticket.Status)" style="font-size: 9px; padding: 2px 4px;">@Model.GetStatusLabel(ticket.Status)</span>
                                 </div>
                                 <div style="font-weight: bold; font-size: 13px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@ticket.Subject</div>
                                 <div style="font-size: 11px; color: var(--accent);">💻 @ticket.MachineName</div>
@@ -79,7 +79,7 @@
                             <div class="ticket-card" id="ticket-card-@ticket.Id" onclick="selectTicket(this)" data-ticket="@System.Text.Json.JsonSerializer.Serialize(ticket)" style="background-color: #12121A; border: 1.5px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
                                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
                                     <span>@ticket.CreatedDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
-                                    <span class="badge badge-success" style="font-size: 9px; padding: 2px 4px;">RESOLVED</span>
+                                    <span class="badge @Model.GetStatusBadgeClass(ticket.Status)" style="font-size: 9px; padding: 2px 4px;">@Model.GetStatusLabel(ticket.Status)</span>
                                 </div>
                                 <div style="font-weight: bold; font-size: 13px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@ticket.Subject</div>
                                 <div style="font-size: 11px; color: var(--text-secondary);">💻 @ticket.MachineName</div>
@@ -101,9 +101,19 @@
         <div class="card" id="detailsActiveCard" style="display: none; min-height: 380px;">
             <!-- Header Info -->
             <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                    <h2 id="activeSubject" style="font-size: 18px; color: var(--text-primary); font-weight: bold;">Θέμα Αιτήματος</h2>
-                    <span id="activeStatusBadge" class="badge">OPEN</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 10px;">
+                    <h2 id="activeSubject" style="font-size: 18px; color: var(--text-primary); font-weight: bold; margin: 0;">Θέμα Αιτήματος</h2>
+                    <form method="post" asp-page-handler="UpdateStatus" id="statusForm" style="margin: 0; display: inline-flex; align-items: center; gap: 8px;">
+                        <input type="hidden" name="id" id="statusTicketId" />
+                        <label for="statusSelect" style="font-size: 12px; color: var(--text-secondary);">Κατάσταση:</label>
+                        <select name="status" id="statusSelect" onchange="document.getElementById('statusForm').submit();" class="status-select">
+                            <option value="Open">Ανοιχτό</option>
+                            <option value="Received">Παραλήφθηκε</option>
+                            <option value="Assigned">Ανατέθηκε</option>
+                            <option value="UnderReview">Σε έλεγχο</option>
+                            <option value="Resolved">Επιλύθηκε</option>
+                        </select>
+                    </form>
                 </div>
                 <div style="display: flex; flex-wrap: wrap; gap: 15px; font-size: 12px; color: var(--text-secondary);">
                     <span>📅 Ημ/νία: <strong id="activeDate" style="color: white;">-</strong></span>
@@ -220,22 +230,26 @@
             document.getElementById("activeGuid").textContent = ticket.clientGuid;
             document.getElementById("activeBody").textContent = ticket.body;
 
-            // Handle badge
-            var badge = document.getElementById("activeStatusBadge");
-            badge.textContent = ticket.status.toUpperCase();
-            if (ticket.status.toLowerCase() === 'open') {
-                badge.className = "badge badge-danger";
-                document.getElementById("responseFormContainer").style.display = "block";
-                document.getElementById("responseHistoryContainer").style.display = "none";
-                document.getElementById("replyTicketId").value = ticket.id;
-            } else {
-                badge.className = "badge badge-success";
+            // Set status select value and update dynamic color
+            var statusSelect = document.getElementById("statusSelect");
+            if (statusSelect) {
+                statusSelect.value = ticket.status;
+                updateSelectColor(statusSelect, ticket.status);
+            }
+            document.getElementById("statusTicketId").value = ticket.id;
+
+            // Handle badge / forms
+            if (ticket.status.toLowerCase() === 'resolved') {
                 document.getElementById("responseFormContainer").style.display = "none";
                 document.getElementById("responseHistoryContainer").style.display = "block";
                 
                 var respDateStr = ticket.responseDate ? new Date(ticket.responseDate).toLocaleString('el-GR') : '-';
                 document.getElementById("activeResponseDate").textContent = respDateStr;
                 document.getElementById("activeResponse").textContent = ticket.adminResponse || '';
+            } else {
+                document.getElementById("responseFormContainer").style.display = "block";
+                document.getElementById("responseHistoryContainer").style.display = "none";
+                document.getElementById("replyTicketId").value = ticket.id;
             }
 
             // Handle Attachment Link
@@ -256,11 +270,53 @@
                 attachmentContainer.style.display = "none";
             }
         }
+
+        function updateSelectColor(select, status) {
+            if (status === 'Open') {
+                select.style.borderColor = 'var(--danger)';
+                select.style.color = 'var(--danger)';
+            } else if (status === 'Received') {
+                select.style.borderColor = 'var(--accent)';
+                select.style.color = 'var(--accent)';
+            } else if (status === 'Assigned') {
+                select.style.borderColor = 'var(--warning)';
+                select.style.color = 'var(--warning)';
+            } else if (status === 'UnderReview') {
+                select.style.borderColor = '#8B5CF6';
+                select.style.color = '#8B5CF6';
+            } else if (status === 'Resolved') {
+                select.style.borderColor = 'var(--success)';
+                select.style.color = 'var(--success)';
+            } else {
+                select.style.borderColor = 'var(--border-color)';
+                select.style.color = 'var(--text-primary)';
+            }
+        }
     </script>
     <style>
         .ticket-card:hover {
             border-color: #4B5563 !important;
             background-color: #171722 !important;
         }
+        .status-select {
+            padding: 5px 10px;
+            font-size: 12px;
+            font-weight: 600;
+            background-color: #12121A;
+            color: var(--text-primary);
+            border: 1.5px solid var(--border-color);
+            border-radius: 6px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        .status-select:hover {
+            border-color: var(--accent);
+        }
+        .status-select option {
+            background-color: #12121A;
+            color: var(--text-primary);
+        }
+        .badge-purple { background-color: #8B5CF6; }
     </style>
 }

@@ -153,6 +153,29 @@ using (var scope = app.Services.CreateScope())
                 }
             }
 
+            // 4. Clients table columns check
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "PRAGMA table_info(Clients);";
+                var columns = new List<string>();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        columns.Add(reader["name"].ToString() ?? "");
+                    }
+                }
+
+                if (!columns.Contains("StartWithWindows", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN StartWithWindows INTEGER NOT NULL DEFAULT 0;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
+            }
+
             // Check if BroadcastMessages table exists and create it if missing
             using (var command = connection.CreateCommand())
             {
@@ -755,6 +778,90 @@ GO
             TargetType = "System"
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διόρθωση JS σφάλματος κατά την επιλογή support ticket στην κονσόλα διαχείρισης λόγω Casing." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.15"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.15",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Δυνατότητα αλλαγής κατάστασης στα αιτήματα support",
+            BinaryFileUrl = "/packages/app_1.5.15.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Προσθήκη επιλογής κατάστασης (Ανοιχτό, Παραλήφθηκε, Ανατέθηκε, Σε έλεγχο, Επιλύθηκε) στις λεπτομέρειες των αιτημάτων support." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Αυτόματη αποστολή email ειδοποίησης επίλυσης στον πελάτη όταν ένα αίτημα τίθεται ως Επιλύθηκε." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.16"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.16",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Ιστορικό αιτημάτων support, ειδοποιήσεις, αποθήκευση σύνδεσης & tray actions",
+            BinaryFileUrl = "/packages/app_1.5.16.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη API και UI για την εμφάνιση ιστορικού αιτημάτων υποστήριξης στον Agent." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Λήψη Balloon Tip ειδοποιήσεων στο system tray όταν αλλάζει η κατάσταση ενός αιτήματος." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αποθήκευση στοιχείων σύνδεσης (Username & Password) ανά PC με την επιλογή 'Να με θυμάσαι'." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη επιλογών 'Γράψτε ένα αίτημα support' και 'Εκδόσεις Desktop Προγράμματος' στο tray context menu." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.17"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.17",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Επιλογή αυτόματης εκκίνησης με τα Windows (ως service / boot)",
+            BinaryFileUrl = "/packages/app_1.5.17.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη επιλογής 'Εκκίνηση με τα Windows' στις ρυθμίσεις του Agent και στην κεντρική κονσόλα διαχείρισης." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Υλοποίηση διπλής λειτουργίας εκτέλεσης (ως Windows Service και ως interactive EXE με Tray icon)." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Μεταφορά και αυτόματη μετακίνηση των αρχείων ρυθμίσεων στον κοινό φάκελο C:\\ProgramData\\TmsAgent για κοινή χρήση από το Service και το GUI." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

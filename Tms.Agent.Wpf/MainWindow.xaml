@@ -8,7 +8,7 @@
         mc:Ignorable="d"
         Title="{Binding WindowTitle}" 
         Height="650" Width="1050"
-        Icon="logo.png"
+        Icon="logo.ico"
         Background="#0F0F12"
         Foreground="#FFFFFF"
         WindowStartupLocation="CenterScreen"
@@ -793,6 +793,34 @@
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <StackPanel MaxWidth="600" HorizontalAlignment="Left" Margin="0,0,20,0">
                         
+                         <!-- Settings Alert Banner -->
+                        <Border CornerRadius="8" Padding="15" Margin="0,0,0,20"
+                                Background="{Binding SettingsAlertBackground}"
+                                BorderBrush="{Binding SettingsAlertBorderBrush}"
+                                BorderThickness="1">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasSettingsAlert}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding SettingsAlertIcon}" FontSize="18" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding SettingsAlertTitle}" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                    <TextBlock Text="{Binding SettingsAlertMessage}" FontSize="11" Foreground="#E0E7FF" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
                         <!-- Lock Warning Banner if not Owner -->
                         <Border Background="#1E1B4B" BorderBrush="#312E81" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,0,20" 
                                 Visibility="{Binding IsSettingsLocked, Converter={StaticResource BoolToVis}}">
@@ -834,7 +862,7 @@
                         </Border>
 
                         <!-- Card: Machine Role -->
-                        <Border Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,25">
+                        <Border Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,20">
                             <StackPanel>
                                 <TextBlock Text="⚙️ Ρόλος Μηχανήματος" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
                                 <TextBlock Text="Καθορίστε αν το τρέχον μηχάνημα φιλοξενεί τον SQL Server, είναι απλός Client ή και τα δύο:" 
@@ -848,6 +876,21 @@
                                     <RadioButton Content="Και τα δύο (SQL Server &amp; Client)" IsChecked="{Binding IsRoleBoth}" 
                                                  Foreground="#FFFFFF" FontSize="12" Margin="0,0,0,5" IsEnabled="{Binding IsOwner}"/>
                                 </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Card: Startup Options -->
+                        <Border Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="8" Padding="20" Margin="0,0,0,25">
+                            <StackPanel>
+                                <TextBlock Text="🚀 Εκκίνηση Συστήματος" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
+                                
+                                <CheckBox Content="Εκκίνηση με τα Windows (ως Service / Boot)" 
+                                          IsChecked="{Binding StartWithWindows}" 
+                                          Foreground="#FFFFFF" FontSize="12" Margin="0,0,0,5" 
+                                          IsEnabled="{Binding IsOwner}"/>
+                                
+                                <TextBlock Text="Όταν είναι ενεργοποιημένο, ο Agent θα εκκινείται αυτόματα κατά την εκκίνηση του υπολογιστή, χωρίς να απαιτείται σύνδεση (login) χρήστη." 
+                                           FontSize="11" Foreground="#6B7280" Margin="0,5,0,0" TextWrapping="Wrap"/>
                             </StackPanel>
                         </Border>
 
@@ -1016,6 +1059,7 @@
             </Grid>
             
             <!-- Support Panel View -->
+            <!-- Support Panel View -->
             <Grid Grid.Row="1" x:Name="SupportPanel" Margin="0,15,0,0">
                 <Grid.Style>
                     <Style TargetType="Grid">
@@ -1035,54 +1079,299 @@
                     </Grid.RowDefinitions>
 
                     <!-- Title -->
-                    <StackPanel Grid.Row="0" Margin="0,0,0,20">
-                        <TextBlock Text="✉️ Επικοινωνία / Support" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
-                        <TextBlock Text="Στείλτε άμεσα ένα αίτημα υποστήριξης στην ομάδα μας για οποιοδήποτε πρόβλημα προκύψει." FontSize="12" Foreground="#A0A0B0" Margin="0,4,0,0"/>
+                    <StackPanel Grid.Row="0" Margin="0,0,0,15">
+                        <TextBlock Text="✉️ Επικοινωνία &amp; Ιστορικό Support" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                        <TextBlock Text="Στείλτε ένα αίτημα υποστήριξης και παρακολουθήστε την πορεία και τις απαντήσεις των τεχνικών." FontSize="12" Foreground="#A0A0B0" Margin="0,4,0,0"/>
                     </StackPanel>
 
-                    <!-- Form Content -->
-                    <Border Grid.Row="1" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="8" Padding="25" VerticalAlignment="Top" MaxWidth="700" HorizontalAlignment="Left">
-                        <Grid>
+                    <!-- Two-column Content -->
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="1.2*" MinWidth="320"/>
+                            <ColumnDefinition Width="1.8*" MinWidth="480"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Left Column: Submit New Ticket -->
+                        <Border Grid.Column="0" Margin="0,0,15,0" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="8" Padding="20" VerticalAlignment="Stretch">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/> <!-- Title -->
+                                    <RowDefinition Height="Auto"/> <!-- Status Msg -->
+                                    <RowDefinition Height="Auto"/> <!-- Subject -->
+                                    <RowDefinition Height="Auto"/> <!-- Body -->
+                                    <RowDefinition Height="Auto"/> <!-- Attachment -->
+                                    <RowDefinition Height="*"/>    <!-- Spacer / Submit -->
+                                </Grid.RowDefinitions>
+                                
+                                <TextBlock Grid.Row="0" Text="Νέο Αίτημα Υποστήριξης" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
+
+                                <!-- Status message -->
+                                <TextBlock Grid.Row="1" Text="{Binding SupportStatusMessage}" FontSize="12" Foreground="#6366F1" Margin="0,0,0,10" FontWeight="SemiBold" TextWrapping="Wrap"/>
+
+                                <!-- Subject -->
+                                <StackPanel Grid.Row="2" Margin="0,0,0,12">
+                                    <TextBlock Text="Θέμα Μηνύματος:" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SupportSubject, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsNotSendingSupportEmail}" Foreground="#FFFFFF"/>
+                                </StackPanel>
+
+                                <!-- Body -->
+                                <StackPanel Grid.Row="3" Margin="0,0,0,12">
+                                    <TextBlock Text="Περιγραφή Προβλήματος / Κείμενο:" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,4"/>
+                                    <TextBox Text="{Binding SupportBody, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" Height="120" VerticalScrollBarVisibility="Auto" AcceptsTab="True" IsEnabled="{Binding IsNotSendingSupportEmail}" Foreground="#FFFFFF"/>
+                                </StackPanel>
+
+                                <!-- Attachment -->
+                                <StackPanel Grid.Row="4" Margin="0,0,0,20">
+                                    <TextBlock Text="Επισύναψη Αρχείου (π.χ. Screenshot):" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,4"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding SupportAttachmentName, Mode=OneWay}" IsReadOnly="True" Grid.Column="0" Margin="0,0,10,0" IsEnabled="False" Background="#0F0F12" FontSize="11"/>
+                                        <Button Content="Επιλογή..." Style="{StaticResource OutlineButton}" Grid.Column="1" Padding="10,4,10,4" FontSize="11" Command="{Binding SelectAttachmentCommand}" IsEnabled="{Binding IsNotSendingSupportEmail}"/>
+                                    </Grid>
+                                </StackPanel>
+
+                                <!-- Submit -->
+                                <Button Grid.Row="5" Content="🚀 Αποστολή στο Support" Style="{StaticResource PrimaryButton}" VerticalAlignment="Bottom" Height="36" Command="{Binding SendSupportEmailCommand}" IsEnabled="{Binding IsNotSendingSupportEmail}"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- Right Column: Ticket History & Response Detail -->
+                        <Grid Grid.Column="1">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/> <!-- Status Msg -->
-                                <RowDefinition Height="Auto"/> <!-- Subject -->
-                                <RowDefinition Height="Auto"/> <!-- Body -->
-                                <RowDefinition Height="Auto"/> <!-- Attachment -->
-                                <RowDefinition Height="Auto"/> <!-- Submit Button -->
+                                <RowDefinition Height="Auto"/> <!-- Refresh Header -->
+                                <RowDefinition Height="*"/>    <!-- Split: List & Details -->
                             </Grid.RowDefinitions>
+                            
+                            <!-- Header with Refresh Button -->
+                            <Grid Grid.Row="0" Margin="0,0,0,10">
+                                <TextBlock Text="Ιστορικό Αιτημάτων" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center"/>
+                                <Button Content="🔄 Ανανέωση" Style="{StaticResource OutlineButton}" HorizontalAlignment="Right" Padding="12,4,12,4" FontSize="11" Command="{Binding RefreshSupportTicketsCommand}"/>
+                            </Grid>
 
-                            <!-- Status message -->
-                            <TextBlock Grid.Row="0" Text="{Binding SupportStatusMessage}" FontSize="12" Foreground="#6366F1" Margin="0,0,0,15" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                            <!-- List & Details Container -->
+                            <Grid Grid.Row="1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1*"/>
+                                    <ColumnDefinition Width="1.2*"/>
+                                </Grid.ColumnDefinitions>
 
-                            <!-- Subject -->
-                            <StackPanel Grid.Row="1" Margin="0,0,0,15">
-                                <TextBlock Text="Θέμα Μηνύματος:" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
-                                <TextBox Text="{Binding SupportSubject, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsNotSendingSupportEmail}" Foreground="#FFFFFF"/>
-                            </StackPanel>
+                                <!-- List of Tickets -->
+                                <Border Grid.Column="0" Margin="0,0,10,0" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="8" Padding="10">
+                                    <Grid>
+                                        <!-- No tickets message -->
+                                        <TextBlock Text="Δεν υπάρχουν υποβληθέντα αιτήματα." Foreground="#A0A0B0" FontSize="11" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center" Margin="10">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SupportTickets.Count}" Value="0">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
 
-                            <!-- Body -->
-                            <StackPanel Grid.Row="2" Margin="0,0,0,15">
-                                <TextBlock Text="Περιγραφή Προβλήματος / Κείμενο:" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
-                                <TextBox Text="{Binding SupportBody, UpdateSourceTrigger=PropertyChanged}" TextWrapping="Wrap" AcceptsReturn="True" Height="150" VerticalScrollBarVisibility="Auto" AcceptsTab="True" IsEnabled="{Binding IsNotSendingSupportEmail}" Foreground="#FFFFFF"/>
-                            </StackPanel>
+                                        <!-- Tickets ListBox -->
+                                        <ListBox ItemsSource="{Binding SupportTickets}" SelectedItem="{Binding SelectedSupportTicket}" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                            <ListBox.ItemContainerStyle>
+                                                <Style TargetType="ListBoxItem">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Setter Property="Padding" Value="0"/>
+                                                    <Setter Property="Margin" Value="0,0,0,8"/>
+                                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="ListBoxItem">
+                                                                <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="6" Padding="10" Cursor="Hand">
+                                                                    <ContentPresenter />
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsSelected" Value="True">
+                                                                        <Setter TargetName="ItemBorder" Property="Background" Value="#1C1C2A"/>
+                                                                        <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#6366F1"/>
+                                                                    </Trigger>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="ItemBorder" Property="BorderBrush" Value="#4B4B5C"/>
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </ListBox.ItemContainerStyle>
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid>
+                                                         <Grid.RowDefinitions>
+                                                             <RowDefinition Height="Auto"/>
+                                                             <RowDefinition Height="Auto"/>
+                                                         </Grid.RowDefinitions>
+                                                        <!-- Header: Date & Status -->
+                                                        <Grid Grid.Row="0" Margin="0,0,0,5">
+                                                            <TextBlock Text="{Binding CreatedDate, StringFormat='dd/MM/yyyy HH:mm'}" FontSize="10" Foreground="#A0A0B0"/>
+                                                            <!-- Status label Greek -->
+                                                            <Border HorizontalAlignment="Right" Padding="4,2,4,2" CornerRadius="3">
+                                                                <Border.Style>
+                                                                    <Style TargetType="Border">
+                                                                        <Style.Triggers>
+                                                                            <DataTrigger Binding="{Binding Status}" Value="Open">
+                                                                                <Setter Property="Background" Value="#3b1717"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Status}" Value="Received">
+                                                                                <Setter Property="Background" Value="#1d2d44"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Status}" Value="Assigned">
+                                                                                <Setter Property="Background" Value="#3a2e12"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Status}" Value="UnderReview">
+                                                                                <Setter Property="Background" Value="#2e1b40"/>
+                                                                            </DataTrigger>
+                                                                            <DataTrigger Binding="{Binding Status}" Value="Resolved">
+                                                                                <Setter Property="Background" Value="#1b3b24"/>
+                                                                            </DataTrigger>
+                                                                        </Style.Triggers>
+                                                                    </Style>
+                                                                </Border.Style>
+                                                                <TextBlock FontSize="9" FontWeight="Bold">
+                                                                    <TextBlock.Style>
+                                                                        <Style TargetType="TextBlock">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding Status}" Value="Open">
+                                                                                    <Setter Property="Text" Value="Ανοιχτό"/>
+                                                                                    <Setter Property="Foreground" Value="#EF4444"/>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding Status}" Value="Received">
+                                                                                    <Setter Property="Text" Value="Παραλήφθηκε"/>
+                                                                                    <Setter Property="Foreground" Value="#6366F1"/>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding Status}" Value="Assigned">
+                                                                                    <Setter Property="Text" Value="Ανατέθηκε"/>
+                                                                                    <Setter Property="Foreground" Value="#F59E0B"/>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding Status}" Value="UnderReview">
+                                                                                    <Setter Property="Text" Value="Σε έλεγχο"/>
+                                                                                    <Setter Property="Foreground" Value="#8B5CF6"/>
+                                                                                </DataTrigger>
+                                                                                <DataTrigger Binding="{Binding Status}" Value="Resolved">
+                                                                                    <Setter Property="Text" Value="Επιλύθηκε"/>
+                                                                                    <Setter Property="Foreground" Value="#10B981"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </TextBlock.Style>
+                                                                </TextBlock>
+                                                            </Border>
+                                                        </Grid>
+                                                        <!-- Subject -->
+                                                        <TextBlock Grid.Row="1" Text="{Binding Subject}" FontSize="12" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis"/>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </Grid>
+                                </Border>
 
-                            <!-- Attachment -->
-                            <StackPanel Grid.Row="3" Margin="0,0,0,25">
-                                <TextBlock Text="Επισύναψη Αρχείου (π.χ. Screenshot):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox Text="{Binding SupportAttachmentName, Mode=OneWay}" IsReadOnly="True" Grid.Column="0" Margin="0,0,10,0" IsEnabled="False" Background="#0F0F12"/>
-                                    <Button Content="Επιλογή..." Style="{StaticResource OutlineButton}" Grid.Column="1" Padding="15,5,15,5" Command="{Binding SelectAttachmentCommand}" IsEnabled="{Binding IsNotSendingSupportEmail}"/>
-                                </Grid>
-                            </StackPanel>
+                                <!-- Details View of selected ticket -->
+                                <Border Grid.Column="1" Background="#16161F" BorderBrush="#2B2B3C" BorderThickness="1.5" CornerRadius="8" Padding="15">
+                                    <Grid>
+                                        <!-- No ticket selected placeholder -->
+                                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasSelectedSupportTicket}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <TextBlock Text="✉️" FontSize="36" HorizontalAlignment="Center" Foreground="#4B4B5C"/>
+                                            <TextBlock Text="Επιλέξτε ένα αίτημα από τη λίστα για να δείτε την απάντηση και το ιστορικό." FontSize="11" Foreground="#A0A0B0" TextAlignment="Center" TextWrapping="Wrap" Margin="0,10,0,0"/>
+                                        </StackPanel>
 
-                            <!-- Submit -->
-                            <Button Grid.Row="4" Content="🚀 Αποστολή στο Support" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Right" Width="200" Command="{Binding SendSupportEmailCommand}" IsEnabled="{Binding IsNotSendingSupportEmail}"/>
+                                        <!-- Selected ticket details -->
+                                        <Grid>
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasSelectedSupportTicket}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/> <!-- Subject -->
+                                                <RowDefinition Height="*"/>    <!-- Scrollable Body & Response -->
+                                            </Grid.RowDefinitions>
+
+                                            <!-- Header Info -->
+                                            <Border Grid.Row="0" BorderBrush="#2B2B3C" BorderThickness="0,0,0,1" Padding="0,0,0,10" Margin="0,0,0,10">
+                                                <StackPanel>
+                                                    <TextBlock Text="{Binding SelectedSupportTicket.Subject}" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF" TextWrapping="Wrap"/>
+                                                    <TextBlock Text="{Binding SelectedSupportTicket.CreatedDate, StringFormat='📅 Ημ/νία Υποβολής: dd/MM/yyyy HH:mm'}" FontSize="10" Foreground="#A0A0B0" Margin="0,3,0,0"/>
+                                                </StackPanel>
+                                            </Border>
+
+                                            <!-- Scrollable Message Content -->
+                                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                                <StackPanel>
+                                                    <!-- Ticket Body -->
+                                                    <TextBlock Text="ΚΕΙΜΕΝΟ ΑΙΤΗΜΑΤΟΣ:" FontSize="9" FontWeight="Bold" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                                    <Border Background="#0F0F12" BorderBrush="#2B2B3C" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,15">
+                                                        <TextBlock Text="{Binding SelectedSupportTicket.Body}" FontSize="11" Foreground="#FFFFFF" TextWrapping="Wrap"/>
+                                                    </Border>
+
+                                                    <!-- Admin Response (if any) -->
+                                                    <Border Background="#162e24" BorderBrush="#10B981" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,5,0,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsResponseVisible}" Value="True">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <StackPanel>
+                                                            <TextBlock Text="ΑΠΑΝΤΗΣΗ ΤΕΧΝΙΚΟΥ:" FontSize="9" FontWeight="Bold" Foreground="#10B981" Margin="0,0,0,5"/>
+                                                            <TextBlock Text="{Binding SelectedSupportTicket.AdminResponse}" FontSize="11" Foreground="#A7F3D0" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                                                            <TextBlock Text="{Binding SelectedSupportTicket.ResponseDate, StringFormat='🕒 Απαντήθηκε: dd/MM/yyyy HH:mm'}" FontSize="9" Foreground="#6EE7B7" HorizontalAlignment="Right"/>
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Pending response message (if no response yet) -->
+                                                    <Border Background="#252538" BorderBrush="#4B4B5C" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,5,0,0">
+                                                        <Border.Style>
+                                                            <Style TargetType="Border">
+                                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding IsResponseVisible}" Value="False">
+                                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Border.Style>
+                                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                            <TextBlock Text="⏳" FontSize="14" Margin="0,0,8,0"/>
+                                                            <TextBlock Text="Το αίτημα εκκρεμεί για έλεγχο από τεχνικό." FontSize="11" Foreground="#A0A0B0" VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
+                                            </ScrollViewer>
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </Grid>
                         </Grid>
-                    </Border>
+                    </Grid>
                 </Grid>
             </Grid>
 

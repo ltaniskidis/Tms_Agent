@@ -53,6 +53,11 @@ namespace Tms.CentralManagement.Controllers
             client.MachineRole = request.MachineRole;
             client.AgentVersion = request.AgentVersion ?? "1.0.0";
 
+            if (request.ForceSyncStartWithWindows)
+            {
+                client.StartWithWindows = request.StartWithWindows;
+            }
+
             // Sync discovered databases
             if (request.DiscoveredDatabases != null)
             {
@@ -82,6 +87,7 @@ namespace Tms.CentralManagement.Controllers
 
             var response = new UpdateCheckResponse();
             response.IsUpgradeAllowed = client.IsUpgradeEnabled;
+            response.StartWithWindows = client.StartWithWindows;
 
             var currentSystemVersionObj = await _context.Versions
                 .Where(v => v.TargetType == "System" && v.IsCurrent)
@@ -537,6 +543,43 @@ namespace Tms.CentralManagement.Controllers
 
             await _context.SaveChangesAsync();
             return Ok();
+        }
+
+        [HttpGet("support-tickets")]
+        public async Task<IActionResult> GetSupportTickets([FromQuery] string apiKey, [FromQuery] string clientId)
+        {
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                return BadRequest("API Key is required.");
+            }
+            if (string.IsNullOrEmpty(clientId))
+            {
+                return BadRequest("Client ID is required.");
+            }
+
+            var client = await _context.Clients.AnyAsync(c => c.ApiKey == apiKey);
+            if (!client)
+            {
+                return Unauthorized("Invalid API Key.");
+            }
+
+            var tickets = await _context.SupportTickets
+                .Where(t => t.ApiKey == apiKey && t.ClientGuid == clientId)
+                .OrderByDescending(t => t.CreatedDate)
+                .Select(t => new SupportTicketDto
+                {
+                    Id = t.Id,
+                    Subject = t.Subject,
+                    Body = t.Body,
+                    CreatedDate = t.CreatedDate,
+                    Status = t.Status,
+                    AdminResponse = t.AdminResponse,
+                    ResponseDate = t.ResponseDate,
+                    AttachmentFileName = t.AttachmentFileName
+                })
+                .ToListAsync();
+
+            return Ok(tickets);
         }
 
         // 8. Agent: Send support email

@@ -6,7 +6,7 @@
         mc:Ignorable="d"
         Title="TMS Agent - Σύνδεση" 
         Height="420" Width="360"
-        Icon="logo.png"
+        Icon="logo.ico"
         Background="#0F0F12"
         Foreground="#FFFFFF"
         WindowStartupLocation="CenterScreen"
@@ -159,6 +159,9 @@
                                 Style="{StaticResource OutlineButton}"
                                 Click="TogglePasswordButton_Click" Focusable="False"/>
                     </Grid>
+                    
+                    <!-- Remember Me Checkbox -->
+                    <CheckBox x:Name="RememberMeCheckbox" Content="Να με θυμάσαι σε αυτό το PC" Foreground="#9CA3AF" FontSize="11" Margin="0,0,0,15" VerticalContentAlignment="Center" Background="#16161F" BorderBrush="#2B2B3C"/>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>

@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.14";
+        public string AppVersion => "1.5.17";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings
@@ -46,6 +46,55 @@ namespace Tms.Agent.Wpf.ViewModels
         {
             get => _apiKey;
             set => SetProperty(ref _apiKey, value);
+        }
+
+        private bool _startWithWindows;
+        public bool StartWithWindows
+        {
+            get => _startWithWindows;
+            set => SetProperty(ref _startWithWindows, value);
+        }
+
+        private bool _hasSettingsAlert;
+        public bool HasSettingsAlert
+        {
+            get => _hasSettingsAlert;
+            set => SetProperty(ref _hasSettingsAlert, value);
+        }
+
+        private string _settingsAlertTitle = string.Empty;
+        public string SettingsAlertTitle
+        {
+            get => _settingsAlertTitle;
+            set => SetProperty(ref _settingsAlertTitle, value);
+        }
+
+        private string _settingsAlertMessage = string.Empty;
+        public string SettingsAlertMessage
+        {
+            get => _settingsAlertMessage;
+            set => SetProperty(ref _settingsAlertMessage, value);
+        }
+
+        private string _settingsAlertIcon = string.Empty;
+        public string SettingsAlertIcon
+        {
+            get => _settingsAlertIcon;
+            set => SetProperty(ref _settingsAlertIcon, value);
+        }
+
+        private string _settingsAlertBackground = "#064E3B";
+        public string SettingsAlertBackground
+        {
+            get => _settingsAlertBackground;
+            set => SetProperty(ref _settingsAlertBackground, value);
+        }
+
+        private string _settingsAlertBorderBrush = "#047857";
+        public string SettingsAlertBorderBrush
+        {
+            get => _settingsAlertBorderBrush;
+            set => SetProperty(ref _settingsAlertBorderBrush, value);
         }
 
         private string _machineRole = "Both"; // SqlServer, Client, Both
@@ -501,6 +550,28 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _supportStatusMessage, value);
         }
 
+        // Support Tickets Properties
+        public System.Collections.ObjectModel.ObservableCollection<SupportTicketDto> SupportTickets { get; set; } = new();
+
+        private SupportTicketDto? _selectedSupportTicket;
+        public SupportTicketDto? SelectedSupportTicket
+        {
+            get => _selectedSupportTicket;
+            set
+            {
+                if (SetProperty(ref _selectedSupportTicket, value))
+                {
+                    OnPropertyChanged(nameof(HasSelectedSupportTicket));
+                    OnPropertyChanged(nameof(IsResponseVisible));
+                }
+            }
+        }
+
+        public bool HasSelectedSupportTicket => SelectedSupportTicket != null;
+        public bool IsResponseVisible => SelectedSupportTicket != null && !string.IsNullOrEmpty(SelectedSupportTicket.AdminResponse);
+
+        public event Action<string, string, string>? SupportTicketUpdated;
+
         // Broadcast Messages Properties
         private bool _hasUnreadBroadcasts;
         public bool HasUnreadBroadcasts
@@ -524,6 +595,7 @@ namespace Tms.Agent.Wpf.ViewModels
         public ICommand NavigateCommand { get; }
         public ICommand SelectAttachmentCommand { get; }
         public ICommand SendSupportEmailCommand { get; }
+        public ICommand RefreshSupportTicketsCommand { get; }
         public ICommand MarkBroadcastsReadCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand UpdateProfileCommand { get; }
@@ -556,6 +628,7 @@ namespace Tms.Agent.Wpf.ViewModels
             _serverUrl = settings.ServerUrl;
             _machineRole = settings.MachineRole;
             _apiKey = settings.ApiKey;
+            _startWithWindows = settings.StartWithWindows;
 
             // Commands Setup
             NavigateCommand = new RelayCommand<string>(view =>
@@ -569,8 +642,13 @@ namespace Tms.Agent.Wpf.ViewModels
                 {
                     MarkBroadcastsAsRead();
                 }
+                else if (CurrentView == "Support")
+                {
+                    _ = LoadSupportTicketsAsync();
+                }
             });
             CheckUpdatesCommand = new RelayCommand(async () => await CheckForUpdatesAsync());
+            RefreshSupportTicketsCommand = new RelayCommand(async () => await LoadSupportTicketsAsync());
             
             UpdateProfileCommand = new RelayCommand<ProfileUiWrapper>(p =>
             {
@@ -635,7 +713,7 @@ namespace Tms.Agent.Wpf.ViewModels
             _machineName = Environment.MachineName;
             
             // Client ID logic: read or create a GUID for this installation
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
+            var appDataPath = PathHelper.GetAgentDataFolder();
             var idFile = Path.Combine(appDataPath, "client_id.txt");
 
             if (File.Exists(idFile))
@@ -652,36 +730,67 @@ namespace Tms.Agent.Wpf.ViewModels
 
         private void SaveAgentSettings()
         {
-            _settingsManager.SaveSettings(new AgentSettings
-            {
-                ServerUrl = ServerUrl,
-                MachineRole = MachineRole,
-                ApiKey = ApiKey
-            });
+            var settings = _settingsManager.LoadSettings();
+            settings.ServerUrl = ServerUrl;
+            settings.MachineRole = MachineRole;
+            settings.ApiKey = ApiKey;
+            settings.StartWithWindows = StartWithWindows;
+            _settingsManager.SaveSettings(settings);
         }
 
-        private void SaveSettingsExecute()
+        private async void SaveSettingsExecute()
         {
             if (IsSettingsLocked)
             {
-                System.Windows.MessageBox.Show(
-                    "Δεν έχετε δικαίωμα να αλλάξετε τις ρυθμίσεις. Απαιτείται σύνδεση ως Owner.",
-                    "TMS Agent - Σφάλμα",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
+                HasSettingsAlert = true;
+                SettingsAlertTitle = "Σφάλμα";
+                SettingsAlertMessage = "Δεν έχετε δικαίωμα να αλλάξετε τις ρυθμίσεις. Απαιτείται σύνδεση ως Owner.";
+                SettingsAlertIcon = "❌";
+                SettingsAlertBackground = "#7F1D1D";
+                SettingsAlertBorderBrush = "#B91C1C";
                 return;
             }
 
-            SaveAgentSettings();
-            
-            // Trigger update check to sync with new credentials/server URL immediately
-            _ = CheckForUpdatesAsync();
+            // Show temporary saving status
+            HasSettingsAlert = true;
+            SettingsAlertTitle = "Αποθήκευση...";
+            SettingsAlertMessage = "Γίνεται αποθήκευση των ρυθμίσεων και ρύθμιση της υπηρεσίας εκκίνησης...";
+            SettingsAlertIcon = "⏳";
+            SettingsAlertBackground = "#1E1B4B";
+            SettingsAlertBorderBrush = "#312E81";
 
-            System.Windows.MessageBox.Show(
-                "Οι ρυθμίσεις του Agent αποθηκεύτηκαν επιτυχώς!",
-                "TMS Agent - Επιτυχία",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            var settings = _settingsManager.LoadSettings();
+            bool startWithWindowsChanged = settings.StartWithWindows != StartWithWindows;
+
+            SaveAgentSettings();
+
+            if (startWithWindowsChanged)
+            {
+                // Run service registration changes on background thread to prevent UI freezing
+                await Task.Run(() => ServiceControlHelper.ApplyStartWithWindows(StartWithWindows));
+            }
+            
+            // Trigger update check to sync with new credentials/server URL immediately and force sync StartWithWindows
+            _ = CheckForUpdatesAsync(true);
+
+            // Show success alert
+            HasSettingsAlert = true;
+            SettingsAlertTitle = "Επιτυχής Αποθήκευση";
+            SettingsAlertMessage = "Οι ρυθμίσεις του Agent αποθηκεύτηκαν επιτυχώς!";
+            SettingsAlertIcon = "✅";
+            SettingsAlertBackground = "#064E3B";
+            SettingsAlertBorderBrush = "#047857";
+
+            // Hide the banner after 5 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                // Avoid hiding a newer alert if it was triggered
+                if (SettingsAlertTitle == "Επιτυχής Αποθήκευση")
+                {
+                    HasSettingsAlert = false;
+                }
+            });
         }
 
         private void DiscardSettingsExecute()
@@ -690,12 +799,24 @@ namespace Tms.Agent.Wpf.ViewModels
             ServerUrl = settings.ServerUrl;
             ApiKey = settings.ApiKey;
             MachineRole = settings.MachineRole;
+            StartWithWindows = settings.StartWithWindows;
 
-            System.Windows.MessageBox.Show(
-                "Οι ρυθμίσεις επανήλθαν στις αποθηκευμένες τιμές.",
-                "TMS Agent",
-                System.Windows.MessageBoxButton.OK,
-                System.Windows.MessageBoxImage.Information);
+            HasSettingsAlert = true;
+            SettingsAlertTitle = "Επαναφορά";
+            SettingsAlertMessage = "Οι ρυθμίσεις επανήλθαν στις αποθηκευμένες τιμές.";
+            SettingsAlertIcon = "ℹ️";
+            SettingsAlertBackground = "#1E1B4B";
+            SettingsAlertBorderBrush = "#312E81";
+
+            // Hide the banner after 5 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(5000);
+                if (SettingsAlertTitle == "Επαναφορά")
+                {
+                    HasSettingsAlert = false;
+                }
+            });
         }
 
         private void LoadProfiles()
@@ -975,7 +1096,7 @@ namespace Tms.Agent.Wpf.ViewModels
             AdminPasscodeError = string.Empty;
         }
 
-        private async Task CheckForUpdatesAsync()
+        private async Task CheckForUpdatesAsync(bool forceSyncStartWithWindows = false)
         {
             StatusMessage = "Έλεγχος για νέες εκδόσεις...";
             foreach (var p in Profiles)
@@ -984,7 +1105,18 @@ namespace Tms.Agent.Wpf.ViewModels
             }
 
             var localProfilesList = Profiles.Select(p => p.Profile).ToList();
-            var response = await _updateEngine.CheckForUpdatesAsync(ServerUrl, _clientId, _machineName, MachineRole, AppVersion, ApiKey, localProfilesList);
+            var response = await _updateEngine.CheckForUpdatesAsync(
+                ServerUrl, 
+                _clientId, 
+                _machineName, 
+                MachineRole, 
+                AppVersion, 
+                ApiKey, 
+                localProfilesList,
+                StartWithWindows,
+                forceSyncStartWithWindows
+            );
+            _ = LoadSupportTicketsAsync();
 
             if (response == null)
             {
@@ -996,16 +1128,20 @@ namespace Tms.Agent.Wpf.ViewModels
                 return;
             }
 
+            // Sync StartWithWindows if server sent a different status
+            if (response.StartWithWindows != StartWithWindows)
+            {
+                StartWithWindows = response.StartWithWindows;
+                SaveAgentSettings();
+                await Task.Run(() => ServiceControlHelper.ApplyStartWithWindows(StartWithWindows));
+            }
+
             // Sync and save local users locally
             if (response.LocalUsers != null)
             {
                 try
                 {
-                    var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
-                    if (!Directory.Exists(appDataPath))
-                    {
-                        Directory.CreateDirectory(appDataPath);
-                    }
+                    var appDataPath = PathHelper.GetAgentDataFolder();
                     var usersFilePath = Path.Combine(appDataPath, "users.json");
                     var json = JsonSerializer.Serialize(response.LocalUsers, new JsonSerializerOptions { WriteIndented = true });
                     File.WriteAllText(usersFilePath, json);
@@ -1154,7 +1290,7 @@ namespace Tms.Agent.Wpf.ViewModels
                 var seenIds = new List<int>();
                 try
                 {
-                    var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
+                    var appDataPath = PathHelper.GetAgentDataFolder();
                     var file = Path.Combine(appDataPath, "seen_broadcasts.json");
                     if (File.Exists(file))
                     {
@@ -1395,7 +1531,7 @@ namespace Tms.Agent.Wpf.ViewModels
         public void LoadLocalUsers()
         {
             LocalUsersList.Clear();
-            var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
+            var appDataPath = PathHelper.GetAgentDataFolder();
             var usersFilePath = Path.Combine(appDataPath, "users.json");
 
             if (File.Exists(usersFilePath))
@@ -1520,11 +1656,7 @@ namespace Tms.Agent.Wpf.ViewModels
         {
             try
             {
-                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
-                if (!Directory.Exists(appDataPath))
-                {
-                    Directory.CreateDirectory(appDataPath);
-                }
+                var appDataPath = PathHelper.GetAgentDataFolder();
                 var usersFilePath = Path.Combine(appDataPath, "users.json");
 
                 // Read existing owner if present to preserve it
@@ -1623,6 +1755,9 @@ namespace Tms.Agent.Wpf.ViewModels
                     SupportSubject = string.Empty;
                     SupportBody = string.Empty;
                     SupportAttachmentPath = string.Empty;
+                    
+                    // Refresh support tickets history immediately
+                    _ = LoadSupportTicketsAsync();
                 }
                 else
                 {
@@ -1639,16 +1774,89 @@ namespace Tms.Agent.Wpf.ViewModels
             }
         }
 
+        private bool _isLoadingSupportTickets;
+        public async Task LoadSupportTicketsAsync()
+        {
+            if (string.IsNullOrEmpty(ApiKey)) return;
+            if (_isLoadingSupportTickets) return;
+            _isLoadingSupportTickets = true;
+
+            try
+            {
+                var latestTickets = await _updateEngine.GetSupportTicketsAsync(ServerUrl, ApiKey, _clientId);
+                if (latestTickets != null)
+                {
+                    bool isInitialLoad = SupportTickets.Count == 0;
+                    var oldTicketsMap = SupportTickets.ToDictionary(t => t.Id);
+
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        var selectedId = SelectedSupportTicket?.Id;
+
+                        SupportTickets.Clear();
+                        foreach (var ticket in latestTickets)
+                        {
+                            SupportTickets.Add(ticket);
+                            
+                            if (!isInitialLoad)
+                            {
+                                if (oldTicketsMap.TryGetValue(ticket.Id, out var oldTicket))
+                                {
+                                    bool statusChanged = oldTicket.Status != ticket.Status;
+                                    bool responseChanged = oldTicket.AdminResponse != ticket.AdminResponse && !string.IsNullOrEmpty(ticket.AdminResponse);
+                                    
+                                    if (statusChanged || responseChanged)
+                                    {
+                                        string changeDesc = "";
+                                        if (statusChanged && responseChanged)
+                                            changeDesc = $"Η κατάσταση άλλαξε σε '{GetStatusLabelGreek(ticket.Status)}' και υπάρχει νέα απάντηση.";
+                                        else if (statusChanged)
+                                            changeDesc = $"Η κατάσταση άλλαξε σε '{GetStatusLabelGreek(ticket.Status)}'.";
+                                        else
+                                            changeDesc = "Υπάρχει νέα απάντηση από τον τεχνικό.";
+
+                                        SupportTicketUpdated?.Invoke(ticket.Subject, changeDesc, ticket.AdminResponse ?? "");
+                                    }
+                                }
+                            }
+                        }
+
+                        if (selectedId.HasValue)
+                        {
+                            SelectedSupportTicket = SupportTickets.FirstOrDefault(t => t.Id == selectedId.Value);
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load support tickets: {ex.Message}");
+            }
+            finally
+            {
+                _isLoadingSupportTickets = false;
+            }
+        }
+
+        private string GetStatusLabelGreek(string status)
+        {
+            return status switch
+            {
+                "Open" => "Ανοιχτό",
+                "Received" => "Παραλήφθηκε",
+                "Assigned" => "Ανατέθηκε",
+                "UnderReview" => "Σε έλεγχο",
+                "Resolved" => "Επιλύθηκε",
+                _ => status
+            };
+        }
+
         public void MarkBroadcastsAsRead()
         {
             HasUnreadBroadcasts = false;
             try
             {
-                var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
-                if (!Directory.Exists(appDataPath))
-                {
-                    Directory.CreateDirectory(appDataPath);
-                }
+                var appDataPath = PathHelper.GetAgentDataFolder();
                 var file = Path.Combine(appDataPath, "seen_broadcasts.json");
                 var ids = BroadcastsList.Select(b => b.Id).ToList();
                 var json = JsonSerializer.Serialize(ids);

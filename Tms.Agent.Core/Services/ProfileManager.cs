@@ -12,14 +12,7 @@ namespace Tms.Agent.Core.Services
 
         public ProfileManager()
         {
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var appFolder = Path.Combine(appDataPath, "TmsAgent");
-            
-            if (!Directory.Exists(appFolder))
-            {
-                Directory.CreateDirectory(appFolder);
-            }
-
+            var appFolder = PathHelper.GetAgentDataFolder();
             _filePath = Path.Combine(appFolder, "profiles.json");
         }
 

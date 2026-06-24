@@ -183,6 +183,10 @@
                                 
                                 <td class="td-name">
                                     <strong>@client.MachineName</strong>
+                                    @if (client.StartWithWindows)
+                                    {
+                                        <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 5px; font-size: 10px; font-weight: bold; border-radius: 4px; padding: 2px 5px;" title="Εκκίνηση με τα Windows: Ενεργοποιημένη">🚀 Boot</span>
+                                    }
                                     <br />
                                     <span class="badge badge-role badge-@(client.MachineRole.ToLower())">@client.MachineRole</span>
                                 </td>
@@ -282,6 +286,7 @@
                                             data-guid="@client.ClientGuid"
                                             data-apikey="@client.ApiKey"
                                             data-upgrade="@(client.IsUpgradeEnabled ? "true" : "false")"
+                                            data-startwithwindows="@(client.StartWithWindows ? "true" : "false")"
                                             data-viewlogs="@(client.Permissions?.CanOperatorViewLogs == true ? "true" : "false")"
                                             data-runupdates="@(client.Permissions?.CanOperatorRunUpdates == true ? "true" : "false")"
                                             data-users="@System.Text.Json.JsonSerializer.Serialize(client.LocalUsers)"
@@ -383,6 +388,11 @@
 
                     <div class="permissions-group">
                         <label class="checkbox-container">
+                            <input type="checkbox" name="startWithWindows" id="modalStartWithWindows" value="true" />
+                            <span class="checkbox-checkmark"></span>
+                            <span class="checkbox-label">Εκκίνηση με τα Windows (Service / Boot)</span>
+                        </label>
+                        <label class="checkbox-container" style="margin-top: 10px;">
                             <input type="checkbox" name="canOperatorViewLogs" id="modalCanOperatorViewLogs" value="true" />
                             <span class="checkbox-checkmark"></span>
                             <span class="checkbox-label">Ο Operator μπορεί να βλέπει Logs</span>
@@ -1434,7 +1444,7 @@
         });
     }
 
-    // Modal Operations from Button Data Attributes
+     // Modal Operations from Button Data Attributes
     function openModalFromBtn(btn) {
         var id = btn.getAttribute("data-id");
         var name = btn.getAttribute("data-name");
@@ -1444,14 +1454,15 @@
         var isUpgradeEnabled = btn.getAttribute("data-upgrade") === "true";
         var canViewLogs = btn.getAttribute("data-viewlogs") === "true";
         var canRunUpdates = btn.getAttribute("data-runupdates") === "true";
+        var startWithWindows = btn.getAttribute("data-startwithwindows") === "true";
         var usersJsonString = btn.getAttribute("data-users");
         var profilesJsonString = btn.getAttribute("data-profiles");
         
-        openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, usersJsonString, profilesJsonString);
+        openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString);
     }
 
     // Modal Operations
-    function openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, usersJsonString, profilesJsonString) {
+    function openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString) {
         document.getElementById("modalTitle").innerText = "⚙️ Διαχείριση Πελάτη: " + name;
         document.getElementById("modalGuid").innerText = guid;
         document.getElementById("modalApiKey").innerText = apiKey;
@@ -1467,6 +1478,7 @@
         document.getElementById("modalIsUpgradeEnabled").checked = isUpgradeEnabled;
         document.getElementById("modalCanOperatorViewLogs").checked = canViewLogs;
         document.getElementById("modalCanOperatorRunUpdates").checked = canRunUpdates;
+        document.getElementById("modalStartWithWindows").checked = startWithWindows;
 
         // Parse and Render Users
         var users = JSON.parse(usersJsonString || "[]");

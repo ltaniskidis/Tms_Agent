@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Data.SqlClient;
+using System.Text.Json;
 using Tms.Agent.Core.Models;
 using Tms.Shared.Models;
 
@@ -28,7 +29,16 @@ namespace Tms.Agent.Core.Services
             _httpClient = httpClient;
         }
 
-        public async Task<UpdateCheckResponse?> CheckForUpdatesAsync(string serverUrl, string clientId, string machineName, string machineRole, string agentVersion, string apiKey, List<LocalProfile> localProfiles)
+        public async Task<UpdateCheckResponse?> CheckForUpdatesAsync(
+            string serverUrl, 
+            string clientId, 
+            string machineName, 
+            string machineRole, 
+            string agentVersion, 
+            string apiKey, 
+            List<LocalProfile> localProfiles,
+            bool startWithWindows,
+            bool forceSyncStartWithWindows = false)
         {
             var url = $"{serverUrl.TrimEnd('/')}/api/updates/check";
             
@@ -70,7 +80,9 @@ namespace Tms.Agent.Core.Services
                     DbUseWindowsAuth = p.DbUseWindowsAuth,
                     ConfigFilePath = p.ConfigFilePath
                 }).ToList(),
-                DiscoveredDatabases = discoveredDbs
+                DiscoveredDatabases = discoveredDbs,
+                StartWithWindows = startWithWindows,
+                ForceSyncStartWithWindows = forceSyncStartWithWindows
             };
 
             try
@@ -170,6 +182,28 @@ namespace Tms.Agent.Core.Services
             }
         }
 
+        public async Task<List<SupportTicketDto>?> GetSupportTicketsAsync(string serverUrl, string apiKey, string clientId)
+        {
+            var url = $"{serverUrl.TrimEnd('/')}/api/updates/support-tickets?apiKey={Uri.EscapeDataString(apiKey)}&clientId={Uri.EscapeDataString(clientId)}";
+
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    return JsonSerializer.Deserialize<List<SupportTicketDto>>(json, options);
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting support tickets: {ex.Message}");
+                return null;
+            }
+        }
+
         // 3. Execute update workflow
         public async Task<bool> RunUpdateAsync(
             string serverUrl, 
@@ -207,7 +241,7 @@ namespace Tms.Agent.Core.Services
                     var dbName = GetDatabaseNameFromConnectionString(resolvedConnStr);
                     
                     // Call CheckForUpdates to verify if this database is still monitored
-                    var checkResp = await CheckForUpdatesAsync(serverUrl, clientId, machineName, "Both", "1.3.2", apiKey, new List<LocalProfile> { profile });
+                    var checkResp = await CheckForUpdatesAsync(serverUrl, clientId, machineName, "Both", "1.3.2", apiKey, new List<LocalProfile> { profile }, false, false);
                     var monitoredDbs = checkResp?.MonitoredDatabaseNames ?? new List<string>();
                     
                     if (!string.IsNullOrEmpty(resolvedConnStr) && !monitoredDbs.Contains(dbName, StringComparer.OrdinalIgnoreCase))

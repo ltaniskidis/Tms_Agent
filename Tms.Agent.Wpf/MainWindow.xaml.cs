@@ -27,10 +27,8 @@ namespace Tms.Agent.Wpf
             vm.UpdateDetected += (companyName, versionNumber) =>
             {
                 _balloonTargetView = "Dashboard";
-                // Show balloon tip notification
                 _notifyIcon?.ShowBalloonTip(3000, "TMS Agent - Νέα Έκδοση", $"Διαθέσιμη νέα έκδοση ({versionNumber}) για την εταιρεία: {companyName}", System.Windows.Forms.ToolTipIcon.Info);
 
-                // Show alert popup
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
                     System.Windows.MessageBox.Show(
@@ -43,12 +41,43 @@ namespace Tms.Agent.Wpf
 
             vm.BroadcastDetected += (title, content) =>
             {
-                _balloonTargetView = "Broadcasts";
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    _notifyIcon?.ShowBalloonTip(5000, $"📢 Νέα Ανακοίνωση: {title}", content, System.Windows.Forms.ToolTipIcon.Info);
+                    var notificationWin = new NotificationWindow(title, content, () =>
+                    {
+                        ShowWindow();
+                        if (DataContext is MainViewModel mainVm)
+                        {
+                            mainVm.CurrentView = "Broadcasts";
+                            mainVm.MarkBroadcastsAsRead();
+                        }
+                    });
+                    notificationWin.Show();
                 });
             };
+
+            vm.SupportTicketUpdated += (subject, description, reply) =>
+            {
+                _balloonTargetView = "Support";
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _notifyIcon?.ShowBalloonTip(5000, $"✉️ Ενημέρωση Αιτήματος Support", $"Θέμα: {subject}\n{description}", System.Windows.Forms.ToolTipIcon.Info);
+                });
+            };
+
+            // Setup periodic check timer (every 2 minutes)
+            var timer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromMinutes(2)
+            };
+            timer.Tick += (s, e) =>
+            {
+                if (vm.CheckUpdatesCommand.CanExecute(null))
+                {
+                    vm.CheckUpdatesCommand.Execute(null);
+                }
+            };
+            timer.Start();
 
             InitializeTrayIcon();
         }
@@ -106,6 +135,9 @@ namespace Tms.Agent.Wpf
                 var contextMenu = new System.Windows.Forms.ContextMenuStrip();
                 contextMenu.Items.Add("Άνοιγμα Πάνελ", null, (s, e) => ShowWindow());
                 contextMenu.Items.Add("Έλεγχος Ενημερώσεων", null, (s, e) => CheckUpdates());
+                contextMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
+                contextMenu.Items.Add("Γράψτε ένα αίτημα support", null, (s, e) => WriteSupportRequest());
+                contextMenu.Items.Add("Εκδόσεις Desktop Προγράμματος", null, (s, e) => ShowDesktopVersions());
                 contextMenu.Items.Add(new System.Windows.Forms.ToolStripSeparator());
                 contextMenu.Items.Add("Έξοδος", null, (s, e) => ExitApplication());
                 
@@ -176,6 +208,35 @@ namespace Tms.Agent.Wpf
             else
             {
                 base.OnClosing(e);
+            }
+        }
+
+        private void WriteSupportRequest()
+        {
+            ShowWindow();
+            if (DataContext is MainViewModel vm)
+            {
+                vm.CurrentView = "Support";
+            }
+        }
+
+        private void ShowDesktopVersions()
+        {
+            if (DataContext is MainViewModel vm)
+            {
+                var summary = "TMS Agent - Εκδόσεις Desktop Προγράμματος:\n\n";
+                if (vm.Profiles != null && vm.Profiles.Any())
+                {
+                    foreach (var p in vm.Profiles)
+                    {
+                        summary += $"• {p.ProfileName}: v{p.CurrentVersion}\n";
+                    }
+                }
+                else
+                {
+                    summary += "Δεν βρέθηκαν καταχωρημένα εταιρικά προφίλ.";
+                }
+                System.Windows.MessageBox.Show(summary, "Εκδόσεις Desktop Προγράμματος", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
     }

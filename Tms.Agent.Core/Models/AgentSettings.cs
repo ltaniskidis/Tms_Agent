@@ -7,5 +7,9 @@ namespace Tms.Agent.Core.Models
         public string ServerUrl { get; set; } = "http://localhost:5007";
         public string MachineRole { get; set; } = "Both"; // SqlServer, Client, Both
         public string ApiKey { get; set; } = string.Empty;
+        public string? SavedUsername { get; set; }
+        public string? SavedPassword { get; set; }
+        public bool RememberMe { get; set; }
+        public bool StartWithWindows { get; set; }
     }
 }

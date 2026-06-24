@@ -47,6 +47,10 @@
                     <tr>
                         <td rowspan="@totalRowsForClient" style="vertical-align: top; border-bottom: 2px solid var(--border-color);">
                             <strong>@client.MachineName</strong>
+                            @if (client.StartWithWindows)
+                            {
+                                <span class="badge" style="font-size: 9px; padding: 2px 4px; background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 4px; vertical-align: middle;">🚀 Boot</span>
+                            }
                             <br />
                             <span style="font-size: 11px; color: var(--text-secondary); font-weight: 500;">🤖 Agent: v@(string.IsNullOrEmpty(client.AgentVersion) ? "1.0.0" : client.AgentVersion)</span>
                             <br />

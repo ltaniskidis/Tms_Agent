@@ -11,14 +11,7 @@ namespace Tms.Agent.Core.Services
 
         public SettingsManager()
         {
-            var appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var appFolder = Path.Combine(appDataPath, "TmsAgent");
-            
-            if (!Directory.Exists(appFolder))
-            {
-                Directory.CreateDirectory(appFolder);
-            }
-
+            var appFolder = PathHelper.GetAgentDataFolder();
             _filePath = Path.Combine(appFolder, "settings.json");
         }
 

@@ -238,7 +238,9 @@ SELECT 4;
                     "Both",
                     "1.5.8",
                     apiKey,
-                    new System.Collections.Generic.List<LocalProfile>()
+                    new System.Collections.Generic.List<LocalProfile>(),
+                    false,
+                    false
                 );
 
                 Assert.NotNull(checkResponse);
@@ -251,6 +253,45 @@ SELECT 4;
                     File.Delete(dummyFile);
                 }
             }
+        }
+
+        [Fact]
+        public async Task Test_GetSupportTicketsAsync()
+        {
+            var serverUrl = "http://localhost:5007";
+            var apiKey = "TMS-KEY-409B441F2E7B4954";
+            var clientId = "test-client-history";
+            var engine = new UpdateEngine();
+
+            // First check-in to associate the client ID
+            await engine.CheckForUpdatesAsync(
+                serverUrl,
+                clientId,
+                "test-machine",
+                "Both",
+                "1.5.16",
+                apiKey,
+                new System.Collections.Generic.List<LocalProfile>(),
+                false,
+                false
+            );
+
+            // Submit a unique test ticket
+            var subject = "Test Ticket " + Guid.NewGuid().ToString();
+            bool sendResult = await engine.SendSupportEmailAsync(
+                serverUrl,
+                apiKey,
+                subject,
+                "Testing support ticket history retrieval.",
+                null
+            );
+            Assert.True(sendResult);
+
+            // Retrieve tickets using the same clientId
+            var tickets = await engine.GetSupportTicketsAsync(serverUrl, apiKey, clientId);
+            Assert.NotNull(tickets);
+            Assert.NotEmpty(tickets);
+            Assert.Contains(tickets, t => t.Subject == subject);
         }
     }
 }

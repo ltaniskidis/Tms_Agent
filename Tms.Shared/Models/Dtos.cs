@@ -12,6 +12,8 @@ namespace Tms.Shared.Models
         public string ApiKey { get; set; } = string.Empty;
         public List<LocalProfileDto> Profiles { get; set; } = new();
         public List<DiscoveredDatabaseDto> DiscoveredDatabases { get; set; } = new();
+        public bool StartWithWindows { get; set; }
+        public bool ForceSyncStartWithWindows { get; set; }
     }
 
     public class DiscoveredDatabaseDto
@@ -52,6 +54,7 @@ namespace Tms.Shared.Models
         public List<AgentUserDto> LocalUsers { get; set; } = new();
         public AgentPermissionsDto Permissions { get; set; } = new();
         public List<BroadcastMessageDto> Broadcasts { get; set; } = new();
+        public bool StartWithWindows { get; set; }
     }
 
     public class ProfileConfigCommandDto
@@ -144,5 +147,17 @@ namespace Tms.Shared.Models
         public string Title { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
         public DateTime CreatedDate { get; set; }
+    }
+
+    public class SupportTicketDto
+    {
+        public int Id { get; set; }
+        public string Subject { get; set; } = string.Empty;
+        public string Body { get; set; } = string.Empty;
+        public DateTime CreatedDate { get; set; }
+        public string Status { get; set; } = "Open";
+        public string? AdminResponse { get; set; }
+        public DateTime? ResponseDate { get; set; }
+        public string? AttachmentFileName { get; set; }
     }
 }

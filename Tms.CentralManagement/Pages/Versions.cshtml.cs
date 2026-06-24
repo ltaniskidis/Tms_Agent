@@ -58,11 +58,14 @@ namespace Tms.CentralManagement.Pages
 
         public async Task OnGetAsync()
         {
-            Versions = await _context.Versions
+            var rawVersions = await _context.Versions
                 .Include(v => v.Scripts)
                 .Include(v => v.ReleaseNotes)
-                .OrderByDescending(v => v.VersionNumber)
                 .ToListAsync();
+
+            Versions = rawVersions
+                .OrderByDescending(v => Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0))
+                .ToList();
         }
 
         public async Task<IActionResult> OnPostAsync()

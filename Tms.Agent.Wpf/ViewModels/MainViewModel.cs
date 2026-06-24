@@ -806,6 +806,26 @@ namespace Tms.Agent.Wpf.ViewModels
                 return;
             }
 
+            // Sync and save local users locally
+            if (response.LocalUsers != null)
+            {
+                try
+                {
+                    var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TmsAgent");
+                    if (!Directory.Exists(appDataPath))
+                    {
+                        Directory.CreateDirectory(appDataPath);
+                    }
+                    var usersFilePath = Path.Combine(appDataPath, "users.json");
+                    var json = JsonSerializer.Serialize(response.LocalUsers, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(usersFilePath, json);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to save local users: {ex.Message}");
+                }
+            }
+
             // Check for version alignment between Server (Console) and Client (Agent)
             if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != AppVersion)
             {

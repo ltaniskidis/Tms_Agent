@@ -90,7 +90,6 @@
     <Grid Margin="30">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -102,21 +101,26 @@
             <TextBlock Text="Πληκτρολογήστε τα στοιχεία σας για είσοδο" FontSize="11" Foreground="#9CA3AF" HorizontalAlignment="Center" Margin="0,2,0,0"/>
         </StackPanel>
 
-        <!-- Error message -->
-        <Border x:Name="ErrorBorder" Grid.Row="1" Background="#2A1414" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,15" Visibility="Collapsed">
-            <TextBlock x:Name="ErrorText" Text="⚠️ Λανθασμένο όνομα ή κωδικός" Foreground="#FCA5A5" FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center"/>
-        </Border>
+        <!-- Scrollable Content -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <StackPanel Margin="0,0,0,15">
+                <!-- Error message -->
+                <Border x:Name="ErrorBorder" Background="#2A1414" BorderBrush="#EF4444" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,15" Visibility="Collapsed">
+                    <TextBlock x:Name="ErrorText" Text="⚠️ Λανθασμένο όνομα ή κωδικός" Foreground="#FCA5A5" FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Center"/>
+                </Border>
 
-        <!-- Fields -->
-        <StackPanel Grid.Row="2" VerticalAlignment="Top">
-            <TextBlock Text="ΟΝΟΜΑ ΧΡΗΣΤΗ" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
-            <TextBox x:Name="UsernameInput" Margin="0,0,0,15" Text="" KeyDown="Input_KeyDown"/>
+                <!-- Fields -->
+                <StackPanel>
+                    <TextBlock Text="ΟΝΟΜΑ ΧΡΗΣΤΗ" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                    <TextBox x:Name="UsernameInput" Margin="0,0,0,15" Text="" KeyDown="Input_KeyDown"/>
 
-            <TextBlock Text="ΚΩΔΙΚΟΣ ΠΡΟΣΒΑΣΗΣ" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
-            <PasswordBox x:Name="PasswordInput" Margin="0,0,0,15" KeyDown="Input_KeyDown"/>
-        </StackPanel>
+                    <TextBlock Text="ΚΩΔΙΚΟΣ ΠΡΟΣΒΑΣΗΣ" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                    <PasswordBox x:Name="PasswordInput" Margin="0,0,0,15" KeyDown="Input_KeyDown"/>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
 
         <!-- Submit Button -->
-        <Button Grid.Row="3" TextBlock.FontSize="14" Content="Σύνδεση" Style="{StaticResource PrimaryButton}" Height="40" Click="LoginButton_Click"/>
+        <Button Grid.Row="2" TextBlock.FontSize="14" Content="Σύνδεση" Style="{StaticResource PrimaryButton}" Height="40" Click="LoginButton_Click"/>
     </Grid>
 </Window>

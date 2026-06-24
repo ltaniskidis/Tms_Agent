@@ -561,6 +561,48 @@ namespace Tms.CentralManagement.Controllers
                 return Unauthorized("Invalid API Key.");
             }
 
+            // Save attachment physical file
+            string? attachmentFileName = null;
+            var sentEmailsDir = Path.Combine(Directory.GetCurrentDirectory(), "SentEmails");
+            if (attachment != null && attachment.Length > 0)
+            {
+                try
+                {
+                    if (!Directory.Exists(sentEmailsDir))
+                    {
+                        Directory.CreateDirectory(sentEmailsDir);
+                    }
+
+                    var uniqueId = Guid.NewGuid().ToString("N");
+                    attachmentFileName = $"{uniqueId}_{Path.GetFileName(attachment.FileName)}";
+                    var targetPath = Path.Combine(sentEmailsDir, attachmentFileName);
+                    using (var fs = new FileStream(targetPath, FileMode.Create))
+                    {
+                        await attachment.CopyToAsync(fs);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error saving attachment: {ex}");
+                }
+            }
+
+            // Create and save Support Ticket entity
+            var ticket = new SupportTicket
+            {
+                ClientGuid = client.ClientGuid,
+                MachineName = client.MachineName,
+                ApiKey = apiKey,
+                Subject = subject,
+                Body = body,
+                CreatedDate = DateTime.UtcNow,
+                AttachmentFileName = attachmentFileName,
+                Status = "Open"
+            };
+
+            _context.SupportTickets.Add(ticket);
+            await _context.SaveChangesAsync();
+
             // Append machine detail info to email body
             var fullBody = $"Στοιχεία Μηχανήματος:\n" +
                            $"Όνομα: {client.MachineName}\n" +
@@ -598,37 +640,25 @@ namespace Tms.CentralManagement.Controllers
                         mail.Subject = mailSubject;
                         mail.Body = fullBody;
 
-                        if (attachment != null && attachment.Length > 0)
+                        if (!string.IsNullOrEmpty(attachmentFileName))
                         {
-                            using (var stream = attachment.OpenReadStream())
+                            var targetPath = Path.Combine(sentEmailsDir, attachmentFileName);
+                            if (System.IO.File.Exists(targetPath))
                             {
-                                var mailAttachment = new System.Net.Mail.Attachment(stream, attachment.FileName);
+                                var mailAttachment = new System.Net.Mail.Attachment(targetPath);
                                 mail.Attachments.Add(mailAttachment);
-
-                                int port = int.TryParse(portStr, out var p) ? p : 587;
-                                bool enableSsl = bool.TryParse(enableSslStr, out var ssl) ? ssl : true;
-
-                                using (var smtp = new System.Net.Mail.SmtpClient(server, port))
-                                {
-                                    smtp.Credentials = new System.Net.NetworkCredential(username, password);
-                                    smtp.EnableSsl = enableSsl;
-                                    await smtp.SendMailAsync(mail);
-                                    emailSent = true;
-                                }
                             }
                         }
-                        else
-                        {
-                            int port = int.TryParse(portStr, out var p) ? p : 587;
-                            bool enableSsl = bool.TryParse(enableSslStr, out var ssl) ? ssl : true;
 
-                            using (var smtp = new System.Net.Mail.SmtpClient(server, port))
-                            {
-                                smtp.Credentials = new System.Net.NetworkCredential(username, password);
-                                smtp.EnableSsl = enableSsl;
-                                await smtp.SendMailAsync(mail);
-                                emailSent = true;
-                            }
+                        int port = int.TryParse(portStr, out var p) ? p : 587;
+                        bool enableSsl = bool.TryParse(enableSslStr, out var ssl) ? ssl : true;
+
+                        using (var smtp = new System.Net.Mail.SmtpClient(server, port))
+                        {
+                            smtp.Credentials = new System.Net.NetworkCredential(username, password);
+                            smtp.EnableSsl = enableSsl;
+                            await smtp.SendMailAsync(mail);
+                            emailSent = true;
                         }
                     }
                 }
@@ -646,29 +676,22 @@ namespace Tms.CentralManagement.Controllers
             {
                 try
                 {
-                    var sentEmailsDir = Path.Combine(Directory.GetCurrentDirectory(), "SentEmails");
                     if (!Directory.Exists(sentEmailsDir))
                     {
                         Directory.CreateDirectory(sentEmailsDir);
                     }
 
                     var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                    var textFile = Path.Combine(sentEmailsDir, $"SupportEmail_{timestamp}.txt");
+                    var textFile = Path.Combine(sentEmailsDir, $"SupportEmail_{ticket.Id}_{timestamp}.txt");
 
                     var fileContent = $"SMTP Error: {smtpError}\n" +
                                       $"To: {string.Join(", ", toAddresses)}\n" +
                                       $"Subject: {mailSubject}\n" +
                                       $"Body:\n{fullBody}\n";
 
-                    if (attachment != null && attachment.Length > 0)
+                    if (!string.IsNullOrEmpty(attachmentFileName))
                     {
-                        fileContent += $"Attachment Name: {attachment.FileName} ({attachment.Length} bytes)\n";
-
-                        var attFile = Path.Combine(sentEmailsDir, $"SupportEmail_{timestamp}_{attachment.FileName}");
-                        using (var fs = new FileStream(attFile, FileMode.Create))
-                        {
-                            await attachment.CopyToAsync(fs);
-                        }
+                        fileContent += $"Attachment Saved Locally As: {attachmentFileName}\n";
                     }
 
                     await System.IO.File.WriteAllTextAsync(textFile, fileContent, System.Text.Encoding.UTF8);

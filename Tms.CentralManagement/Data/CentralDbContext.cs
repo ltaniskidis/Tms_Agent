@@ -21,6 +21,7 @@ namespace Tms.CentralManagement.Data
         public DbSet<AgentUser> AgentUsers { get; set; } = null!;
         public DbSet<AgentPermissions> AgentPermissions { get; set; } = null!;
         public DbSet<BroadcastMessage> BroadcastMessages { get; set; } = null!;
+        public DbSet<SupportTicket> SupportTickets { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -208,5 +209,20 @@ namespace Tms.CentralManagement.Data
         public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
         public bool IsActive { get; set; } = true;
         public string TargetClientApiKey { get; set; } = string.Empty; // empty for all, or specific ApiKey
+    }
+
+    public class SupportTicket
+    {
+        public int Id { get; set; }
+        public string ClientGuid { get; set; } = string.Empty;
+        public string MachineName { get; set; } = string.Empty;
+        public string ApiKey { get; set; } = string.Empty;
+        public string Subject { get; set; } = string.Empty;
+        public string Body { get; set; } = string.Empty;
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public string? AttachmentFileName { get; set; }
+        public string Status { get; set; } = "Open"; // Open, Resolved
+        public string? AdminResponse { get; set; }
+        public DateTime? ResponseDate { get; set; }
     }
 }

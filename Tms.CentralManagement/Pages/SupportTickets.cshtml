@@ -1,0 +1,250 @@
+@page
+@model Tms.CentralManagement.Pages.SupportTicketsModel
+@{
+    ViewData["Title"] = "Διαχείριση Αιτημάτων Support";
+}
+
+<header>
+    <div>
+        <h1>✉️ Διαχείριση Αιτημάτων Support</h1>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Δείτε τα προβλήματα που αναφέρουν οι χρήστες από τους Agents και στείλτε απαντήσεις επίλυσης.</p>
+    </div>
+</header>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div style="background-color: rgba(16, 185, 129, 0.15); border: 1.5px solid var(--success); color: var(--success); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        ✅ @Model.SuccessMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div style="background-color: rgba(239, 68, 68, 0.15); border: 1.5px solid var(--danger); color: var(--danger); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        ❌ @Model.ErrorMessage
+    </div>
+}
+
+<div style="display: flex; gap: 20px; align-items: flex-start;">
+    <!-- Left Column: Tickets List -->
+    <div style="flex: 1.2; min-width: 380px;">
+        <div class="card" style="padding: 15px;">
+            <div class="card-title" style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <span>Λίστα Αιτημάτων</span>
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn btn-outline" id="btnTabOpen" onclick="switchTab('open')" style="padding: 4px 10px; font-size: 11px; background-color: var(--accent); color: white;">Ανοιχτά (@Model.OpenTickets.Count)</button>
+                    <button class="btn btn-outline" id="btnTabResolved" onclick="switchTab('resolved')" style="padding: 4px 10px; font-size: 11px;">Επιλυμένα (@Model.ResolvedTickets.Count)</button>
+                </div>
+            </div>
+
+            <!-- Open Tickets Container -->
+            <div id="containerOpenTickets">
+                @if (!Model.OpenTickets.Any())
+                {
+                    <div style="text-align: center; color: var(--text-secondary); padding: 30px; font-size: 13px;">
+                        Δεν υπάρχουν ανοιχτά αιτήματα support.
+                    </div>
+                }
+                else
+                {
+                    <div style="display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; padding-right: 5px;">
+                        @foreach (var ticket in Model.OpenTickets)
+                        {
+                            <div class="ticket-card" id="ticket-card-@ticket.Id" onclick="selectTicket(@Json.Serialize(ticket))" style="background-color: #12121A; border: 1.5px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
+                                    <span>@ticket.CreatedDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                    <span class="badge badge-danger" style="font-size: 9px; padding: 2px 4px;">OPEN</span>
+                                </div>
+                                <div style="font-weight: bold; font-size: 13px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@ticket.Subject</div>
+                                <div style="font-size: 11px; color: var(--accent);">💻 @ticket.MachineName</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Resolved Tickets Container -->
+            <div id="containerResolvedTickets" style="display: none;">
+                @if (!Model.ResolvedTickets.Any())
+                {
+                    <div style="text-align: center; color: var(--text-secondary); padding: 30px; font-size: 13px;">
+                        Δεν υπάρχουν επιλυμένα αιτήματα support.
+                    </div>
+                }
+                else
+                {
+                    <div style="display: flex; flex-direction: column; gap: 10px; max-height: 500px; overflow-y: auto; padding-right: 5px;">
+                        @foreach (var ticket in Model.ResolvedTickets)
+                        {
+                            <div class="ticket-card" id="ticket-card-@ticket.Id" onclick="selectTicket(@Json.Serialize(ticket))" style="background-color: #12121A; border: 1.5px solid var(--border-color); border-radius: 8px; padding: 12px; cursor: pointer; transition: all 0.2s;">
+                                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px;">
+                                    <span>@ticket.CreatedDate.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</span>
+                                    <span class="badge badge-success" style="font-size: 9px; padding: 2px 4px;">RESOLVED</span>
+                                </div>
+                                <div style="font-weight: bold; font-size: 13px; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">@ticket.Subject</div>
+                                <div style="font-size: 11px; color: var(--text-secondary);">💻 @ticket.MachineName</div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Ticket Details & Response -->
+    <div style="flex: 1.8;">
+        <div class="card" id="detailsCard" style="min-height: 380px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: var(--text-secondary);">
+            <div style="font-size: 40px; margin-bottom: 10px;">✉️</div>
+            <div style="font-size: 14px;">Επιλέξτε ένα αίτημα support από τη λίστα για να δείτε τις λεπτομέρειες και να απαντήσετε.</div>
+        </div>
+
+        <div class="card" id="detailsActiveCard" style="display: none; min-height: 380px;">
+            <!-- Header Info -->
+            <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <h2 id="activeSubject" style="font-size: 18px; color: var(--text-primary); font-weight: bold;">Θέμα Αιτήματος</h2>
+                    <span id="activeStatusBadge" class="badge">OPEN</span>
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; font-size: 12px; color: var(--text-secondary);">
+                    <span>📅 Ημ/νία: <strong id="activeDate" style="color: white;">-</strong></span>
+                    <span>💻 Μηχάνημα: <strong id="activeMachine" style="color: white;">-</strong></span>
+                    <span>🔑 Client Guid: <strong id="activeGuid" style="color: white;">-</strong></span>
+                </div>
+            </div>
+
+            <!-- Body Message -->
+            <div style="margin-bottom: 20px;">
+                <div style="font-size: 11px; font-weight: bold; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 5px;">Μήνυμα Χρήστη:</div>
+                <div id="activeBody" style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 6px; padding: 15px; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; color: #E5E7EB;">
+                    Κείμενο αιτήματος...
+                </div>
+            </div>
+
+            <!-- Attachment File -->
+            <div id="activeAttachmentContainer" style="margin-bottom: 20px; display: none;">
+                <div style="font-size: 11px; font-weight: bold; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 5px;">Συνημμένο Αρχείο:</div>
+                <a id="activeAttachmentLink" href="#" class="btn btn-outline" style="padding: 6px 12px; font-size: 12px; font-weight: 500; display: inline-flex; align-items: center; gap: 8px;">
+                    🖼️ Κατέβασμα Screenshot
+                </a>
+            </div>
+
+            <!-- Response Form (if Open) -->
+            <div id="responseFormContainer" style="margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                <div style="font-size: 11px; font-weight: bold; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 8px;">Απάντηση Τεχνικού (Θα σταλεί με email):</div>
+                <form method="post" asp-page-handler="Reply" id="replyForm">
+                    <input type="hidden" name="id" id="replyTicketId" />
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <textarea name="replyText" class="form-control" style="min-height: 100px; font-size: 13.5px;" placeholder="Γράψτε την απάντησή σας εδώ για την επίλυση του προβλήματος..." required></textarea>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn" style="padding: 8px 18px; font-size: 13px;">✅ Αποστολή Απάντησης &amp; Κλείσιμο</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Already Responded View (if Resolved) -->
+            <div id="responseHistoryContainer" style="margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 15px; display: none;">
+                <div style="font-size: 11px; font-weight: bold; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 5px;">Η Απάντησή σας (Επιλύθηκε στις <span id="activeResponseDate">-</span>):</div>
+                <div id="activeResponse" style="background-color: rgba(16, 185, 129, 0.08); border: 1.5px dashed rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 15px; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; color: #10B981;">
+                    Κείμενο απάντησης διαχειριστή...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function switchTab(tab) {
+            var btnOpen = document.getElementById("btnTabOpen");
+            var btnResolved = document.getElementById("btnTabResolved");
+            var containerOpen = document.getElementById("containerOpenTickets");
+            var containerResolved = document.getElementById("containerResolvedTickets");
+
+            if (tab === 'open') {
+                btnOpen.style.backgroundColor = "var(--accent)";
+                btnOpen.style.color = "white";
+                btnResolved.style.backgroundColor = "transparent";
+                btnResolved.style.color = "var(--text-secondary)";
+                containerOpen.style.display = "block";
+                containerResolved.style.display = "none";
+            } else {
+                btnResolved.style.backgroundColor = "var(--accent)";
+                btnResolved.style.color = "white";
+                btnOpen.style.backgroundColor = "transparent";
+                btnOpen.style.color = "var(--text-secondary)";
+                containerOpen.style.display = "none";
+                containerResolved.style.display = "block";
+            }
+        }
+
+        function selectTicket(ticket) {
+            // Remove active classes from all cards
+            var cards = document.querySelectorAll(".ticket-card");
+            cards.forEach(c => {
+                c.style.borderColor = "var(--border-color)";
+                c.style.backgroundColor = "#12121A";
+            });
+
+            // Highlight selected card
+            var selectedCard = document.getElementById("ticket-card-" + ticket.id);
+            if (selectedCard) {
+                selectedCard.style.borderColor = "var(--accent)";
+                selectedCard.style.backgroundColor = "#1C1C28";
+            }
+
+            // Show active card layout
+            document.getElementById("detailsCard").style.display = "none";
+            document.getElementById("detailsActiveCard").style.display = "block";
+
+            // Fill active details
+            document.getElementById("activeSubject").textContent = ticket.subject;
+            document.getElementById("activeDate").textContent = new Date(ticket.createdDate).toLocaleString('el-GR');
+            document.getElementById("activeMachine").textContent = ticket.machineName;
+            document.getElementById("activeGuid").textContent = ticket.clientGuid;
+            document.getElementById("activeBody").textContent = ticket.body;
+
+            // Handle badge
+            var badge = document.getElementById("activeStatusBadge");
+            badge.textContent = ticket.status.toUpperCase();
+            if (ticket.status === 'Open') {
+                badge.className = "badge badge-danger";
+                document.getElementById("responseFormContainer").style.display = "block";
+                document.getElementById("responseHistoryContainer").style.display = "none";
+                document.getElementById("replyTicketId").value = ticket.id;
+            } else {
+                badge.className = "badge badge-success";
+                document.getElementById("responseFormContainer").style.display = "none";
+                document.getElementById("responseHistoryContainer").style.display = "block";
+                
+                var respDateStr = ticket.responseDate ? new Date(ticket.responseDate).toLocaleString('el-GR') : '-';
+                document.getElementById("activeResponseDate").textContent = respDateStr;
+                document.getElementById("activeResponse").textContent = ticket.adminResponse || '';
+            }
+
+            // Handle Attachment Link
+            var attachmentContainer = document.getElementById("activeAttachmentContainer");
+            if (ticket.attachmentFileName) {
+                attachmentContainer.style.display = "block";
+                var link = document.getElementById("activeAttachmentLink");
+                link.href = "?handler=DownloadAttachment&id=" + ticket.id;
+                
+                // Get clean filename representation for display
+                var originalName = ticket.attachmentFileName;
+                var underscoreIdx = originalName.indexOf('_');
+                if (underscoreIdx > 0 && underscoreIdx < originalName.length - 1) {
+                    originalName = originalName.substring(underscoreIdx + 1);
+                }
+                link.textContent = "🖼️ Κατέβασμα Screenshot (" + originalName + ")";
+            } else {
+                attachmentContainer.style.display = "none";
+            }
+        }
+    </script>
+    <style>
+        .ticket-card:hover {
+            border-color: #4B5563 !important;
+            background-color: #171722 !important;
+        }
+    </style>
+}

@@ -175,6 +175,34 @@ using (var scope = app.Services.CreateScope())
                     }
                 }
             }
+
+            // Check if SupportTickets table exists and create it if missing
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='SupportTickets';";
+                var tableExists = command.ExecuteScalar() != null;
+                if (!tableExists)
+                {
+                    using (var createTableCommand = connection.CreateCommand())
+                    {
+                        createTableCommand.CommandText = @"
+                            CREATE TABLE SupportTickets (
+                                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                ClientGuid TEXT NOT NULL,
+                                MachineName TEXT NOT NULL,
+                                ApiKey TEXT NOT NULL,
+                                Subject TEXT NOT NULL,
+                                Body TEXT NOT NULL,
+                                CreatedDate TEXT NOT NULL,
+                                AttachmentFileName TEXT NULL,
+                                Status TEXT NOT NULL,
+                                AdminResponse TEXT NULL,
+                                ResponseDate TEXT NULL
+                            );";
+                        createTableCommand.ExecuteNonQuery();
+                    }
+                }
+            }
         }
     }
     catch (Exception ex)
@@ -554,6 +582,33 @@ GO
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διεπαφή διαχείρισης και αποστολής διαφημιστικών/ενημερώσεων (Broadcasts) στους Agents." });
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Δυνατότητα καταχώρησης πολλαπλών emails ανά εταιρεία/προφίλ (ClientProfile) για επικοινωνία." });
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Νέα Tabs επικοινωνίας και ενημερώσεων με ένδειξη (🔴) για νέα μη αναγνωσμένα μηνύματα στον Agent." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.10"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.10",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Διαχείριση, Προβολή & Απάντηση σε Αιτήματα Support",
+            BinaryFileUrl = "/packages/app_1.5.10.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Νέα σελίδα «Αιτήματα Support» στην κονσόλα διαχείρισης για προβολή, λήψη screenshot και απάντηση στα tickets." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Αυτόματη αποστολή email απάντησης (με SMTP ή fallback txt αρχείο) προς όλα τα δηλωμένα emails της εταιρείας κατά την επίλυση του ticket." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

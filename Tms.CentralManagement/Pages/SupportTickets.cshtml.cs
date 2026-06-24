@@ -137,13 +137,34 @@ namespace Tms.CentralManagement.Pages
             {
                 try
                 {
-                    var smtpSection = _configuration.GetSection("SmtpSettings");
-                    var server = smtpSection["Server"];
-                    var portStr = smtpSection["Port"];
-                    var username = smtpSection["Username"];
-                    var password = smtpSection["Password"];
-                    var enableSslStr = smtpSection["EnableSsl"];
-                    var sender = smtpSection["Sender"];
+                    var dbSetting = await _context.SmtpSettings.FirstOrDefaultAsync();
+                    
+                    string? server;
+                    string? portStr;
+                    string? username;
+                    string? password;
+                    string? enableSslStr;
+                    string? sender;
+
+                    if (dbSetting != null)
+                    {
+                        server = dbSetting.Server;
+                        portStr = dbSetting.Port.ToString();
+                        username = dbSetting.Username;
+                        password = dbSetting.Password;
+                        enableSslStr = dbSetting.EnableSsl.ToString();
+                        sender = dbSetting.Sender;
+                    }
+                    else
+                    {
+                        var smtpSection = _configuration.GetSection("SmtpSettings");
+                        server = smtpSection["Server"];
+                        portStr = smtpSection["Port"];
+                        username = smtpSection["Username"];
+                        password = smtpSection["Password"];
+                        enableSslStr = smtpSection["EnableSsl"];
+                        sender = smtpSection["Sender"];
+                    }
 
                     if (!string.IsNullOrEmpty(server) && !string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
                     {

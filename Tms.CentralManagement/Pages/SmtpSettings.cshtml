@@ -1,0 +1,86 @@
+@page
+@model Tms.CentralManagement.Pages.SmtpSettingsModel
+@{
+    ViewData["Title"] = "Ρυθμίσεις SMTP";
+}
+
+<header>
+    <div>
+        <h1>⚙️ Ρυθμίσεις SMTP</h1>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">
+            Διαχειριστείτε τις ρυθμίσεις διακομιστή εξερχόμενης αλληλογραφίας (SMTP) για την αποστολή email υποστήριξης.
+        </p>
+    </div>
+</header>
+
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div style="background-color: rgba(16, 185, 129, 0.15); border: 1.5px solid var(--success); color: var(--success); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        ✅ @Model.SuccessMessage
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div style="background-color: rgba(239, 68, 68, 0.15); border: 1.5px solid var(--danger); color: var(--danger); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        ❌ @Model.ErrorMessage
+    </div>
+}
+
+<div style="max-width: 700px;">
+    <div class="card" style="padding: 25px;">
+        <div class="card-title" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+            <span>Ρυθμίσεις SMTP Διακομιστή</span>
+            @if (Model.IsLoadedFromDb)
+            {
+                <span class="badge badge-success" style="background-color: var(--success); font-size: 11px;">Από Βάση Δεδομένων</span>
+            }
+            else
+            {
+                <span class="badge badge-secondary" style="font-size: 11px;">Προεπιλογή (appsettings.json)</span>
+            }
+        </div>
+
+        <form method="post">
+            <div class="form-group">
+                <label>SMTP Server (Διακομιστής)</label>
+                <input type="text" asp-for="SmtpSetting.Server" class="form-control" placeholder="π.χ. mail.cleverdata.gr" required />
+            </div>
+
+            <div class="form-group">
+                <label>Port (Θύρα)</label>
+                <input type="number" asp-for="SmtpSetting.Port" class="form-control" placeholder="π.χ. 587" required />
+            </div>
+
+            <div class="form-group">
+                <label>Όνομα Χρήστη (Username)</label>
+                <input type="text" asp-for="SmtpSetting.Username" class="form-control" placeholder="π.χ. support@cleverdata.gr" required />
+            </div>
+
+            <div class="form-group">
+                <label>Κωδικός Πρόσβασης (Password)</label>
+                <input type="password" asp-for="SmtpSetting.Password" class="form-control" placeholder="Κωδικός SMTP" required value="@Model.SmtpSetting.Password" />
+                <p style="color: var(--text-secondary); font-size: 11px; margin-top: 4px;">
+                    Σημείωση: Ο κωδικός αποθηκεύεται με ασφάλεια στη βάση δεδομένων της κονσόλας.
+                </p>
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; margin-bottom: 15px;">
+                <input type="checkbox" asp-for="SmtpSetting.EnableSsl" id="enableSslCheckbox" style="width: 18px; height: 18px; cursor: pointer;" />
+                <label for="enableSslCheckbox" style="margin-bottom: 0; cursor: pointer; user-select: none;">
+                    Ενεργοποίηση SSL / TLS (Συνιστάται)
+                </label>
+            </div>
+
+            <div class="form-group">
+                <label>Email Αποστολέα (Sender Email)</label>
+                <input type="email" asp-for="SmtpSetting.Sender" class="form-control" placeholder="π.χ. support@cleverdata.gr" required />
+            </div>
+
+            <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px;">
+                <a href="/Index" class="btn btn-outline" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Ακύρωση</a>
+                <button type="submit" class="btn">💾 Αποθήκευση Ρυθμίσεων</button>
+            </div>
+        </form>
+    </div>
+</div>

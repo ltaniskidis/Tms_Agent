@@ -203,6 +203,30 @@ using (var scope = app.Services.CreateScope())
                     }
                 }
             }
+
+            // Check if SmtpSettings table exists and create it if missing
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='SmtpSettings';";
+                var tableExists = command.ExecuteScalar() != null;
+                if (!tableExists)
+                {
+                    using (var createTableCommand = connection.CreateCommand())
+                    {
+                        createTableCommand.CommandText = @"
+                            CREATE TABLE SmtpSettings (
+                                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                Server TEXT NOT NULL,
+                                Port INTEGER NOT NULL,
+                                Username TEXT NOT NULL,
+                                Password TEXT NOT NULL,
+                                EnableSsl INTEGER NOT NULL DEFAULT 1,
+                                Sender TEXT NOT NULL
+                            );";
+                        createTableCommand.ExecuteNonQuery();
+                    }
+                }
+            }
         }
     }
     catch (Exception ex)
@@ -624,6 +648,33 @@ GO
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Νέα σελίδα «Αιτήματα Support» στην κονσόλα διαχείρισης για προβολή, λήψη screenshot και απάντηση στα tickets." });
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Αυτόματη αποστολή email απάντησης (με SMTP ή fallback txt αρχείο) προς όλα τα δηλωμένα emails της εταιρείας κατά την επίλυση του ticket." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.11"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.11",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Ρυθμίσεις SMTP στην κονσόλα & Popups ενημερώσεων στον Agent",
+            BinaryFileUrl = "/packages/app_1.5.11.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Νέα σελίδα «Ρυθμίσεις SMTP» στην κονσόλα για εύκολη διαχείριση της αλληλογραφίας μέσω βάσης." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Άμεση popup ειδοποίηση (MessageBox) στον χρήστη όταν λαμβάνει νέα γενική ενημέρωση κατά το check-in." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

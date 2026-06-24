@@ -22,6 +22,7 @@ namespace Tms.CentralManagement.Data
         public DbSet<AgentPermissions> AgentPermissions { get; set; } = null!;
         public DbSet<BroadcastMessage> BroadcastMessages { get; set; } = null!;
         public DbSet<SupportTicket> SupportTickets { get; set; } = null!;
+        public DbSet<SmtpSetting> SmtpSettings { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -224,5 +225,16 @@ namespace Tms.CentralManagement.Data
         public string Status { get; set; } = "Open"; // Open, Resolved
         public string? AdminResponse { get; set; }
         public DateTime? ResponseDate { get; set; }
+    }
+
+    public class SmtpSetting
+    {
+        public int Id { get; set; }
+        public string Server { get; set; } = string.Empty;
+        public int Port { get; set; } = 587;
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public bool EnableSsl { get; set; } = true;
+        public string Sender { get; set; } = string.Empty;
     }
 }

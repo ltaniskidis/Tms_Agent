@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.10";
+        public string AppVersion => "1.5.11";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings
@@ -1166,8 +1166,24 @@ namespace Tms.Agent.Wpf.ViewModels
                     // Ignore
                 }
 
-                bool hasUnread = response.Broadcasts.Any(b => !seenIds.Contains(b.Id));
+                var newBroadcasts = response.Broadcasts.Where(b => !seenIds.Contains(b.Id)).ToList();
+                bool hasUnread = newBroadcasts.Any();
                 HasUnreadBroadcasts = hasUnread;
+
+                if (hasUnread)
+                {
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        foreach (var newB in newBroadcasts)
+                        {
+                            System.Windows.MessageBox.Show(
+                                $"{newB.Content}",
+                                $"📢 Νέα Ανακοίνωση: {newB.Title}",
+                                System.Windows.MessageBoxButton.OK,
+                                System.Windows.MessageBoxImage.Information);
+                        }
+                    });
+                }
             }
         }
 

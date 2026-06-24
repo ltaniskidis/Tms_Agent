@@ -223,18 +223,33 @@ using (var scope = app.Services.CreateScope())
                         ver.AffectedSystemComponent = "Both";
                     }
                 }
-                
-                // Ensure 1.5.0 is marked as Current, and others are not
-                if (ver.VersionNumber == "1.5.0")
-                {
-                    ver.IsCurrent = true;
-                }
-                else
-                {
-                    ver.IsCurrent = false;
-                }
             }
             context.SaveChanges();
+
+            // Ensure the latest system version in the database is marked as Current
+            var latestSystemVersion = context.Versions
+                .Where(v => v.TargetType == "System")
+                .AsEnumerable()
+                .OrderByDescending(v => Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0))
+                .FirstOrDefault();
+
+            if (latestSystemVersion != null && !latestSystemVersion.IsCurrent)
+            {
+                var allSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+                foreach (var v in allSystemVersions)
+                {
+                    v.IsCurrent = (v.Id == latestSystemVersion.Id);
+                }
+                context.SaveChanges();
+            }
+
+            // Update 1.5.10 description to reflect that it targets both Server & Client
+            var v10 = context.Versions.FirstOrDefault(v => v.VersionNumber == "1.5.10");
+            if (v10 != null && v10.Description.Contains("Αφορά: Server -"))
+            {
+                v10.Description = "Αφορά: Server & Client - Διαχείριση, Προβολή & Απάντηση σε Αιτήματα Support";
+                context.SaveChanges();
+            }
 
             // Seed versions incrementally if they don't exist
             bool hasChanges = false;
@@ -600,7 +615,7 @@ GO
         {
             VersionNumber = "1.5.10",
             ReleaseDate = DateTime.UtcNow,
-            Description = "Αφορά: Server - Διαχείριση, Προβολή & Απάντηση σε Αιτήματα Support",
+            Description = "Αφορά: Server & Client - Διαχείριση, Προβολή & Απάντηση σε Αιτήματα Support",
             BinaryFileUrl = "/packages/app_1.5.10.zip",
             SecurityCode = "clever2026",
             IsActive = true,

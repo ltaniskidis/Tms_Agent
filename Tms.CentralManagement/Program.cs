@@ -680,6 +680,33 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.12"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.12",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Ειδοποιήσεις Tray (Balloon Tips) στον Agent για ανακοινώσεις",
+            BinaryFileUrl = "/packages/app_1.5.12.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Εμφάνιση ειδοποίησης (Balloon Tip) από το system tray όταν υπάρχει νέα ανακοίνωση." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αυτόματη εστίαση και άνοιγμα της καρτέλας «Ενημερώσεις & Νέα» κατά το κλικ στην ειδοποίηση του tray." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

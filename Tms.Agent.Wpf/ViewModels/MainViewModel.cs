@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.11";
+        public string AppVersion => "1.5.12";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings
@@ -380,6 +380,7 @@ namespace Tms.Agent.Wpf.ViewModels
 
         // Events
         public event Action<string, string>? UpdateDetected;
+        public event Action<string, string>? BroadcastDetected;
 
         // Local User Management
         public ObservableCollection<AgentUserDto> LocalUsersList { get; } = new();
@@ -1172,17 +1173,10 @@ namespace Tms.Agent.Wpf.ViewModels
 
                 if (hasUnread)
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    foreach (var newB in newBroadcasts)
                     {
-                        foreach (var newB in newBroadcasts)
-                        {
-                            System.Windows.MessageBox.Show(
-                                $"{newB.Content}",
-                                $"📢 Νέα Ανακοίνωση: {newB.Title}",
-                                System.Windows.MessageBoxButton.OK,
-                                System.Windows.MessageBoxImage.Information);
-                        }
-                    });
+                        BroadcastDetected?.Invoke(newB.Title, newB.Content);
+                    }
                 }
             }
         }

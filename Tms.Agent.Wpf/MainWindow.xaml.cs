@@ -11,6 +11,7 @@ namespace Tms.Agent.Wpf
     {
         private System.Windows.Forms.NotifyIcon? _notifyIcon;
         private bool _isExiting = false;
+        private string _balloonTargetView = string.Empty;
 
         public MainWindow()
         {
@@ -25,6 +26,7 @@ namespace Tms.Agent.Wpf
 
             vm.UpdateDetected += (companyName, versionNumber) =>
             {
+                _balloonTargetView = "Dashboard";
                 // Show balloon tip notification
                 _notifyIcon?.ShowBalloonTip(3000, "TMS Agent - Νέα Έκδοση", $"Διαθέσιμη νέα έκδοση ({versionNumber}) για την εταιρεία: {companyName}", System.Windows.Forms.ToolTipIcon.Info);
 
@@ -36,6 +38,15 @@ namespace Tms.Agent.Wpf
                         "Διαθέσιμη Ενημέρωση",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
+                });
+            };
+
+            vm.BroadcastDetected += (title, content) =>
+            {
+                _balloonTargetView = "Broadcasts";
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _notifyIcon?.ShowBalloonTip(5000, $"📢 Νέα Ανακοίνωση: {title}", content, System.Windows.Forms.ToolTipIcon.Info);
                 });
             };
 
@@ -75,6 +86,22 @@ namespace Tms.Agent.Wpf
                 };
 
                 _notifyIcon.DoubleClick += (s, e) => ShowWindow();
+                
+                _notifyIcon.BalloonTipClicked += (s, e) => 
+                {
+                    ShowWindow();
+                    if (DataContext is MainViewModel vm)
+                    {
+                        if (!string.IsNullOrEmpty(_balloonTargetView))
+                        {
+                            vm.CurrentView = _balloonTargetView;
+                            if (_balloonTargetView == "Broadcasts")
+                            {
+                                vm.MarkBroadcastsAsRead();
+                            }
+                        }
+                    }
+                };
 
                 var contextMenu = new System.Windows.Forms.ContextMenuStrip();
                 contextMenu.Items.Add("Άνοιγμα Πάνελ", null, (s, e) => ShowWindow());

@@ -1,0 +1,139 @@
+@page
+@model Tms.CentralManagement.Pages.LoginModel
+@{
+    ViewData["Title"] = "Σύνδεση";
+}
+
+<div class="login-wrapper">
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo-icon">🔒</div>
+            <div class="logo-title">TMS CENTRAL</div>
+            <div class="logo-sub">Κεντρική Διαχείριση Αναβαθμίσεων</div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+        {
+            <div class="alert alert-danger">
+                <span>⚠️</span> @Model.ErrorMessage
+            </div>
+        }
+
+        <form method="post">
+            <div class="form-group">
+                <label for="username">Όνομα Χρήστη</label>
+                <input type="text" id="username" name="Username" class="form-control" placeholder="Εισάγετε όνομα χρήστη" required autofocus />
+            </div>
+
+            <div class="form-group">
+                <label for="password">Κωδικός Πρόσβασης</label>
+                <input type="password" id="password" name="Password" class="form-control" placeholder="Εισάγετε κωδικό" required />
+            </div>
+
+            <button type="submit" class="btn btn-login">
+                <span>🔑</span> Είσοδος στο Σύστημα
+            </button>
+        </form>
+    </div>
+</div>
+
+<style>
+    .login-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: calc(100vh - 80px);
+        width: 100%;
+    }
+
+    .login-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 40px;
+        width: 100%;
+        max-width: 420px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(8px);
+    }
+
+    .login-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .logo-icon {
+        font-size: 40px;
+        margin-bottom: 12px;
+    }
+
+    .login-card .logo-title {
+        font-size: 24px;
+        font-weight: 800;
+        letter-spacing: 1.5px;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+    }
+
+    .login-card .logo-sub {
+        font-size: 12px;
+        color: var(--accent);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .alert {
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .alert-danger {
+        background-color: rgba(239, 68, 68, 0.1);
+        border: 1px solid var(--danger);
+        color: #FCA5A5;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .form-control {
+        background-color: #0F0F15;
+        border: 1.5px solid var(--border-color);
+        border-radius: 8px;
+        padding: 12px 14px;
+        font-size: 14px;
+        transition: all 0.2s ease;
+    }
+
+    .form-control:focus {
+        border-color: var(--accent);
+        background-color: #12121B;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    }
+
+    .btn-login {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 15px;
+        gap: 8px;
+        margin-top: 10px;
+    }
+</style>

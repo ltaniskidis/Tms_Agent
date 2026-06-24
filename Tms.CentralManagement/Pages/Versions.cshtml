@@ -1,0 +1,334 @@
+@page
+@model Tms.CentralManagement.Pages.VersionsModel
+@{
+    ViewData["Title"] = "Διαχείριση Εκδόσεων";
+    var programVersions = Model.Versions.Where(v => v.TargetType == "Program").ToList();
+    var systemVersions = Model.Versions.Where(v => v.TargetType == "System" || string.IsNullOrEmpty(v.TargetType)).ToList();
+}
+
+<header>
+    <div>
+        <h1>📦 Διαχείριση Εκδόσεων</h1>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Καταχωρήστε νέες εκδόσεις, release notes και SQL scripts αναβάθμισης.</p>
+    </div>
+</header>
+
+<!-- Tabs Navigation -->
+<div class="tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
+    <button class="tab-btn active" id="btn-program" onclick="switchTab('program')" style="background: none; border: none; color: var(--accent); font-weight: bold; cursor: pointer; padding: 10px 20px; border-bottom: 2px solid var(--accent); font-size: 14px; transition: all 0.2s;">
+        📦 Ενημερώσεις Desktop Προγράμματος (@programVersions.Count)
+    </button>
+    <button class="tab-btn" id="btn-system" onclick="switchTab('system')" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 10px 20px; border-bottom: 2px solid transparent; font-size: 14px; transition: all 0.2s;">
+        🖥️ Εκδόσεις Συστήματος - Console &amp; Agents (@systemVersions.Count)
+    </button>
+</div>
+
+<div style="display: flex; gap: 20px;">
+    <!-- Versions List -->
+    <div style="flex: 1.2;">
+        <div class="card">
+            <!-- Program Versions Container -->
+            <div id="program-versions-list">
+                <div class="card-title" style="margin-bottom: 15px;">
+                    <span>Εκδόσεις Desktop Εφαρμογής (TMS App)</span>
+                </div>
+
+                @if (!programVersions.Any())
+                {
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary); font-style: italic;">
+                        Δεν υπάρχουν καταχωρημένες εκδόσεις προγράμματος. Χρησιμοποιήστε τη φόρμα στα δεξιά για να προσθέσετε μία.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var version in programVersions)
+                    {
+                        <div style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <span style="font-size: 16px; font-weight: bold; color: var(--text-primary);">v @version.VersionNumber</span>
+                                    <span style="font-size: 12px; color: var(--text-secondary); margin-left: 10px;">@version.ReleaseDate.ToString("dd/MM/yyyy HH:mm")</span>
+                                    @if (!string.IsNullOrEmpty(version.SecurityCode))
+                                    {
+                                        <span style="font-size: 11px; background-color: #312E81; color: #E0E7FF; padding: 2px 6px; border-radius: 4px; margin-left: 10px;">🔑 Κωδικός: @version.SecurityCode</span>
+                                    }
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <form method="post" asp-page-handler="Toggle" asp-route-id="@version.Id" style="display: inline;">
+                                        <button class="btn btn-outline @(version.IsActive ? "" : "btn-danger")" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                            @(version.IsActive ? "🔒 Απενεργοποίηση" : "🔓 Ενεργοποίηση")
+                                        </button>
+                                    </form>
+                                    <form method="post" asp-page-handler="Delete" asp-route-id="@version.Id" style="display: inline;" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την έκδοση;');">
+                                        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                            🗑️ Διαγραφή
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; font-style: italic;">
+                                @version.Description
+                            </p>
+
+                            <!-- Release Notes -->
+                            <div style="margin-bottom: 10px;">
+                                <strong style="font-size: 12px; color: var(--accent); display: block; margin-bottom: 4px;">Release Notes:</strong>
+                                <ul style="margin-left: 20px; font-size: 12px; color: #D1D5DB;">
+                                    @foreach (var note in version.ReleaseNotes)
+                                    {
+                                        <li>@note.NotesContent</li>
+                                    }
+                                </ul>
+                            </div>
+
+                            <!-- Scripts -->
+                            @if (version.Scripts.Any())
+                            {
+                                <div>
+                                    <strong style="font-size: 12px; color: var(--success); display: block; margin-bottom: 4px;">SQL Scripts:</strong>
+                                    <ul style="margin-left: 20px; font-size: 12px; color: #D1D5DB; font-family: monospace;">
+                                        @foreach (var script in version.Scripts)
+                                        {
+                                            <li>@script.ScriptName (Sequence: @script.SequenceOrder)</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+
+            <!-- System Versions Container -->
+            <div id="system-versions-list" style="display: none;">
+                <div class="card-title" style="margin-bottom: 15px;">
+                    <span>Εσωτερικές Εκδόσεις Συστήματος (Console &amp; Agents)</span>
+                </div>
+
+                @if (!systemVersions.Any())
+                {
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary); font-style: italic;">
+                        Δεν υπάρχουν καταχωρημένες εκδόσεις συστήματος. Χρησιμοποιήστε τη φόρμα στα δεξιά για να προσθέσετε μία.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var version in systemVersions)
+                    {
+                        <div style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <span style="font-size: 16px; font-weight: bold; color: var(--success);">v @version.VersionNumber</span>
+                                    <span style="font-size: 12px; color: var(--text-secondary); margin-left: 10px;">@version.ReleaseDate.ToString("dd/MM/yyyy HH:mm")</span>
+                                    <span class="badge badge-success" style="font-size: 10px; margin-left: 10px;">Σύστημα</span>
+                                    
+                                    @if (version.IsCurrent)
+                                    {
+                                        <span class="badge badge-warning" style="font-size: 10px; margin-left: 5px; background-color: var(--warning); color: #000; font-weight: bold;">⭐ Τρέχουσα Έκδοση</span>
+                                    }
+
+                                    @if (version.AffectedSystemComponent == "Console")
+                                    {
+                                        <span class="badge" style="font-size: 10px; margin-left: 5px; background-color: rgba(99, 102, 241, 0.15); color: #818CF8; border: 1px solid rgba(99, 102, 241, 0.3);">🖥️ Κονσόλα</span>
+                                    }
+                                    else if (version.AffectedSystemComponent == "Agent")
+                                    {
+                                        <span class="badge" style="font-size: 10px; margin-left: 5px; background-color: rgba(6, 182, 212, 0.15); color: #22D3EE; border: 1px solid rgba(6, 182, 212, 0.3);">🤖 Agent</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge" style="font-size: 10px; margin-left: 5px; background-color: rgba(16, 185, 129, 0.15); color: #34D399; border: 1px solid rgba(16, 185, 129, 0.3);">🖥️ &amp; 🤖 Κονσόλα &amp; Agent</span>
+                                    }
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    @if (!version.IsCurrent)
+                                    {
+                                        <form method="post" asp-page-handler="SetCurrent" asp-route-id="@version.Id" style="display: inline;">
+                                            <button class="btn btn-outline" style="padding: 4px 10px; font-size: 12px; border-color: var(--warning); color: var(--warning);" type="submit" title="Ορισμός αυτής της έκδοσης ως τρέχουσα έκδοση συστήματος">
+                                                ⭐ Ορισμός ως Τρέχουσα
+                                            </button>
+                                        </form>
+                                    }
+                                    <form method="post" asp-page-handler="Toggle" asp-route-id="@version.Id" style="display: inline;">
+                                        <button class="btn btn-outline @(version.IsActive ? "" : "btn-danger")" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                            @(version.IsActive ? "🔒 Απενεργοποίηση" : "🔓 Ενεργοποίηση")
+                                        </button>
+                                    </form>
+                                    <form method="post" asp-page-handler="Delete" asp-route-id="@version.Id" style="display: inline;" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την έκδοση;');">
+                                        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                            🗑️ Διαγραφή
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; font-style: italic;">
+                                @version.Description
+                            </p>
+
+                            <!-- Release Notes -->
+                            <div style="margin-bottom: 10px;">
+                                <strong style="font-size: 12px; color: var(--accent); display: block; margin-bottom: 4px;">Changelog / Release Notes:</strong>
+                                <ul style="margin-left: 20px; font-size: 12px; color: #D1D5DB;">
+                                    @foreach (var note in version.ReleaseNotes)
+                                    {
+                                        <li>@note.NotesContent</li>
+                                    }
+                                </ul>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Version Form -->
+    <div style="flex: 0.8;">
+        <div class="card">
+            <div class="card-title">
+                <span id="form-title">Νέα Έκδοση Προγράμματος</span>
+            </div>
+
+            <form method="post" enctype="multipart/form-data">
+                <div asp-validation-summary="ModelOnly" style="color: var(--danger); font-size: 13px; margin-bottom: 15px;"></div>
+
+                <div class="form-group">
+                    <label for="TargetTypeSelect">Τύπος Έκδοσης:</label>
+                    <select id="TargetTypeSelect" asp-for="TargetType" class="form-control" onchange="toggleSqlSection(this.value)">
+                        <option value="Program">📦 Ενημέρωση Desktop Προγράμματος (TMS)</option>
+                        <option value="System">🖥️ Έκδοση Συστήματος (Console / Agent)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="affected-component-group" style="display: none;">
+                    <label for="AffectedSystemComponent">Εξάρτημα Συστήματος που επηρεάζει:</label>
+                    <select asp-for="AffectedSystemComponent" class="form-control">
+                        <option value="Both">🖥️ &amp; 🤖 Κονσόλα &amp; Agent (Και τα δύο)</option>
+                        <option value="Console">🖥️ Μόνο Κονσόλα (Server)</option>
+                        <option value="Agent">🤖 Μόνο Agent (Client)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="is-current-group" style="display: none; align-items: center; gap: 8px; margin-bottom: 15px;">
+                    <input asp-for="IsCurrent" type="checkbox" id="IsCurrentCheckbox" style="width: 18px; height: 18px; cursor: pointer;" />
+                    <label for="IsCurrentCheckbox" style="display: inline; margin-bottom: 0; cursor: pointer; color: var(--warning); font-weight: 500;">⭐ Ορισμός ως Τρέχουσα Έκδοση Συστήματος</label>
+                </div>
+
+                <div class="form-group">
+                    <label for="VersionNumber">Αριθμός Έκδοσης (π.χ. 1.3.2):</label>
+                    <input asp-for="VersionNumber" class="form-control" placeholder="1.3.2" required />
+                    <span asp-validation-for="VersionNumber" style="color: var(--danger); font-size: 11px;"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="Description">Σύντομη Περιγραφή:</label>
+                    <input asp-for="Description" class="form-control" placeholder="Ενημέρωση διορθώσεων / νέων λειτουργιών" />
+                </div>
+
+                <div class="form-group">
+                    <label for="UploadedPackage">Αρχείο ZIP Αναβάθμισης (Προαιρετικό):</label>
+                    <input asp-for="UploadedPackage" type="file" class="form-control" accept=".zip" />
+                </div>
+
+                <div class="form-group">
+                    <label for="BinaryFileUrl">Εναλλακτικό URL Λήψης (Προαιρετικό):</label>
+                    <input asp-for="BinaryFileUrl" class="form-control" placeholder="/packages/app_1.3.2.zip" />
+                </div>
+
+                <div class="form-group" id="security-code-group">
+                    <label for="SecurityCode">Κωδικός Έγκρισης / Ασφαλείας (Προαιρετικό):</label>
+                    <input asp-for="SecurityCode" class="form-control" placeholder="π.χ. clever2026" />
+                </div>
+
+                <div class="form-group">
+                    <label for="ReleaseNotesText">Σημειώσεις Έκδοσης (Release Notes) - Μία ανά γραμμή:</label>
+                    <textarea asp-for="ReleaseNotesText" class="form-control" style="height: 100px;" placeholder="1. Προσθήκη νέας φόρμας&#10;2. Διόρθωση σφάλματος εκτύπωσης"></textarea>
+                </div>
+
+                <div id="sql-script-section" style="border-top: 1px solid var(--border-color); margin: 20px 0; padding-top: 15px;">
+                    <h3 style="font-size: 14px; color: var(--success); margin-bottom: 10px;">SQL Script Αναβάθμισης (Προαιρετικό)</h3>
+                    
+                    <div class="form-group">
+                        <label for="ScriptName">Όνομα SQL Αρχείου:</label>
+                        <input asp-for="ScriptName" class="form-control" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="UploadedScriptsFile">Ή Ανέβασμα Αρχείου SQL/TXT με Scripts (Μαζικό):</label>
+                        <input asp-for="UploadedScriptsFile" type="file" class="form-control" accept=".txt,.sql" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ScriptContent">Περιεχόμενο SQL Script:</label>
+                        <textarea asp-for="ScriptContent" class="form-control" style="height: 150px; font-family: monospace;" placeholder="-- Γράψτε το SQL script εδώ&#10;ALTER TABLE [dbo].[Customers] ADD [Notes] NVARCHAR(MAX) NULL;&#10;GO"></textarea>
+                    </div>
+                </div>
+
+                <button class="btn" style="width: 100%; margin-top: 10px;" type="submit">💾 Αποθήκευση &amp; Δημοσίευση</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(tabName) {
+        // Show/hide lists
+        document.getElementById('program-versions-list').style.display = tabName === 'program' ? 'block' : 'none';
+        document.getElementById('system-versions-list').style.display = tabName === 'system' ? 'block' : 'none';
+        
+        // Update button styles
+        const btnProgram = document.getElementById('btn-program');
+        const btnSystem = document.getElementById('btn-system');
+        
+        if (tabName === 'program') {
+            btnProgram.classList.add('active');
+            btnProgram.style.color = 'var(--accent)';
+            btnProgram.style.borderBottom = '2px solid var(--accent)';
+            btnProgram.style.fontWeight = 'bold';
+            
+            btnSystem.classList.remove('active');
+            btnSystem.style.color = 'var(--text-secondary)';
+            btnSystem.style.borderBottom = '2px solid transparent';
+            btnSystem.style.fontWeight = 'normal';
+            
+            document.getElementById('form-title').innerText = 'Νέα Έκδοση Προγράμματος';
+            document.getElementById('TargetTypeSelect').value = 'Program';
+            toggleSqlSection('Program');
+        } else {
+            btnSystem.classList.add('active');
+            btnSystem.style.color = 'var(--accent)';
+            btnSystem.style.borderBottom = '2px solid var(--accent)';
+            btnSystem.style.fontWeight = 'bold';
+            
+            btnProgram.classList.remove('active');
+            btnProgram.style.color = 'var(--text-secondary)';
+            btnProgram.style.borderBottom = '2px solid transparent';
+            btnProgram.style.fontWeight = 'normal';
+            
+            document.getElementById('form-title').innerText = 'Νέα Έκδοση Συστήματος (Console / Agent)';
+            document.getElementById('TargetTypeSelect').value = 'System';
+            toggleSqlSection('System');
+        }
+    }
+
+    function toggleSqlSection(val) {
+        const sqlSection = document.getElementById('sql-script-section');
+        const securityCodeGroup = document.getElementById('security-code-group');
+        const affectedComponentGroup = document.getElementById('affected-component-group');
+        const isCurrentGroup = document.getElementById('is-current-group');
+        
+        if (val === 'Program') {
+            sqlSection.style.display = 'block';
+            securityCodeGroup.style.display = 'block';
+            if (affectedComponentGroup) affectedComponentGroup.style.display = 'none';
+            if (isCurrentGroup) isCurrentGroup.style.display = 'none';
+        } else {
+            sqlSection.style.display = 'none';
+            securityCodeGroup.style.display = 'none';
+            if (affectedComponentGroup) affectedComponentGroup.style.display = 'block';
+            if (isCurrentGroup) isCurrentGroup.style.display = 'flex';
+        }
+    }
+</script>

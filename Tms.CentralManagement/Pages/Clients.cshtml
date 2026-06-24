@@ -1,0 +1,1947 @@
+@page
+@model Tms.CentralManagement.Pages.ClientsModel
+@{
+    ViewData["Title"] = "Διαχείριση Πελατών";
+
+    string GetProfileDbName(Tms.CentralManagement.Data.ClientProfile p)
+    {
+        if (p.ConnectionStringType == "Builder")
+        {
+            return !string.IsNullOrWhiteSpace(p.DbName) ? p.DbName : "Builder";
+        }
+        else if (p.ConnectionStringType == "ConfigFile")
+        {
+            return "Config File";
+        }
+        else // Direct
+        {
+            if (string.IsNullOrWhiteSpace(p.ConnectionString)) return "";
+            var connStr = p.ConnectionString;
+            var match = System.Text.RegularExpressions.Regex.Match(connStr, @"(?:Database|Initial\s+Catalog|Db)\s*=\s*([^;]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return match.Success ? match.Groups[1].Value.Trim() : "Direct Conn";
+        }
+    }
+
+    // Calculate statistics
+    var totalMachines = Model.Clients.Count;
+    var totalCompanies = Model.Clients
+        .SelectMany(c => c.Profiles.Where(p => !p.IsPendingDelete))
+        .Select(p => string.IsNullOrWhiteSpace(p.Afm) ? p.ProfileName.ToLower().Trim() : p.Afm.Trim())
+        .Where(x => !string.IsNullOrEmpty(x))
+        .Distinct()
+        .Count();
+    var totalAppUsers = Model.Clients.SelectMany(c => c.Profiles.Where(p => !p.IsPendingDelete)).Sum(p => p.ActiveUsersCount);
+    var totalAgentUsers = Model.Clients.SelectMany(c => c.LocalUsers).Count();
+}
+
+<div class="clients-container">
+    @Html.AntiForgeryToken()
+    <div class="header-section">
+        <h1>👥 Διαχείριση Πελατών & Ασφάλειας</h1>
+        <p class="subtitle">Αναζητήστε πελάτες, διαχειριστείτε API Keys, δικαιώματα και τοπικούς χρήστες.</p>
+    </div>
+
+    <!-- Stats Panel -->
+    <div class="stats-panel">
+        <div class="stat-card">
+            <div class="stat-icon">🖥️</div>
+            <div class="stat-info">
+                <span class="stat-value">@totalMachines</span>
+                <span class="stat-label">Μηχανήματα (Agents)</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🏢</div>
+            <div class="stat-info">
+                <span class="stat-value">@totalCompanies</span>
+                <span class="stat-label">Μοναδικές Εταιρείες</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">💻</div>
+            <div class="stat-info">
+                <span class="stat-value">@totalAppUsers</span>
+                <span class="stat-label">Χρήστες ERP</span>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">👤</div>
+            <div class="stat-info">
+                <span class="stat-value">@totalAgentUsers</span>
+                <span class="stat-label">Χρήστες Agent</span>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success">
+            <span>✅</span> @Model.SuccessMessage
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">
+            <span>⚠️</span> @Model.ErrorMessage
+        </div>
+    }
+
+    <!-- Create Client Section -->
+    <div class="card create-card">
+        <div class="card-title">➕ Προσθήκη Νέου Μηχανήματος (Client Machine)</div>
+        <form method="post" asp-page-handler="CreateClient" class="create-form">
+            <div class="form-group flex-1">
+                <label>Όνομα Μηχανήματος</label>
+                <input type="text" name="machineName" class="form-control" placeholder="π.χ. DESKTOP-OFFICE1" required />
+            </div>
+            <div class="form-group">
+                <label>Ρόλος Μηχανήματος</label>
+                <select name="machineRole" class="form-control select-control">
+                    <option value="Both">Both (SqlServer & Client)</option>
+                    <option value="SqlServer">SqlServer Only</option>
+                    <option value="Client">Client Only</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-add">
+                <span>⚡</span> Δημιουργία Πελάτη
+            </button>
+        </form>
+    </div>
+
+    <!-- Filters & Table Grid -->
+    <div class="card grid-card">
+        <div class="grid-header-actions">
+            <div class="card-title">🖥️ Ενεργά Μηχανήματα Πελατών (@Model.Clients.Count)</div>
+            
+            <!-- Filters Bar -->
+            <div class="filters-bar">
+                <div class="filter-group">
+                    <input type="text" id="searchFilter" onkeyup="applyFilters()" class="form-control search-input" placeholder="🔍 Αναζήτηση (Όνομα, GUID, API Key...)" />
+                </div>
+                <div class="filter-group">
+                    <select id="roleFilter" onchange="applyFilters()" class="form-control select-control filter-select">
+                        <option value="All">Όλοι οι Ρόλοι</option>
+                        <option value="Both">Both</option>
+                        <option value="SqlServer">SqlServer</option>
+                        <option value="Client">Client</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <select id="upgradeFilter" onchange="applyFilters()" class="form-control select-control filter-select">
+                        <option value="All">Όλες οι Αναβαθμίσεις</option>
+                        <option value="Enabled">Επιτρέπονται</option>
+                        <option value="Disabled">Απαγορεύονται</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table Grid -->
+        <div class="table-responsive">
+            <table class="clients-table" id="clientsTable">
+                <thead>
+                    <tr>
+                        <th>Μηχάνημα &amp; Ρόλος</th>
+                        <th>Συνδεδεμένες Εταιρείες (ΑΦΜ)</th>
+                        <th>Βάσεις</th>
+                        <th>Χρήστες (Breakdown)</th>
+                        <th>API Key &amp; GUID</th>
+                        <th>Έκδοση Agent</th>
+                        <th>Αναβαθμίσεις</th>
+                        <th style="text-align: right;">Ενέργειες</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.Clients == null || !Model.Clients.Any())
+                    {
+                        <tr class="no-data-row">
+                            <td colspan="8" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                                Δεν υπάρχουν καταχωρημένοι πελάτες.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var client in Model.Clients)
+                        {
+                            var activeClientProfiles = client.Profiles.Where(p => !p.IsPendingDelete).ToList();
+                            var profileNames = string.Join(" ", activeClientProfiles.Select(p => p.ProfileName.ToLower()));
+                            var profileAfms = string.Join(" ", activeClientProfiles.Select(p => p.Afm));
+                            var profileSerials = string.Join(" ", activeClientProfiles.Select(p => p.SerialNumber));
+                            var appUsersSum = activeClientProfiles.Sum(p => p.ActiveUsersCount);
+                            
+                            <tr class="client-row" 
+                                data-name="@client.MachineName.ToLower()" 
+                                data-guid="@client.ClientGuid.ToLower()" 
+                                data-key="@client.ApiKey.ToLower()" 
+                                data-role="@client.MachineRole" 
+                                data-upgrade="@(client.IsUpgradeEnabled ? "Enabled" : "Disabled")"
+                                data-profiles="@profileNames"
+                                data-afms="@profileAfms"
+                                data-serials="@profileSerials">
+                                
+                                <td class="td-name">
+                                    <strong>@client.MachineName</strong>
+                                    <br />
+                                    <span class="badge badge-role badge-@(client.MachineRole.ToLower())">@client.MachineRole</span>
+                                </td>
+                                <td>
+                                    @if (!activeClientProfiles.Any())
+                                    {
+                                        <span style="color: var(--text-secondary); font-style: italic; font-size: 13px;">Καμία Εταιρεία</span>
+                                    }
+                                    else
+                                    {
+                                        <div class="company-list">
+                                            @foreach (var profile in activeClientProfiles)
+                                            {
+                                                <div class="company-item">
+                                                    <span class="company-name" title="@profile.ProfileName">🏢 @profile.ProfileName</span>
+                                                    <span class="company-afm">(ΑΦΜ: @profile.Afm)</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    @{
+                                        var profileDbs = activeClientProfiles
+                                            .Select(p => GetProfileDbName(p))
+                                            .Where(db => !string.IsNullOrEmpty(db))
+                                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                                            .ToList();
+                                        
+                                        var discoveredDbs = client.Databases
+                                            .Select(d => d.DatabaseName)
+                                            .Where(name => !profileDbs.Contains(name, StringComparer.OrdinalIgnoreCase))
+                                            .ToList();
+                                    }
+                                    @if (!profileDbs.Any() && !discoveredDbs.Any())
+                                    {
+                                        <span style="color: var(--text-secondary); font-style: italic; font-size: 13px;">Καμία Βάση</span>
+                                    }
+                                    else
+                                    {
+                                        <div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
+                                            @foreach (var db in profileDbs)
+                                            {
+                                                <span class="badge badge-db" style="font-size: 12px; font-weight: bold; background-color: rgba(16, 185, 129, 0.15); color: #10B981; padding: 3px 6px; border-radius: 4px; white-space: nowrap;" title="Συνδεδεμένη Βάση Εταιρείας">
+                                                    🔗 @db
+                                                </span>
+                                            }
+                                            @foreach (var db in discoveredDbs)
+                                            {
+                                                <span class="badge" style="font-size: 11px; background-color: rgba(99, 102, 241, 0.1); color: #818CF8; padding: 2px 5px; border-radius: 4px; white-space: nowrap;" title="Ανιχνευμένη Βάση SQL Server (Agent)">
+                                                    🔍 @db
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="users-breakdown">
+                                        <span class="badge badge-users-agent" title="Τοπικοί Χρήστες Agent">👤 @client.LocalUsers.Count</span>
+                                        <span class="badge badge-users-app" title="Ενεργοί Χρήστες ERP">💻 @appUsersSum</span>
+                                    </div>
+                                </td>
+                                <td class="td-key">
+                                    <div class="key-container" style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
+                                        <div class="key-row" style="display:flex; align-items:center; gap:6px;">
+                                            <span class="code-text key-display" style="font-size:11px;">@client.ApiKey</span>
+                                            <button class="btn btn-copy" onclick="copyText('@client.ApiKey', this)" title="Αντιγραφή API Key">📋</button>
+                                        </div>
+                                        <span class="code-text" style="font-size: 9px; opacity: 0.6; padding: 1px 4px; border:none; background:none;">GUID: @client.ClientGuid</span>
+                                    </div>
+                                </td>
+                                 <td>
+                                     @if (client.AgentVersion == Model.CurrentSystemVersion)
+                                     {
+                                         <span class="agent-ver-text" style="color: var(--success); font-weight: bold;" title="Ο Agent είναι συγχρονισμένος με την τρέχουσα έκδοση συστήματος (v@Model.CurrentSystemVersion)">🤖 v@(client.AgentVersion)</span>
+                                     }
+                                     else
+                                     {
+                                         <span class="agent-ver-text" style="color: var(--warning); font-weight: bold; background-color: rgba(245, 158, 11, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.3);" title="⚠️ Διαφορά έκδοσης! Η τρέχουσα έκδοση συστήματος είναι v@Model.CurrentSystemVersion">⚠️ v@(client.AgentVersion)</span>
+                                     }
+                                 </td>
+                                <td>
+                                    @if (client.IsUpgradeEnabled)
+                                    {
+                                        <span class="badge badge-success">🟢 Ναι</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-danger">🔴 Όχι</span>
+                                    }
+                                </td>
+                                <td style="text-align: right; white-space: nowrap;">
+                                    <button class="btn btn-mini btn-manage" 
+                                            data-id="@client.Id"
+                                            data-name="@client.MachineName"
+                                            data-role="@client.MachineRole"
+                                            data-guid="@client.ClientGuid"
+                                            data-apikey="@client.ApiKey"
+                                            data-upgrade="@(client.IsUpgradeEnabled ? "true" : "false")"
+                                            data-viewlogs="@(client.Permissions?.CanOperatorViewLogs == true ? "true" : "false")"
+                                            data-runupdates="@(client.Permissions?.CanOperatorRunUpdates == true ? "true" : "false")"
+                                            data-users="@System.Text.Json.JsonSerializer.Serialize(client.LocalUsers)"
+                                            data-profiles="@System.Text.Json.JsonSerializer.Serialize(client.Profiles)"
+                                            onclick="openModalFromBtn(this)">
+                                        ⚙️ Διαχείριση
+                                    </button>
+                                    
+                                    <form method="post" asp-page-handler="DeleteClient" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτόν τον πελάτη;');" style="display: inline-block; margin-left: 5px;">
+                                        <input type="hidden" name="id" value="@client.Id" />
+                                        <button type="submit" class="btn btn-mini btn-danger-action" title="Διαγραφή">🗑️</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Overlay for Management -->
+<div id="manageModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Διαχείριση Πελάτη</h3>
+            <span class="close-btn" onclick="closeModal()">×</span>
+        </div>
+        
+        <div class="modal-body">
+            <!-- Modal Success/Error Alerts -->
+            @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+            {
+                <div class="alert alert-success" style="margin-bottom: 15px; padding: 8px 12px; font-size: 13px;">
+                    <span>✅</span> @Model.SuccessMessage
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+            {
+                <div class="alert alert-danger" style="margin-bottom: 15px; padding: 8px 12px; font-size: 13px;">
+                    <span>⚠️</span> @Model.ErrorMessage
+                </div>
+            }
+            <!-- Details Panel -->
+            <div class="modal-section-details">
+                <div class="detail-grid">
+                    <div>
+                        <span class="detail-label">Client GUID</span>
+                        <span id="modalGuid" class="detail-value code-text"></span>
+                    </div>
+                    <div>
+                        <span class="detail-label">API Key</span>
+                        <div class="modal-key-row">
+                            <span id="modalApiKey" class="detail-value code-text key-text"></span>
+                            <form method="post" asp-page-handler="RegenerateApiKey" id="modalRegenForm" style="display:inline;">
+                                <input type="hidden" name="id" id="modalRegenId" value="" />
+                                <button type="submit" class="btn btn-mini" title="Ανανέωση API Key">🔄</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Buttons -->
+            <div class="modal-tabs">
+                <button class="modal-tab-btn active" id="tabSettingsBtn" onclick="switchModalTab('settings')">⚙️ Ρυθμίσεις & Δικαιώματα</button>
+                <button class="modal-tab-btn" id="tabUsersBtn" onclick="switchModalTab('users')">👤 Χρήστες Agent (<span id="modalUsersCount">0</span>)</button>
+                <button class="modal-tab-btn" id="tabProfilesBtn" onclick="switchModalTab('profiles')">🏢 Εταιρείες (<span id="modalProfilesCount">0</span>)</button>
+            </div>
+
+            <!-- Tab 1: Settings Form -->
+            <div class="modal-tab-content" id="tabContentSettings">
+                <form method="post" asp-page-handler="UpdateClientSettings" class="modal-form">
+                    <input type="hidden" name="id" id="modalSettingsId" value="" />
+                    
+                    <div class="form-group">
+                        <label>Όνομα Μηχανήματος</label>
+                        <input type="text" name="machineName" id="modalMachineName" class="form-control" placeholder="π.χ. DESKTOP-OFFICE1" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ρόλος Μηχανήματος</label>
+                        <select name="machineRole" id="modalMachineRole" class="form-control select-control">
+                            <option value="Both">Both (SqlServer & Client)</option>
+                            <option value="SqlServer">SqlServer Only</option>
+                            <option value="Client">Client Only</option>
+                        </select>
+                    </div>
+
+                    <div class="toggle-group">
+                        <label class="toggle-container">
+                            <input type="checkbox" name="isUpgradeEnabled" id="modalIsUpgradeEnabled" value="true" />
+                            <span class="toggle-slider"></span>
+                            <span class="toggle-label">Επιτρέπονται οι Αναβαθμίσεις</span>
+                        </label>
+                        <div class="toggle-help">Εάν απενεργοποιηθεί, ο Agent θα εμφανίσει μήνυμα επικοινωνίας με τον προμηθευτή.</div>
+                    </div>
+
+                    <div class="permissions-group">
+                        <label class="checkbox-container">
+                            <input type="checkbox" name="canOperatorViewLogs" id="modalCanOperatorViewLogs" value="true" />
+                            <span class="checkbox-checkmark"></span>
+                            <span class="checkbox-label">Ο Operator μπορεί να βλέπει Logs</span>
+                        </label>
+                        <label class="checkbox-container">
+                            <input type="checkbox" name="canOperatorRunUpdates" id="modalCanOperatorRunUpdates" value="true" />
+                            <span class="checkbox-checkmark"></span>
+                            <span class="checkbox-label">Ο Operator μπορεί να τρέχει Εγκεκριμένα Updates</span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-login">💾 Αποθήκευση Ρυθμίσεων</button>
+                </form>
+            </div>
+
+            <!-- Tab 2: Users Management -->
+            <div class="modal-tab-content" id="tabContentUsers" style="display: none;">
+                <!-- Current Users List -->
+                <div class="modal-users-list-container">
+                    <ul class="users-list" id="modalUsersList">
+                        <!-- Dynamic list items will be injected here -->
+                    </ul>
+                    <div id="modalNoUsersMsg" class="no-users-note" style="display: none;">
+                        Δεν υπάρχουν τοπικοί χρήστες. (Μόνο Master Owner πρόσβαση)
+                    </div>
+                </div>
+
+                <hr class="card-divider" style="margin: 15px 0;" />
+
+                <!-- Add User Form -->
+                <div class="modal-add-user-section">
+                    <div class="card-subtitle" style="font-size:12px;">➕ Προσθήκη Χρήστη Agent</div>
+                    <form method="post" asp-page-handler="AddAgentUser" class="add-user-form">
+                        <input type="hidden" name="clientMachineId" id="modalAddUserClientId" value="" />
+                        <div class="form-row">
+                            <input type="text" name="username" class="form-control form-control-sm" placeholder="Username" required />
+                            <input type="text" name="password" class="form-control form-control-sm" placeholder="Κωδικός" required />
+                            <select name="role" class="form-control form-control-sm select-control">
+                                <option value="Operator">Operator</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                            <button type="submit" class="btn btn-sm-add" title="Προσθήκη Χρήστη">➕</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tab 3: Profiles Management -->
+            <div class="modal-tab-content" id="tabContentProfiles" style="display: none;">
+                <!-- Current Profiles List -->
+                <div class="modal-profiles-list-container" style="margin-bottom: 15px;">
+                    <div class="card-subtitle" style="font-size:12px; margin-bottom: 8px;">🏢 Συνδεδεμένες Εταιρείες (<span id="modalProfilesCountText">0</span>)</div>
+                    <div id="modalProfilesList" class="profiles-grid-list">
+                        <!-- Dynamic profiles will be injected here -->
+                    </div>
+                    <div id="modalNoProfilesMsg" class="no-users-note" style="display: none;">
+                        Δεν υπάρχουν καταχωρημένες εταιρείες για αυτό το μηχάνημα.
+                    </div>
+                </div>
+
+                <!-- Add/Edit Profile Form Container -->
+                <div class="modal-profile-form-section" id="profileFormSection">
+                    <div class="card-subtitle" id="profileFormTitle" style="font-size:12px; font-weight: bold; color: var(--accent);">➕ Προσθήκη Νέας Εταιρείας</div>
+                    <form method="post" id="profileForm" class="profile-tab-form" style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+                        <input type="hidden" name="clientMachineId" id="profileFormClientId" value="" />
+                        <input type="hidden" name="editProfileId" id="profileFormEditId" value="" />
+
+                        <div class="form-row-2col">
+                            <div class="form-group-sm" id="profileIdFieldGroup">
+                                <label>ID Προφίλ (Λατινικά)</label>
+                                <input type="text" name="profileId" id="profileFormProfileId" class="form-control form-control-sm" placeholder="π.χ. ClientA" required />
+                            </div>
+                            <div class="form-group-sm">
+                                <label>Όνομα Εταιρείας</label>
+                                <input type="text" name="profileName" id="profileFormProfileName" class="form-control form-control-sm" placeholder="π.χ. Εταιρεία Α.Ε." required />
+                            </div>
+                        </div>
+
+                        <div class="form-row-2col">
+                            <div class="form-group-sm">
+                                <label>ΑΦΜ</label>
+                                <input type="text" name="afm" id="profileFormAfm" class="form-control form-control-sm" placeholder="ΑΦΜ" />
+                            </div>
+                            <div class="form-group-sm">
+                                <label>Σειριακός Αριθμός</label>
+                                <input type="text" name="serialNumber" id="profileFormSerial" class="form-control form-control-sm" placeholder="Σειριακός" />
+                            </div>
+                        </div>
+
+                        <div class="form-row-2col">
+                            <div class="form-group-sm">
+                                <label>Ενεργοί Χρήστες ERP</label>
+                                <input type="number" name="activeUsersCount" id="profileFormUsers" class="form-control form-control-sm" value="1" min="0" />
+                            </div>
+                            <div class="form-group-sm">
+                                <label>Όνομα EXE</label>
+                                <input type="text" name="targetExeName" id="profileFormExe" class="form-control form-control-sm" value="TmsApp.exe" />
+                            </div>
+                        </div>
+
+                        <div class="form-group-sm">
+                            <label>Φάκελος Εγκατάστασης</label>
+                            <div style="display: flex; gap: 8px;">
+                                <input type="text" name="targetFolder" id="profileFormFolder" class="form-control form-control-sm" placeholder="π.χ. C:\Program Files\TmsApp" style="flex: 1;" />
+                                <button type="button" class="btn btn-outline btn-sm" onclick="triggerFolderBrowse('profileFormFolder')" style="padding: 0 10px; height: 31px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px;">📂 Αναζήτηση</button>
+                            </div>
+                            <input type="file" id="folderBrowserDummy" webkitdirectory directory style="display: none;" onchange="handleFolderSelected(this, 'profileFormFolder')" />
+                            
+                            <!-- Folder path suggestions due to browser security sandbox -->
+                            <div id="folderSuggestions" style="display: none; margin-top: 5px; background-color: #12121A; border: 1px solid #1E1E2C; border-radius: 6px; padding: 10px;">
+                                <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">💡 Προτεινόμενες Τοπικές Διαδρομές:</div>
+                                <div style="display: flex; flex-direction: column; gap: 6px;" id="folderSuggestionsList"></div>
+                            </div>
+                            
+                            <small class="form-text text-muted" style="font-size: 9px; color: var(--text-secondary); margin-top: 2px;">⚠️ Σημείωση: Ο browser εμφανίζει προειδοποίηση «Μεταφόρτωση» για λόγους ασφαλείας. Το σύστημα **δεν ανεβάζει κανένα αρχείο**, απλώς διαβάζει τη διαδρομή. Εναλλακτικά, πληκτρολογήστε τη διαδρομή χειροκίνητα.</small>
+                        </div>
+
+                        <!-- Connection Configuration Type -->
+                        <div class="form-group-sm">
+                            <label>Τύπος Σύνδεσης Βάσης</label>
+                            <select name="connectionStringType" id="profileFormConnectionStringType" class="form-control form-control-sm" onchange="toggleConnectionStringFields()">
+                                <option value="Direct">Απευθείας Connection String</option>
+                                <option value="Builder">Κατασκευαστής (Builder)</option>
+                                <option value="ConfigFile">Ανάγνωση από Αρχείο Ρυθμίσεων (.config / .json)</option>
+                            </select>
+                        </div>
+
+                        <!-- Section A: Direct Connection String -->
+                        <div id="sectionConnDirect" class="form-group-sm">
+                            <label>Connection String SQL Server</label>
+                            <input type="text" name="connectionString" id="profileFormConnectionString" class="form-control form-control-sm" placeholder="Connection String" />
+                        </div>
+
+                        <!-- Section B: Connection String Builder -->
+                        <div id="sectionConnBuilder" style="display: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin-bottom: 10px; background-color: rgba(255,255,255,0.02);">
+                            <div class="form-group-sm">
+                                <label>SQL Server / Instance</label>
+                                <input type="text" name="dbServer" id="profileFormDbServer" class="form-control form-control-sm" placeholder="π.χ. localhost\SQLEXPRESS" oninput="compileConnectionStringFromBuilder()" />
+                            </div>
+                            <div class="form-group-sm">
+                                <label>Όνομα Βάσης Δεδομένων</label>
+                                <input type="text" name="dbName" id="profileFormDbName" class="form-control form-control-sm" placeholder="π.χ. TmsDb" oninput="compileConnectionStringFromBuilder()" />
+                            </div>
+                            
+                            <div class="form-group-sm" style="margin-top: 5px; margin-bottom: 5px;">
+                                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px;">
+                                    <input type="checkbox" name="dbUseWindowsAuth" id="profileFormDbWindowsAuth" value="true" onchange="toggleWindowsAuthFields(); compileConnectionStringFromBuilder();" />
+                                     Windows Authentication (Integrated Security)
+                                </label>
+                            </div>
+
+                            <div id="builderCredentialsRow" class="form-row-2col">
+                                <div class="form-group-sm">
+                                    <label>Όνομα Χρήστη</label>
+                                    <input type="text" name="dbUser" id="profileFormDbUser" class="form-control form-control-sm" placeholder="sa" oninput="compileConnectionStringFromBuilder()" />
+                                </div>
+                                <div class="form-group-sm">
+                                    <label>Κωδικός Χρήστη</label>
+                                    <input type="password" name="dbPassword" id="profileFormDbPassword" class="form-control form-control-sm" placeholder="password" oninput="compileConnectionStringFromBuilder()" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section C: Configuration File Reader -->
+                        <div id="sectionConnConfigFile" style="display: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; margin-bottom: 10px; background-color: rgba(255,255,255,0.02);">
+                            <div class="form-group-sm">
+                                <label>Διαδρομή Αρχείου Ρυθμίσεων (στον πελάτη)</label>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" name="configFilePath" id="profileFormConfigPath" class="form-control form-control-sm" placeholder="π.χ. C:\Program Files\TmsApp\appsettings.json" style="flex: 1;" />
+                                    <button type="button" class="btn btn-outline btn-sm" onclick="triggerFileBrowse('profileFormConfigPath')" style="padding: 0 10px; height: 31px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px;">📄 Αναζήτηση</button>
+                                </div>
+                                <input type="file" id="fileBrowserDummy" accept=".json,.config,.xml" style="display: none;" onchange="handleFileSelected(this, 'profileFormConfigPath')" />
+                                <small class="form-text text-muted" style="font-size: 9px; color: var(--text-secondary); margin-top: 2px;">⚠️ Ορίζετε το αρχείο ρυθμίσεων (JSON ή XML) από όπου ο Agent θα διαβάζει αυτόματα τη σύνδεση.</small>
+                            </div>
+                        </div>
+
+                        <div class="form-actions-row" style="display: flex; gap: 10px; margin-top: 5px;">
+                            <button type="submit" id="profileFormSubmitBtn" class="btn btn-login btn-sm" style="flex: 1; padding: 8px;">➕ Προσθήκη Εταιρείας</button>
+                            <button type="button" id="profileFormCancelBtn" class="btn btn-outline btn-sm" style="display: none; padding: 8px;" onclick="resetProfileForm()">Ακύρωση</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Stats Panel */
+    .stats-panel {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+
+    .stat-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.2);
+    }
+
+    .stat-icon {
+        font-size: 28px;
+        background-color: #12121A;
+        width: 50px;
+        height: 50px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border-color);
+    }
+
+    .stat-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stat-value {
+        font-size: 22px;
+        font-weight: 700;
+        color: white;
+        line-height: 1.2;
+    }
+
+    .stat-label {
+        font-size: 10px;
+        color: var(--text-secondary);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 2px;
+    }
+
+    /* Companies and Users badges styles */
+    .company-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .company-item {
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .company-name {
+        font-weight: 600;
+        color: #E2E8F0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 180px;
+    }
+    .company-afm {
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
+    .badge-db {
+        background-color: rgba(16, 185, 129, 0.15);
+        color: #10B981;
+        font-weight: bold;
+        font-size: 12px;
+        padding: 3px 6px;
+        border-radius: 4px;
+    }
+    .users-breakdown {
+        display: flex;
+        gap: 6px;
+    }
+    .badge-users-agent {
+        background-color: rgba(99, 102, 241, 0.15);
+        color: #818CF8;
+        font-weight: bold;
+        font-size: 12px;
+        padding: 3px 6px;
+        border-radius: 4px;
+    }
+    .badge-users-app {
+        background-color: rgba(245, 158, 11, 0.15);
+        color: #F59E0B;
+        font-weight: bold;
+        font-size: 12px;
+        padding: 3px 6px;
+        border-radius: 4px;
+    }
+
+    .clients-container {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .header-section {
+        margin-bottom: 25px;
+    }
+
+    .subtitle {
+        color: var(--text-secondary);
+        font-size: 14px;
+        margin-top: 5px;
+    }
+
+    .alert {
+        padding: 12px 18px;
+        border-radius: 8px;
+        font-size: 13px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .alert-success {
+        background-color: rgba(16, 185, 129, 0.1);
+        border: 1px solid var(--success);
+        color: #A7F3D0;
+    }
+
+    .alert-danger {
+        background-color: rgba(239, 68, 68, 0.1);
+        border: 1px solid var(--danger);
+        color: #FCA5A5;
+    }
+
+    /* Create Card */
+    .create-card {
+        margin-bottom: 25px;
+        background-color: var(--card-bg);
+        border-radius: 12px;
+        border: 1px solid var(--border-color);
+        padding: 20px;
+    }
+
+    .create-form {
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .flex-1 {
+        flex: 1;
+        min-width: 250px;
+    }
+
+    .select-control {
+        cursor: pointer;
+    }
+
+    .btn-add {
+        height: 38px;
+        padding: 0 20px;
+    }
+
+    /* Grid Card / Data Table Layout */
+    .grid-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    .grid-header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+
+    .filters-bar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .search-input {
+        width: 280px;
+        font-size: 13px;
+        height: 36px;
+    }
+
+    .filter-select {
+        width: 160px;
+        font-size: 13px;
+        height: 36px;
+    }
+
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .clients-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+    }
+
+    .clients-table th {
+        background-color: #12121A;
+        font-size: 11px;
+        color: var(--text-secondary);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 14px 16px;
+        border-bottom: 2px solid var(--border-color);
+    }
+
+    .clients-table td {
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+
+    .clients-table tr:hover td {
+        background-color: #1A1A26;
+    }
+
+    .clients-table tr:last-child td {
+        border-bottom: none;
+    }
+
+    .code-text {
+        font-family: 'Consolas', monospace;
+        background-color: #0E0E14;
+        padding: 3px 7px;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #E2E8F0;
+        border: 1px solid #1F1F2C;
+    }
+
+    .badge-role {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-top: 4px;
+        display: inline-block;
+    }
+    
+    .badge-both { background-color: #818CF8; }
+    .badge-sqlserver { background-color: #F87171; }
+    .badge-client { background-color: #34D399; }
+
+    .key-container {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .key-display {
+        color: #FBBF24;
+    }
+
+    .btn-copy {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 2px 4px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .btn-copy:hover {
+        background-color: #2D2D3D;
+    }
+
+    .btn-copy.copied {
+        background-color: var(--success);
+    }
+
+    .agent-ver-text {
+        font-weight: 550;
+        font-size: 13px;
+    }
+
+    .btn-manage {
+        background-color: #2D2D44;
+        border: 1px solid var(--border-color);
+    }
+
+    .btn-manage:hover {
+        background-color: #3B3B59;
+    }
+
+    .btn-danger-action {
+        background-color: rgba(239, 68, 68, 0.1);
+        border: 1px solid var(--danger);
+        color: #EF4444;
+        padding: 5px;
+    }
+
+    .btn-danger-action:hover {
+        background-color: var(--danger);
+        color: white;
+    }
+
+    /* Modal Overlay for Management */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+    }
+
+    .modal-content {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        width: 90%;
+        max-width: 620px;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 24px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-header h3 {
+        font-size: 18px;
+        font-weight: 700;
+        color: white;
+    }
+
+    .close-btn {
+        font-size: 26px;
+        cursor: pointer;
+        color: var(--text-secondary);
+        transition: color 0.2s;
+        line-height: 1;
+    }
+
+    .close-btn:hover {
+        color: white;
+    }
+
+    .modal-body {
+        padding: 24px;
+    }
+
+    /* Modal details row */
+    .modal-section-details {
+        background-color: #0E0E14;
+        border: 1px solid #1F1F2C;
+        border-radius: 10px;
+        padding: 15px 20px;
+        margin-bottom: 20px;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+
+    .detail-label {
+        display: block;
+        font-size: 10px;
+        color: var(--text-secondary);
+        font-weight: 700;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+        letter-spacing: 0.5px;
+    }
+
+    .detail-value {
+        font-size: 12px;
+        display: inline-block;
+    }
+
+    .modal-key-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .modal-key-row .btn-mini {
+        padding: 3px 6px;
+        font-size: 10px;
+        background-color: #2D2D44;
+    }
+
+    .key-text {
+        color: #FBBF24;
+    }
+
+    /* Tabs inside Modal */
+    .modal-tabs {
+        display: flex;
+        border-bottom: 1.5px solid var(--border-color);
+        margin-bottom: 20px;
+    }
+
+    .modal-tab-btn {
+        flex: 1;
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        font-weight: 600;
+        font-size: 13px;
+        padding: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -1.5px;
+    }
+
+    .modal-tab-btn:hover {
+        color: white;
+    }
+
+    .modal-tab-btn.active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+    }
+
+    /* Form within modal */
+    .modal-form {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .toggle-group {
+        margin-bottom: 5px;
+    }
+
+    .toggle-container {
+        display: inline-flex;
+        align-items: center;
+        cursor: pointer;
+        position: relative;
+        user-select: none;
+    }
+
+    .toggle-container input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+        position: absolute;
+    }
+
+    .toggle-slider {
+        width: 42px;
+        height: 20px;
+        background-color: #374151;
+        border-radius: 99px;
+        position: relative;
+        transition: background-color 0.2s;
+        margin-right: 10px;
+        display: inline-block;
+    }
+
+    .toggle-slider:before {
+        content: "";
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        border-radius: 50%;
+        transition: transform 0.2s;
+    }
+
+    .toggle-container input:checked + .toggle-slider {
+        background-color: var(--success);
+    }
+
+    .toggle-container input:checked + .toggle-slider:before {
+        transform: translateX(22px);
+    }
+
+    .toggle-label {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .toggle-help {
+        font-size: 11px;
+        color: var(--text-secondary);
+        margin-top: 4px;
+        margin-left: 52px;
+    }
+
+    .permissions-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        background-color: #0F0F16;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+
+    .checkbox-container {
+        display: flex;
+        align-items: center;
+        position: relative;
+        padding-left: 26px;
+        cursor: pointer;
+        font-size: 13px;
+        user-select: none;
+    }
+
+    .checkbox-container input {
+        position: absolute;
+        opacity: 0;
+        cursor: pointer;
+        height: 0;
+        width: 0;
+    }
+
+    .checkbox-checkmark {
+        position: absolute;
+        left: 0;
+        height: 16px;
+        width: 16px;
+        background-color: #374151;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+
+    .checkbox-container:hover input ~ .checkbox-checkmark {
+        background-color: #4B5563;
+    }
+
+    .checkbox-container input:checked ~ .checkbox-checkmark {
+        background-color: var(--accent);
+    }
+
+    .checkbox-checkmark:after {
+        content: "";
+        position: absolute;
+        display: none;
+        left: 5px;
+        top: 2px;
+        width: 4px;
+        height: 8px;
+        border: solid white;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+    }
+
+    .checkbox-container input:checked ~ .checkbox-checkmark:after {
+        display: block;
+    }
+
+    .btn-login {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: bold;
+    }
+
+    /* Users tab styles */
+    .modal-users-list-container {
+        background-color: #0E0E14;
+        border: 1px solid #1E1E2C;
+        border-radius: 8px;
+        padding: 10px;
+        min-height: 100px;
+        max-height: 250px;
+        overflow-y: auto;
+    }
+
+    .users-list {
+        list-style: none;
+        padding: 0;
+    }
+
+    .user-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        padding: 8px 12px;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        font-size: 13px;
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .user-name {
+        font-weight: bold;
+        color: white;
+    }
+
+    .user-role {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: bold;
+        text-transform: uppercase;
+    }
+
+    .role-admin {
+        background-color: rgba(239, 68, 68, 0.15);
+        color: #F87171;
+    }
+
+    .role-operator {
+        background-color: rgba(99, 102, 241, 0.15);
+        color: #818CF8;
+    }
+
+    .user-pass {
+        color: var(--text-secondary);
+        font-size: 11px;
+    }
+
+    .btn-delete-user {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--danger);
+        font-size: 12px;
+        padding: 4px;
+        border-radius: 4px;
+        transition: background 0.2s;
+    }
+
+    .btn-delete-user:hover {
+        background-color: rgba(239, 68, 68, 0.15);
+    }
+
+    .no-users-note {
+        text-align: center;
+        font-size: 12px;
+        color: var(--text-secondary);
+        font-style: italic;
+        padding: 30px 10px;
+    }
+
+    .modal-add-user-section {
+        background-color: #0F0F16;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+
+    .add-user-form {
+        margin-top: 10px;
+    }
+
+    .form-row {
+        display: flex;
+        gap: 8px;
+    }
+
+    .form-control-sm {
+        padding: 6px 10px;
+        font-size: 12px;
+        height: 32px;
+        background-color: #0E0E14;
+    }
+
+    .btn-sm-add {
+        background-color: var(--accent);
+        border: none;
+        color: white;
+        cursor: pointer;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        flex-shrink: 0;
+        transition: background 0.2s;
+    }
+
+    .btn-sm-add:hover {
+        background-color: var(--accent-hover);
+    }
+
+    .card-divider {
+        border: 0;
+        height: 1px;
+        background: var(--border-color);
+    }
+
+    /* Profiles Tab CSS styles */
+    .modal-profiles-list-container {
+        background-color: #0E0E14;
+        border: 1px solid #1E1E2C;
+        border-radius: 8px;
+        padding: 12px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .profiles-grid-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .profile-item-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 10px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+    .profile-item-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 13px;
+        flex: 1;
+    }
+    .profile-item-title {
+        font-weight: bold;
+        color: white;
+    }
+    .profile-item-sub {
+        font-size: 11px;
+        color: var(--text-secondary);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .profile-item-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+    .form-row-2col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .form-group-sm {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .form-group-sm label {
+        font-size: 11px;
+        color: var(--text-secondary);
+        font-weight: 600;
+    }
+    .modal-profile-form-section {
+        background-color: #0F0F16;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+</style>
+
+<script>
+    // Copy Text to Clipboard Helper
+    function copyText(text, btnElement) {
+        navigator.clipboard.writeText(text).then(function() {
+            var originalText = btnElement.innerText;
+            btnElement.innerText = "✓";
+            btnElement.classList.add("copied");
+            btnElement.style.color = "var(--success)";
+            
+            setTimeout(function() {
+                btnElement.innerText = originalText;
+                btnElement.classList.remove("copied");
+                btnElement.style.color = "";
+            }, 1500);
+        }).catch(function(err) {
+            console.error("Could not copy text: ", err);
+        });
+    }
+
+    // Apply Client Table Filters
+    function applyFilters() {
+        var searchQuery = document.getElementById("searchFilter").value.toLowerCase();
+        var roleQuery = document.getElementById("roleFilter").value;
+        var upgradeQuery = document.getElementById("upgradeFilter").value;
+
+        var rows = document.querySelectorAll(".client-row");
+        rows.forEach(function(row) {
+            var name = row.getAttribute("data-name") || "";
+            var guid = row.getAttribute("data-guid") || "";
+            var key = row.getAttribute("data-key") || "";
+            var role = row.getAttribute("data-role") || "";
+            var upgrade = row.getAttribute("data-upgrade") || "";
+            var profiles = row.getAttribute("data-profiles") || "";
+            var afms = row.getAttribute("data-afms") || "";
+            var serials = row.getAttribute("data-serials") || "";
+
+            var matchesSearch = name.includes(searchQuery) || 
+                                guid.includes(searchQuery) || 
+                                key.includes(searchQuery) || 
+                                profiles.includes(searchQuery) || 
+                                afms.includes(searchQuery) || 
+                                serials.includes(searchQuery);
+            var matchesRole = roleQuery === "All" || role === roleQuery;
+            var matchesUpgrade = upgradeQuery === "All" || upgrade === upgradeQuery;
+
+            if (matchesSearch && matchesRole && matchesUpgrade) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+    }
+
+    // Modal Operations from Button Data Attributes
+    function openModalFromBtn(btn) {
+        var id = btn.getAttribute("data-id");
+        var name = btn.getAttribute("data-name");
+        var role = btn.getAttribute("data-role");
+        var guid = btn.getAttribute("data-guid");
+        var apiKey = btn.getAttribute("data-apikey");
+        var isUpgradeEnabled = btn.getAttribute("data-upgrade") === "true";
+        var canViewLogs = btn.getAttribute("data-viewlogs") === "true";
+        var canRunUpdates = btn.getAttribute("data-runupdates") === "true";
+        var usersJsonString = btn.getAttribute("data-users");
+        var profilesJsonString = btn.getAttribute("data-profiles");
+        
+        openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, usersJsonString, profilesJsonString);
+    }
+
+    // Modal Operations
+    function openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, usersJsonString, profilesJsonString) {
+        document.getElementById("modalTitle").innerText = "⚙️ Διαχείριση Πελάτη: " + name;
+        document.getElementById("modalGuid").innerText = guid;
+        document.getElementById("modalApiKey").innerText = apiKey;
+
+        // Populate Forms IDs
+        document.getElementById("modalSettingsId").value = id;
+        document.getElementById("modalRegenId").value = id;
+        document.getElementById("modalAddUserClientId").value = id;
+
+        // Populate Settings values
+        document.getElementById("modalMachineName").value = name;
+        document.getElementById("modalMachineRole").value = role;
+        document.getElementById("modalIsUpgradeEnabled").checked = isUpgradeEnabled;
+        document.getElementById("modalCanOperatorViewLogs").checked = canViewLogs;
+        document.getElementById("modalCanOperatorRunUpdates").checked = canRunUpdates;
+
+        // Parse and Render Users
+        var users = JSON.parse(usersJsonString || "[]");
+        renderUsersList(users);
+
+        // Parse and Render Profiles
+        var profiles = JSON.parse(profilesJsonString || "[]");
+        renderProfilesList(profiles, id);
+
+        // Save state to sessionStorage
+        sessionStorage.setItem("activeModalClientId", id);
+
+        // Restore tab or default to settings
+        var savedTab = sessionStorage.getItem("activeModalTab") || 'settings';
+        switchModalTab(savedTab);
+
+        // Show Modal
+        document.getElementById("manageModal").style.display = "flex";
+    }
+
+    function closeModal() {
+        document.getElementById("manageModal").style.display = "none";
+        // Clear state from sessionStorage
+        sessionStorage.removeItem("activeModalClientId");
+        sessionStorage.removeItem("activeModalTab");
+    }
+
+    // Close modal if user clicks outside content
+    window.onclick = function(event) {
+        var modal = document.getElementById("manageModal");
+        if (event.target === modal) {
+            closeModal();
+        }
+    }
+
+    function switchModalTab(tabName) {
+        var btnSettings = document.getElementById("tabSettingsBtn");
+        var btnUsers = document.getElementById("tabUsersBtn");
+        var btnProfiles = document.getElementById("tabProfilesBtn");
+        
+        var contentSettings = document.getElementById("tabContentSettings");
+        var contentUsers = document.getElementById("tabContentUsers");
+        var contentProfiles = document.getElementById("tabContentProfiles");
+
+        btnSettings.classList.remove("active");
+        btnUsers.classList.remove("active");
+        btnProfiles.classList.remove("active");
+
+        contentSettings.style.display = "none";
+        contentUsers.style.display = "none";
+        contentProfiles.style.display = "none";
+
+        if (tabName === 'settings') {
+            btnSettings.classList.add("active");
+            contentSettings.style.display = "block";
+        } else if (tabName === 'users') {
+            btnUsers.classList.add("active");
+            contentUsers.style.display = "block";
+        } else if (tabName === 'profiles') {
+            btnProfiles.classList.add("active");
+            contentProfiles.style.display = "block";
+        }
+
+        sessionStorage.setItem("activeModalTab", tabName);
+    }
+
+    // Auto-restore modal state on reload
+    window.addEventListener("DOMContentLoaded", function() {
+        var activeClientId = sessionStorage.getItem("activeModalClientId");
+        if (activeClientId) {
+            var btn = document.querySelector('button.btn-manage[data-id="' + activeClientId + '"]');
+            if (btn) {
+                openModalFromBtn(btn);
+            } else {
+                sessionStorage.removeItem("activeModalClientId");
+                sessionStorage.removeItem("activeModalTab");
+            }
+        }
+    });
+
+    // Helper functions for profiles list
+    var currentMachineProfiles = [];
+
+    function renderProfilesList(profiles, machineId) {
+        currentMachineProfiles = profiles;
+        var listContainer = document.getElementById("modalProfilesList");
+        var noProfilesMsg = document.getElementById("modalNoProfilesMsg");
+        
+        var activeProfiles = profiles.filter(function(p) { return !p.IsPendingDelete; });
+        document.getElementById("modalProfilesCount").innerText = activeProfiles.length;
+        document.getElementById("modalProfilesCountText").innerText = activeProfiles.length;
+
+        // Clear previous list
+        listContainer.innerHTML = "";
+
+        if (activeProfiles.length === 0) {
+            noProfilesMsg.style.display = "block";
+            listContainer.style.display = "none";
+            return;
+        }
+
+        noProfilesMsg.style.display = "none";
+        listContainer.style.display = "grid";
+
+        activeProfiles.forEach(function(profile) {
+            var card = document.createElement("div");
+            card.className = "profile-item-card";
+
+            var info = document.createElement("div");
+            info.className = "profile-item-info";
+
+            var title = document.createElement("div");
+            title.className = "profile-item-title";
+            title.innerText = profile.ProfileName + " (" + profile.ProfileId + ")";
+            if (profile.IsPendingDelete) {
+                title.innerHTML += " <span class='badge badge-danger' style='font-size:8px; padding:1px 3px; margin-left:5px;'>Προς Διαγραφή</span>";
+            }
+            info.appendChild(title);
+
+            var sub = document.createElement("div");
+            sub.className = "profile-item-sub";
+            sub.innerHTML = "<span>ΑΦΜ: " + (profile.Afm || "-") + "</span>" +
+                            "<span>SN: " + (profile.SerialNumber || "-") + "</span>" +
+                            "<span>Χρήστες: " + profile.ActiveUsersCount + "</span>" +
+                            "<span>Έκδοση: v" + profile.LastUpdatedVersion + "</span>";
+            info.appendChild(sub);
+            card.appendChild(info);
+
+            // Actions
+            var actions = document.createElement("div");
+            actions.className = "profile-item-actions";
+
+            // Edit button
+            var btnEdit = document.createElement("button");
+            btnEdit.type = "button";
+            btnEdit.className = "btn btn-mini btn-manage";
+            btnEdit.title = "Επεξεργασία";
+            btnEdit.innerText = "✏️";
+            btnEdit.onclick = function() {
+                loadProfileIntoForm(profile);
+            };
+            actions.appendChild(btnEdit);
+
+            // Delete Form
+            if (!profile.IsPendingDelete) {
+                var deleteForm = document.createElement("form");
+                deleteForm.method = "post";
+                deleteForm.action = "/Clients?handler=DeleteClientProfile";
+                deleteForm.style.display = "inline";
+                deleteForm.onsubmit = function() {
+                    return confirm("Είστε σίγουροι ότι θέλετε να ζητήσετε τη διαγραφή αυτής της εταιρείας;");
+                };
+
+                // Add anti-forgery token
+                var token = document.querySelector('input[name="__RequestVerificationToken"]');
+                if (token) {
+                    deleteForm.appendChild(token.cloneNode(true));
+                }
+
+                var inputProfileId = document.createElement("input");
+                inputProfileId.type = "hidden";
+                inputProfileId.name = "profileId";
+                inputProfileId.value = profile.Id;
+                deleteForm.appendChild(inputProfileId);
+
+                var btnDelete = document.createElement("button");
+                btnDelete.type = "submit";
+                btnDelete.className = "btn btn-mini btn-danger-action";
+                btnDelete.title = "Διαγραφή";
+                btnDelete.innerText = "🗑️";
+                deleteForm.appendChild(btnDelete);
+
+                actions.appendChild(deleteForm);
+            }
+
+            card.appendChild(actions);
+            listContainer.appendChild(card);
+        });
+
+        // Initialize form for this machineId
+        resetProfileForm(machineId);
+    }
+
+    function loadProfileIntoForm(profile) {
+        document.getElementById("profileFormTitle").innerText = "✏️ Επεξεργασία Εταιρείας: " + profile.ProfileName;
+        document.getElementById("profileFormTitle").style.color = "#F59E0B";
+        document.getElementById("profileForm").action = "/Clients?handler=SaveClientProfileSettings";
+        document.getElementById("profileFormEditId").value = profile.Id;
+
+        // Hide ProfileId field group because ProfileId cannot be edited (it's key on Agent)
+        document.getElementById("profileIdFieldGroup").style.display = "none";
+        document.getElementById("profileFormProfileId").required = false;
+
+        // Populate values
+        document.getElementById("profileFormProfileName").value = profile.ProfileName;
+        document.getElementById("profileFormAfm").value = profile.Afm;
+        document.getElementById("profileFormSerial").value = profile.SerialNumber;
+        document.getElementById("profileFormUsers").value = profile.ActiveUsersCount;
+        document.getElementById("profileFormExe").value = profile.TargetExeName;
+        document.getElementById("profileFormFolder").value = profile.TargetFolder;
+        document.getElementById("profileFormConnectionString").value = profile.ConnectionString;
+
+        var connType = profile.ConnectionStringType || "Direct";
+        document.getElementById("profileFormConnectionStringType").value = connType;
+        document.getElementById("profileFormDbServer").value = profile.DbServer || "";
+        document.getElementById("profileFormDbName").value = profile.DbName || "";
+        document.getElementById("profileFormDbWindowsAuth").checked = profile.DbUseWindowsAuth === true;
+        document.getElementById("profileFormDbUser").value = profile.DbUser || "";
+        document.getElementById("profileFormDbPassword").value = profile.DbPassword || "";
+        document.getElementById("profileFormConfigPath").value = profile.ConfigFilePath || "";
+
+        toggleConnectionStringFields();
+        toggleWindowsAuthFields();
+        document.getElementById("folderSuggestions").style.display = "none";
+
+        // Action Buttons
+        document.getElementById("profileFormSubmitBtn").innerText = "💾 Αποθήκευση Αλλαγών";
+        document.getElementById("profileFormSubmitBtn").className = "btn btn-login btn-sm";
+        document.getElementById("profileFormCancelBtn").style.display = "inline-block";
+        
+        // Scroll to form
+        document.getElementById("profileFormSection").scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetProfileForm(machineId) {
+        var mId = machineId || document.getElementById("profileFormClientId").value;
+        
+        document.getElementById("profileFormTitle").innerText = "➕ Προσθήκη Νέας Εταιρείας";
+        document.getElementById("profileFormTitle").style.color = "var(--accent)";
+        document.getElementById("profileForm").action = "/Clients?handler=AddClientProfile";
+        document.getElementById("profileFormClientId").value = mId;
+        document.getElementById("profileFormEditId").value = "";
+
+        // Show ProfileId field group and make it required
+        document.getElementById("profileIdFieldGroup").style.display = "block";
+        document.getElementById("profileFormProfileId").required = true;
+
+        // Reset inputs
+        document.getElementById("profileFormProfileId").value = "";
+        document.getElementById("profileFormProfileName").value = "";
+        document.getElementById("profileFormAfm").value = "";
+        document.getElementById("profileFormSerial").value = "";
+        document.getElementById("profileFormUsers").value = "1";
+        document.getElementById("profileFormExe").value = "TmsApp.exe";
+        document.getElementById("profileFormFolder").value = "";
+        document.getElementById("profileFormConnectionString").value = "";
+
+        document.getElementById("profileFormConnectionStringType").value = "Direct";
+        document.getElementById("profileFormDbServer").value = "";
+        document.getElementById("profileFormDbName").value = "";
+        document.getElementById("profileFormDbWindowsAuth").checked = false;
+        document.getElementById("profileFormDbUser").value = "";
+        document.getElementById("profileFormDbPassword").value = "";
+        document.getElementById("profileFormConfigPath").value = "";
+
+        toggleConnectionStringFields();
+        toggleWindowsAuthFields();
+        document.getElementById("folderSuggestions").style.display = "none";
+
+        // Action Buttons
+        document.getElementById("profileFormSubmitBtn").innerText = "➕ Προσθήκη Εταιρείας";
+        document.getElementById("profileFormSubmitBtn").className = "btn btn-login btn-sm";
+        document.getElementById("profileFormCancelBtn").style.display = "none";
+    }
+
+    function triggerFolderBrowse(inputId) {
+        var dummy = document.getElementById("folderBrowserDummy");
+        dummy.dataset.targetInput = inputId;
+        dummy.click();
+    }
+
+    function handleFolderSelected(input, defaultInputId) {
+        var inputId = input.dataset.targetInput || defaultInputId;
+        if (input.files.length > 0) {
+            var sampleFile = input.files[0];
+            var relativePath = sampleFile.webkitRelativePath || "";
+            var folderName = relativePath.split('/')[0] || "";
+            
+            var targetInput = document.getElementById(inputId);
+            if (targetInput) {
+                if (folderName) {
+                    // Default to Program Files (x86) since it is extremely common for desktop apps
+                    var defaultPath = "C:\\Program Files (x86)\\" + folderName;
+                    targetInput.value = defaultPath;
+
+                    // Populate suggestions
+                    var suggestionsList = document.getElementById("folderSuggestionsList");
+                    suggestionsList.innerHTML = "";
+                    
+                    var options = [
+                        "C:\\Program Files (x86)\\" + folderName,
+                        "C:\\Program Files\\" + folderName,
+                        "C:\\" + folderName
+                    ];
+                    
+                    options.forEach(function(opt) {
+                        var btn = document.createElement("button");
+                        btn.type = "button";
+                        btn.className = "btn btn-mini";
+                        btn.style.textAlign = "left";
+                        btn.style.width = "100%";
+                        btn.style.padding = "6px 10px";
+                        btn.style.backgroundColor = "#1A1A26";
+                        btn.style.border = "1px solid var(--border-color)";
+                        btn.style.color = "#E2E8F0";
+                        btn.style.cursor = "pointer";
+                        btn.style.fontSize = "11px";
+                        btn.style.borderRadius = "4px";
+                        btn.innerText = opt;
+                        btn.onclick = function() {
+                            targetInput.value = opt;
+                            // update file paths if config path exists
+                            var configInput = document.getElementById("profileFormConfigPath");
+                            if (configInput && configInput.value) {
+                                var parts = configInput.value.split('\\');
+                                var filename = parts[parts.length - 1];
+                                configInput.value = opt + "\\" + filename;
+                            }
+                        };
+                        suggestionsList.appendChild(btn);
+                    });
+                    
+                    document.getElementById("folderSuggestions").style.display = "block";
+                }
+            }
+        }
+    }
+
+    function triggerFileBrowse(inputId) {
+        var dummy = document.getElementById("fileBrowserDummy");
+        dummy.dataset.targetInput = inputId;
+        dummy.click();
+    }
+
+    function handleFileSelected(input, defaultInputId) {
+        var inputId = input.dataset.targetInput || defaultInputId;
+        if (input.files.length > 0) {
+            var file = input.files[0];
+            var filename = file.name;
+            var targetInput = document.getElementById(inputId);
+            if (targetInput) {
+                var folderInput = document.getElementById("profileFormFolder");
+                var baseDir = folderInput ? folderInput.value : "C:\\";
+                if (baseDir && !baseDir.endsWith("\\")) {
+                    baseDir += "\\";
+                }
+                targetInput.value = baseDir + filename;
+            }
+        }
+    }
+
+    function toggleConnectionStringFields() {
+        var type = document.getElementById("profileFormConnectionStringType").value;
+        var sDirect = document.getElementById("sectionConnDirect");
+        var sBuilder = document.getElementById("sectionConnBuilder");
+        var sConfigFile = document.getElementById("sectionConnConfigFile");
+
+        if (type === "Direct") {
+            sDirect.style.display = "block";
+            sBuilder.style.display = "none";
+            sConfigFile.style.display = "none";
+        } else if (type === "Builder") {
+            sDirect.style.display = "none";
+            sBuilder.style.display = "block";
+            sConfigFile.style.display = "none";
+            compileConnectionStringFromBuilder();
+        } else if (type === "ConfigFile") {
+            sDirect.style.display = "none";
+            sBuilder.style.display = "none";
+            sConfigFile.style.display = "block";
+        }
+    }
+
+    function toggleWindowsAuthFields() {
+        var useWindows = document.getElementById("profileFormDbWindowsAuth").checked;
+        var credentialsRow = document.getElementById("builderCredentialsRow");
+        if (useWindows) {
+            credentialsRow.style.display = "none";
+        } else {
+            credentialsRow.style.display = "grid";
+        }
+    }
+
+    function compileConnectionStringFromBuilder() {
+        var server = document.getElementById("profileFormDbServer").value.trim();
+        var db = document.getElementById("profileFormDbName").value.trim();
+        var useWindows = document.getElementById("profileFormDbWindowsAuth").checked;
+        var user = document.getElementById("profileFormDbUser").value.trim();
+        var pass = document.getElementById("profileFormDbPassword").value.trim();
+
+        if (!server) {
+            document.getElementById("profileFormConnectionString").value = "";
+            return;
+        }
+
+        var parts = ["Server=" + server];
+        if (db) {
+            parts.push("Database=" + db);
+        }
+
+        if (useWindows) {
+            parts.push("Integrated Security=True");
+        } else {
+            if (user) parts.push("User Id=" + user);
+            if (pass) parts.push("Password=" + pass);
+        }
+
+        parts.push("TrustServerCertificate=True");
+        var connStr = parts.join(";") + ";";
+        document.getElementById("profileFormConnectionString").value = connStr;
+    }
+
+    function renderUsersList(users) {
+        var listUl = document.getElementById("modalUsersList");
+        var noUsersMsg = document.getElementById("modalNoUsersMsg");
+        document.getElementById("modalUsersCount").innerText = users.length;
+
+        // Clear previous
+        listUl.innerHTML = "";
+
+        if (users.length === 0) {
+            noUsersMsg.style.display = "block";
+            listUl.style.display = "none";
+            return;
+        }
+
+        noUsersMsg.style.display = "none";
+        listUl.style.display = "block";
+
+        users.forEach(function(user) {
+            var li = document.createElement("li");
+            li.className = "user-item";
+
+            var infoDiv = document.createElement("div");
+            infoDiv.className = "user-info";
+
+            var nameSpan = document.createElement("span");
+            nameSpan.className = "user-name";
+            nameSpan.innerText = user.Username;
+            infoDiv.appendChild(nameSpan);
+
+            var roleSpan = document.createElement("span");
+            roleSpan.className = "user-role " + (user.Role === "Admin" ? "role-admin" : "role-operator");
+            roleSpan.innerText = user.Role;
+            infoDiv.appendChild(roleSpan);
+
+            var passSpan = document.createElement("span");
+            passSpan.className = "user-pass";
+            passSpan.title = "Κωδικός";
+            passSpan.innerText = "🔑 " + user.Password;
+            infoDiv.appendChild(passSpan);
+
+            li.appendChild(infoDiv);
+
+            // Create Delete Form
+            var form = document.createElement("form");
+            form.method = "post";
+            form.action = "/Clients?handler=DeleteAgentUser";
+            form.style.display = "inline";
+
+            // Add anti-forgery token
+            var token = document.querySelector('input[name="__RequestVerificationToken"]');
+            if (token) {
+                form.appendChild(token.cloneNode(true));
+            }
+
+            var inputId = document.createElement("input");
+            inputId.type = "hidden";
+            inputId.name = "userId";
+            inputId.value = user.Id;
+            form.appendChild(inputId);
+
+            var btnDelete = document.createElement("button");
+            btnDelete.type = "submit";
+            btnDelete.className = "btn-delete-user";
+            btnDelete.title = "Διαγραφή Χρήστη";
+            btnDelete.innerText = "❌";
+            form.appendChild(btnDelete);
+
+            li.appendChild(form);
+            listUl.appendChild(li);
+        });
+    }
+</script>

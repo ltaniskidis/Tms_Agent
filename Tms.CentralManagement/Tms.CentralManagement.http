@@ -1,0 +1,6 @@
+@Tms.CentralManagement_HostAddress = http://localhost:5007
+
+GET {{Tms.CentralManagement_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

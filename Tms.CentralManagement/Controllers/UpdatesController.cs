@@ -1,0 +1,457 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Tms.CentralManagement.Data;
+using Tms.Shared.Models;
+
+namespace Tms.CentralManagement.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class UpdatesController : ControllerBase
+    {
+        private readonly CentralDbContext _context;
+
+        public UpdatesController(CentralDbContext context)
+        {
+            _context = context;
+        }
+
+        // 1. Check for updates from Agents
+        [HttpPost("check")]
+        public async Task<ActionResult<UpdateCheckResponse>> CheckForUpdates([FromBody] UpdateCheckRequest request)
+        {
+            if (string.IsNullOrEmpty(request.ApiKey))
+            {
+                return Unauthorized("API Key is required.");
+            }
+
+            // Register / Update Client Machine in DB by ApiKey
+            var client = await _context.Clients
+                .Include(c => c.Profiles)
+                .Include(c => c.Databases)
+                .Include(c => c.LocalUsers)
+                .Include(c => c.Permissions)
+                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey);
+
+            if (client == null)
+            {
+                return Unauthorized("Invalid API Key.");
+            }
+
+            // Pair/Sync details
+            client.ClientGuid = request.ClientId;
+            client.MachineName = request.MachineName;
+            client.MachineRole = request.MachineRole;
+            client.AgentVersion = request.AgentVersion ?? "1.0.0";
+
+            // Sync discovered databases
+            if (request.DiscoveredDatabases != null)
+            {
+                foreach (var discDb in request.DiscoveredDatabases)
+                {
+                    var existingDb = client.Databases.FirstOrDefault(d => 
+                        d.InstanceName == discDb.InstanceName && 
+                        d.DatabaseName == discDb.DatabaseName);
+
+                    if (existingDb == null)
+                    {
+                        existingDb = new ClientDatabase
+                        {
+                            InstanceName = discDb.InstanceName,
+                            DatabaseName = discDb.DatabaseName,
+                            ConnectionString = discDb.ConnectionString,
+                            IsMonitored = false
+                        };
+                        client.Databases.Add(existingDb);
+                    }
+                    else
+                    {
+                        existingDb.ConnectionString = discDb.ConnectionString;
+                    }
+                }
+            }
+
+            var response = new UpdateCheckResponse();
+            response.IsUpgradeAllowed = client.IsUpgradeEnabled;
+
+            var currentSystemVersionObj = await _context.Versions
+                .Where(v => v.TargetType == "System" && v.IsCurrent)
+                .FirstOrDefaultAsync();
+            response.CurrentSystemVersion = currentSystemVersionObj?.VersionNumber ?? "1.5.0";
+
+            // Sync users
+            response.LocalUsers = client.LocalUsers.Select(u => new AgentUserDto
+            {
+                Username = u.Username,
+                Password = u.Password,
+                Role = u.Role
+            }).ToList();
+
+            // Sync permissions
+            if (client.Permissions != null)
+            {
+                response.Permissions = new AgentPermissionsDto
+                {
+                    CanOperatorViewLogs = client.Permissions.CanOperatorViewLogs,
+                    CanOperatorRunUpdates = client.Permissions.CanOperatorRunUpdates
+                };
+            }
+            else
+            {
+                response.Permissions = new AgentPermissionsDto
+                {
+                    CanOperatorViewLogs = true,
+                    CanOperatorRunUpdates = false
+                };
+            }
+
+            response.MonitoredDatabaseNames = client.Databases
+                .Where(d => d.IsMonitored)
+                .Select(d => d.DatabaseName)
+                .ToList();
+
+            var allActiveVersions = await _context.Versions
+                .Include(v => v.Scripts)
+                .Include(v => v.ReleaseNotes)
+                .Where(v => v.IsActive && v.TargetType == "Program")
+                .ToListAsync();
+
+            // 1. Process client reported profiles
+            foreach (var localProfile in request.Profiles)
+            {
+                var dbProfile = client.Profiles.FirstOrDefault(p => p.ProfileId == localProfile.ProfileId);
+                if (dbProfile == null)
+                {
+                    // Registration
+                    dbProfile = new ClientProfile
+                    {
+                        ProfileId = localProfile.ProfileId,
+                        ProfileName = localProfile.ProfileName,
+                        Afm = localProfile.Afm,
+                        SerialNumber = localProfile.SerialNumber,
+                        ActiveUsersCount = localProfile.ActiveUsersCount,
+                        LastUpdatedVersion = localProfile.CurrentVersion,
+                        LastUpdateStatus = "Registered",
+                        LastUpdatedTime = DateTime.UtcNow,
+                        TargetFolder = localProfile.TargetFolder ?? string.Empty,
+                        TargetExeName = localProfile.TargetExeName ?? "TmsApp.exe",
+                        ConnectionString = localProfile.ConnectionString ?? string.Empty,
+                        ConnectionStringType = localProfile.ConnectionStringType ?? "Direct",
+                        DbServer = localProfile.DbServer ?? string.Empty,
+                        DbName = localProfile.DbName ?? string.Empty,
+                        DbUser = localProfile.DbUser ?? string.Empty,
+                        DbPassword = localProfile.DbPassword ?? string.Empty,
+                        DbUseWindowsAuth = localProfile.DbUseWindowsAuth,
+                        ConfigFilePath = localProfile.ConfigFilePath ?? string.Empty
+                    };
+                    client.Profiles.Add(dbProfile);
+                }
+                else
+                {
+                    // Clean up profile from server if it is marked as pending delete and client has deleted it (or we delete it now)
+                    if (dbProfile.IsPendingDelete)
+                    {
+                        response.ConfigCommands.Add(new ProfileConfigCommandDto
+                        {
+                            CommandType = "DeleteProfile",
+                            ProfileId = dbProfile.ProfileId
+                        });
+                        continue;
+                    }
+
+                    // Check if server config is different. If so, push to client.
+                    bool needsSync = dbProfile.ProfileName != localProfile.ProfileName ||
+                                     dbProfile.Afm != localProfile.Afm ||
+                                     dbProfile.SerialNumber != localProfile.SerialNumber ||
+                                     dbProfile.ActiveUsersCount != localProfile.ActiveUsersCount ||
+                                     dbProfile.TargetFolder != localProfile.TargetFolder ||
+                                     dbProfile.TargetExeName != localProfile.TargetExeName ||
+                                     dbProfile.ConnectionString != localProfile.ConnectionString ||
+                                     dbProfile.ConnectionStringType != localProfile.ConnectionStringType ||
+                                     dbProfile.DbServer != localProfile.DbServer ||
+                                     dbProfile.DbName != localProfile.DbName ||
+                                     dbProfile.DbUser != localProfile.DbUser ||
+                                     dbProfile.DbPassword != localProfile.DbPassword ||
+                                     dbProfile.DbUseWindowsAuth != localProfile.DbUseWindowsAuth ||
+                                     dbProfile.ConfigFilePath != localProfile.ConfigFilePath;
+
+                    if (needsSync)
+                    {
+                        response.ConfigCommands.Add(new ProfileConfigCommandDto
+                        {
+                            CommandType = "SaveProfile",
+                            ProfileId = dbProfile.ProfileId,
+                            ProfileName = dbProfile.ProfileName,
+                            Afm = dbProfile.Afm,
+                            TargetFolder = dbProfile.TargetFolder,
+                            TargetExeName = dbProfile.TargetExeName,
+                            ConnectionString = dbProfile.ConnectionString,
+                            ConnectionStringType = dbProfile.ConnectionStringType,
+                            DbServer = dbProfile.DbServer,
+                            DbName = dbProfile.DbName,
+                            DbUser = dbProfile.DbUser,
+                            DbPassword = dbProfile.DbPassword,
+                            DbUseWindowsAuth = dbProfile.DbUseWindowsAuth,
+                            ConfigFilePath = dbProfile.ConfigFilePath,
+                            CurrentVersion = dbProfile.LastUpdatedVersion,
+                            SerialNumber = dbProfile.SerialNumber,
+                            ActiveUsersCount = dbProfile.ActiveUsersCount
+                        });
+                    }
+                    else
+                    {
+                        dbProfile.LastUpdatedVersion = localProfile.CurrentVersion;
+                    }
+                }
+
+                // Check for updates (only if upgrade is enabled)
+                if (client.IsUpgradeEnabled)
+                {
+                    if (!Version.TryParse(localProfile.CurrentVersion, out var currentVer))
+                    {
+                        currentVer = new Version(0, 0, 0);
+                    }
+
+                    var newerVersions = allActiveVersions
+                        .Select(v => new { VersionInfo = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
+                        .Where(x => x.Parsed > currentVer)
+                        .OrderByDescending(x => x.Parsed)
+                        .ToList();
+
+                    if (newerVersions.Any())
+                    {
+                        var latestUpdate = newerVersions.First().VersionInfo;
+
+                        // Restriction: If client role is Client and update contains scripts, database must be upgraded first
+                        if (latestUpdate.Scripts != null && latestUpdate.Scripts.Any() && request.MachineRole == "Client")
+                        {
+                            bool isDbUpgraded = await _context.ClientProfiles
+                                .AnyAsync(p => p.ProfileId == localProfile.ProfileId && 
+                                               p.LastUpdatedVersion == latestUpdate.VersionNumber && 
+                                               p.LastUpdateStatus == "Success");
+                            
+                            if (!isDbUpgraded)
+                            {
+                                // Database not upgraded yet, skip update for this Client machine
+                                continue;
+                            }
+                        }
+                        
+                        response.Updates.Add(new ProfileUpdateDto
+                        {
+                            ProfileId = localProfile.ProfileId,
+                            Afm = localProfile.Afm,
+                            IsAuthorizedByAdmin = dbProfile.IsAuthorizedForUpdate,
+                            NewVersion = new VersionDto
+                            {
+                                Id = latestUpdate.Id,
+                                VersionNumber = latestUpdate.VersionNumber,
+                                ReleaseDate = latestUpdate.ReleaseDate,
+                                Description = latestUpdate.Description,
+                                BinaryFileUrl = latestUpdate.BinaryFileUrl,
+                                SecurityCode = latestUpdate.SecurityCode,
+                                ReleaseNotes = latestUpdate.ReleaseNotes.Select(rn => rn.NotesContent).ToList(),
+                                Scripts = latestUpdate.Scripts.OrderBy(s => s.SequenceOrder).Select(s => new ScriptDto
+                                {
+                                    Id = s.Id,
+                                    ScriptName = s.ScriptName,
+                                    ScriptContent = s.ScriptContent,
+                                    SequenceOrder = s.SequenceOrder
+                                }).ToList()
+                            }
+                        });
+                    }
+                }
+            }
+
+            // 2. Scan DB for profiles to delete (client acknowledged deletion by not sending it) or profiles to add
+            var clientProfileIds = request.Profiles.Select(p => p.ProfileId).ToList();
+            
+            // Remove profiles that are marked as deleted and no longer reported by the client
+            var deletedProfiles = client.Profiles.Where(p => p.IsPendingDelete && !clientProfileIds.Contains(p.ProfileId)).ToList();
+            foreach (var del in deletedProfiles)
+            {
+                client.Profiles.Remove(del);
+            }
+
+            // Push server-created profiles to the client
+            var serverOnlyProfiles = client.Profiles
+                .Where(p => !p.IsPendingDelete && !clientProfileIds.Contains(p.ProfileId))
+                .ToList();
+
+            foreach (var serverProfile in serverOnlyProfiles)
+            {
+                response.ConfigCommands.Add(new ProfileConfigCommandDto
+                {
+                    CommandType = "SaveProfile",
+                    ProfileId = serverProfile.ProfileId,
+                    ProfileName = serverProfile.ProfileName,
+                    Afm = serverProfile.Afm,
+                    TargetFolder = serverProfile.TargetFolder,
+                    TargetExeName = serverProfile.TargetExeName,
+                    ConnectionString = serverProfile.ConnectionString,
+                    ConnectionStringType = serverProfile.ConnectionStringType,
+                    DbServer = serverProfile.DbServer,
+                    DbName = serverProfile.DbName,
+                    DbUser = serverProfile.DbUser,
+                    DbPassword = serverProfile.DbPassword,
+                    DbUseWindowsAuth = serverProfile.DbUseWindowsAuth,
+                    ConfigFilePath = serverProfile.ConfigFilePath,
+                    CurrentVersion = serverProfile.LastUpdatedVersion,
+                    SerialNumber = serverProfile.SerialNumber,
+                    ActiveUsersCount = serverProfile.ActiveUsersCount
+                });
+            }
+
+            await _context.SaveChangesAsync();
+
+            response.HasUpdates = response.Updates.Any();
+            return Ok(response);
+        }
+
+        // 2. Submit logs from Agents
+        [HttpPost("log")]
+        public async Task<IActionResult> SubmitLog([FromBody] UpdateLogSubmissionDto request)
+        {
+            if (string.IsNullOrEmpty(request.ApiKey))
+            {
+                return Unauthorized("API Key is required.");
+            }
+
+            var client = await _context.Clients
+                .Include(c => c.Profiles)
+                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey);
+
+            if (client == null)
+            {
+                return Unauthorized("Invalid API Key.");
+            }
+
+            var profile = client.Profiles.FirstOrDefault(p => p.ProfileId == request.ProfileId);
+            if (profile == null)
+            {
+                // Fallback: create profile if not exists
+                profile = new ClientProfile
+                {
+                    ProfileId = request.ProfileId,
+                    ProfileName = request.ProfileName,
+                    Afm = request.Afm
+                };
+                client.Profiles.Add(profile);
+                await _context.SaveChangesAsync();
+            }
+
+            // Create log
+            var log = new UpdateLog
+            {
+                ClientProfileId = profile.Id,
+                VersionNumber = request.VersionNumber,
+                ExecutionTime = request.ExecutionTime,
+                Success = request.Success,
+                ErrorMessage = request.ErrorMessage,
+                LogDetails = request.LogDetails
+            };
+
+            _context.UpdateLogs.Add(log);
+
+            // Update profile status
+            profile.LastUpdatedVersion = request.VersionNumber;
+            profile.LastUpdateStatus = request.Success ? "Success" : "Failed";
+            profile.LastUpdatedTime = request.ExecutionTime;
+            if (request.Success)
+            {
+                profile.IsAuthorizedForUpdate = false; // Clear authorization on success
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        // 3. Admin: Get all clients and their profiles
+        [HttpGet("admin/clients")]
+        public async Task<ActionResult<IEnumerable<ClientMachine>>> GetClients()
+        {
+            var clients = await _context.Clients
+                .Include(c => c.Profiles)
+                    .ThenInclude(p => p.UpdateLogs)
+                .ToListAsync();
+
+            return Ok(clients);
+        }
+
+        // 4. Admin: Get all versions
+        [HttpGet("admin/versions")]
+        public async Task<ActionResult<IEnumerable<VersionInfo>>> GetVersions()
+        {
+            var versions = await _context.Versions
+                .Include(v => v.Scripts)
+                .Include(v => v.ReleaseNotes)
+                .ToListAsync();
+
+            return Ok(versions);
+        }
+
+        // 5. Admin: Create a new version
+        [HttpPost("admin/versions")]
+        public async Task<ActionResult<VersionInfo>> CreateVersion([FromBody] VersionDto dto)
+        {
+            if (string.IsNullOrEmpty(dto.VersionNumber))
+            {
+                return BadRequest("Version number is required.");
+            }
+
+            var version = new VersionInfo
+                {
+                    VersionNumber = dto.VersionNumber,
+                    ReleaseDate = dto.ReleaseDate == default ? DateTime.UtcNow : dto.ReleaseDate,
+                    Description = dto.Description,
+                    BinaryFileUrl = dto.BinaryFileUrl,
+                    SecurityCode = dto.SecurityCode,
+                    TargetType = dto.TargetType ?? "Program",
+                    IsActive = true
+                };
+
+            // Add release notes
+            foreach (var noteText in dto.ReleaseNotes)
+            {
+                version.ReleaseNotes.Add(new ReleaseNote { NotesContent = noteText });
+            }
+
+            // Add SQL Scripts
+            foreach (var scriptDto in dto.Scripts)
+            {
+                version.Scripts.Add(new SqlScript
+                {
+                    ScriptName = scriptDto.ScriptName,
+                    ScriptContent = scriptDto.ScriptContent,
+                    SequenceOrder = scriptDto.SequenceOrder
+                });
+            }
+
+            _context.Versions.Add(version);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetVersions), new { id = version.Id }, version);
+        }
+
+        // 6. Admin: Toggle version status
+        [HttpPost("admin/versions/{id}/toggle")]
+        public async Task<IActionResult> ToggleVersionActive(int id)
+        {
+            var version = await _context.Versions.FindAsync(id);
+            if (version == null)
+            {
+                return NotFound();
+            }
+
+            version.IsActive = !version.IsActive;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { id = version.Id, isActive = version.IsActive });
+        }
+    }
+}

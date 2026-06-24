@@ -1,0 +1,96 @@
+@page
+@model Tms.CentralManagement.Pages.LogsModel
+@{
+    ViewData["Title"] = "Ιστορικό Ενημερώσεων";
+}
+
+<header>
+    <div>
+        <h1>📋 Ιστορικό Ενημερώσεων (Logs)</h1>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Προβολή λεπτομερειών εκτέλεσης και αναφορών σφαλμάτων από όλους τους Agents.</p>
+    </div>
+</header>
+
+<div class="card">
+    <div class="card-title">
+        <span>Καταγραφές Ενημερώσεων (@Model.Logs.Count)</span>
+    </div>
+
+    @if (!Model.Logs.Any())
+    {
+        <div style="text-align: center; padding: 40px; color: var(--text-secondary); font-style: italic;">
+            Δεν υπάρχουν καταγεγραμμένα logs αναβαθμίσεων ακόμα.
+        </div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>Ημερομηνία (UTC)</th>
+                    <th>Μηχάνημα</th>
+                    <th>Εταιρεία (ΑΦΜ)</th>
+                    <th>Έκδοση</th>
+                    <th>Κατάσταση</th>
+                    <th>Λεπτομέρειες</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model.Logs)
+                {
+                    <tr>
+                        <td>@log.ExecutionTime.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                        <td><strong>@log.MachineName</strong></td>
+                        <td>
+                            @log.ProfileName
+                            <br />
+                            <span style="font-size: 11px; color: var(--text-secondary);">ΑΦΜ: @log.Afm</span>
+                        </td>
+                        <td><span class="badge badge-secondary">v @log.VersionNumber</span></td>
+                        <td>
+                            @if (log.Success)
+                            {
+                                <span class="badge badge-success">✓ Επιτυχές</span>
+                            }
+                            else
+                            {
+                                <span class="badge badge-danger" title="@log.ErrorMessage">✗ Αποτυχία</span>
+                            }
+                        </td>
+                        <td>
+                            <button class="btn btn-outline" style="padding: 4px 8px; font-size: 11px; font-weight: 500;" onclick="toggleDetails(@log.Id)">
+                                👁️ Προβολή Logs
+                            </button>
+                        </td>
+                    </tr>
+                    <!-- Collapsible Details Row -->
+                    <tr id="details-@log.Id" style="display: none; background-color: #0A0A0D;">
+                        <td colspan="6" style="padding: 20px; border-bottom: 1.5px solid var(--border-color);">
+                            @if (!log.Success)
+                            {
+                                <div style="color: var(--danger); font-weight: bold; font-size: 13px; margin-bottom: 10px;">
+                                    ⚠️ Μήνυμα Σφάλματος: @log.ErrorMessage
+                                </div>
+                            }
+                            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; font-weight: 600;">Κονσόλα Εκτέλεσης:</div>
+                            <pre style="font-family: Consolas, Courier New, monospace; font-size: 12px; color: #10B981; background-color: #050507; padding: 15px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; border: 1px solid #1E1E2C;">@log.LogDetails</pre>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@section Scripts {
+    <script>
+        function toggleDetails(id) {
+            var row = document.getElementById('details-' + id);
+            if (row.style.display === 'none') {
+                row.style.display = 'table-row';
+            } else {
+                row.style.display = 'none';
+            }
+        }
+    </script>
+}

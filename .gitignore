@@ -1,0 +1,21 @@
+# Build folders
+[Bb]in/
+[Oo]bj/
+[Pp]ublish/
+PublishAndSetup/
+
+# SQLite databases
+*.db
+*.db-shm
+*.db-wal
+
+# VS / VS Code settings
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Local packages/publish directories
+Tms.CentralManagement/wwwroot/packages/

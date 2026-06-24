@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Tms.Agent.Core/Tms.Agent.Core.csproj" />
+  <Project Path="Tms.Agent.Tests/Tms.Agent.Tests.csproj" />
+  <Project Path="Tms.Agent.Wpf/Tms.Agent.Wpf.csproj" />
+  <Project Path="Tms.CentralManagement/Tms.CentralManagement.csproj" />
+  <Project Path="Tms.Shared/Tms.Shared.csproj" />
+</Solution>

@@ -170,14 +170,18 @@ namespace Tms.CentralManagement.Pages
                     {
                         using (var mail = new System.Net.Mail.MailMessage())
                         {
-                            mail.From = new System.Net.Mail.MailAddress(sender ?? username);
+                            mail.From = new System.Net.Mail.MailAddress(sender ?? username, "Clever_Support");
                             foreach (var addr in toAddresses)
                             {
                                 mail.To.Add(addr);
                             }
                             mail.Subject = $"[TMS Support Resolved] Απάντηση στο αίτημα: {ticket.Subject}";
+                            var companyNames = client != null && client.Profiles != null && client.Profiles.Any()
+                                ? string.Join(", ", client.Profiles.Select(p => p.ProfileName))
+                                : "Δεν βρέθηκαν καταχωρημένα προφίλ";
+
                             mail.Body = $"Αγαπητέ πελάτη,\n\n" +
-                                         $"Σχετικά με το αίτημα υποστήριξης που υποβάλατε με θέμα '{ticket.Subject}' στο μηχάνημα '{ticket.MachineName}', σας ενημερώνουμε ότι έχει επιλυθεί.\n\n" +
+                                         $"Σχετικά με το αίτημα υποστήριξης που υποβάλατε με θέμα '{ticket.Subject}' στο μηχάνημα '{ticket.MachineName}' (Επιχείρηση: {companyNames}), σας ενημερώνουμε ότι έχει επιλυθεί.\n\n" +
                                          $"Απάντηση Τεχνικού:\n" +
                                          $"{replyText}\n\n" +
                                          $"Με εκτίμηση,\n" +

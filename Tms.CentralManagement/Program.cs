@@ -707,6 +707,33 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.13"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.13",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Όνομα Αποστολέα (Display Name) & Στοιχεία Επιχείρησης στα support emails",
+            BinaryFileUrl = "/packages/app_1.5.13.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Ορισμός του 'Clever_Support' ως Display Name αποστολέα στα emails υποστήριξης και απαντήσεων." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Συμπερίληψη των στοιχείων/ονομάτων των επιχειρήσεων (Client Profiles) στα emails υποστήριξης." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

@@ -603,9 +603,15 @@ namespace Tms.CentralManagement.Controllers
             _context.SupportTickets.Add(ticket);
             await _context.SaveChangesAsync();
 
+            // Get all profile names for this client
+            var companyNames = client.Profiles != null && client.Profiles.Any()
+                ? string.Join(", ", client.Profiles.Select(p => p.ProfileName))
+                : "Δεν βρέθηκαν καταχωρημένα προφίλ";
+
             // Append machine detail info to email body
             var fullBody = $"Στοιχεία Μηχανήματος:\n" +
-                           $"Όνομα: {client.MachineName}\n" +
+                           $"Επιχείρηση/Εταιρείες: {companyNames}\n" +
+                           $"Όνομα Μηχανήματος: {client.MachineName}\n" +
                            $"ApiKey: {client.ApiKey}\n" +
                            $"Έκδοση Agent: {client.AgentVersion}\n" +
                            $"Ημερομηνία: {DateTime.Now}\n\n" +
@@ -653,7 +659,7 @@ namespace Tms.CentralManagement.Controllers
                 {
                     using (var mail = new System.Net.Mail.MailMessage())
                     {
-                        mail.From = new System.Net.Mail.MailAddress(sender ?? username);
+                        mail.From = new System.Net.Mail.MailAddress(sender ?? username, "Clever_Support");
                         foreach (var addr in toAddresses)
                         {
                             mail.To.Add(addr);

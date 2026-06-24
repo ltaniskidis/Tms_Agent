@@ -20,6 +20,7 @@ namespace Tms.CentralManagement.Data
         public DbSet<ConsoleUser> ConsoleUsers { get; set; } = null!;
         public DbSet<AgentUser> AgentUsers { get; set; } = null!;
         public DbSet<AgentPermissions> AgentPermissions { get; set; } = null!;
+        public DbSet<BroadcastMessage> BroadcastMessages { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -144,6 +145,7 @@ namespace Tms.CentralManagement.Data
         
         public bool IsPendingDelete { get; set; } = false;
         public bool IsAuthorizedForUpdate { get; set; } = false;
+        public string Emails { get; set; } = string.Empty; // comma-separated emails
 
         public List<UpdateLog> UpdateLogs { get; set; } = new();
     }
@@ -196,5 +198,15 @@ namespace Tms.CentralManagement.Data
         public int ClientMachineId { get; set; }
         public bool CanOperatorViewLogs { get; set; } = true;
         public bool CanOperatorRunUpdates { get; set; } = false;
+    }
+
+    public class BroadcastMessage
+    {
+        public int Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public bool IsActive { get; set; } = true;
+        public string TargetClientApiKey { get; set; } = string.Empty; // empty for all, or specific ApiKey
     }
 }

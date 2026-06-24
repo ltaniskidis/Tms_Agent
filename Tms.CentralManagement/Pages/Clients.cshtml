@@ -500,6 +500,12 @@
                             <small class="form-text text-muted" style="font-size: 9px; color: var(--text-secondary); margin-top: 2px;">⚠️ Σημείωση: Ο browser εμφανίζει προειδοποίηση «Μεταφόρτωση» για λόγους ασφαλείας. Το σύστημα **δεν ανεβάζει κανένα αρχείο**, απλώς διαβάζει τη διαδρομή. Εναλλακτικά, πληκτρολογήστε τη διαδρομή χειροκίνητα.</small>
                         </div>
 
+                        <!-- Email(s) for notifications -->
+                        <div class="form-group-sm">
+                            <label>Emails Επικοινωνίας (διαχωρισμένα με κόμμα)</label>
+                            <input type="text" name="emails" id="profileFormEmails" class="form-control form-control-sm" placeholder="π.χ. support@company.com, admin@company.com" />
+                        </div>
+
                         <!-- Connection Configuration Type -->
                         <div class="form-group-sm">
                             <label>Τύπος Σύνδεσης Βάσης</label>
@@ -1585,7 +1591,8 @@
             sub.innerHTML = "<span>ΑΦΜ: " + (profile.Afm || "-") + "</span>" +
                             "<span>SN: " + (profile.SerialNumber || "-") + "</span>" +
                             "<span>Χρήστες: " + profile.ActiveUsersCount + "</span>" +
-                            "<span>Έκδοση: v" + profile.LastUpdatedVersion + "</span>";
+                            "<span>Έκδοση: v" + profile.LastUpdatedVersion + "</span>" +
+                            "<span style='grid-column: 1 / -1; color: var(--accent);'>Emails: " + (profile.Emails || "-") + "</span>";
             info.appendChild(sub);
             card.appendChild(info);
 
@@ -1661,6 +1668,7 @@
         document.getElementById("profileFormUsers").value = profile.ActiveUsersCount;
         document.getElementById("profileFormExe").value = profile.TargetExeName;
         document.getElementById("profileFormFolder").value = profile.TargetFolder;
+        document.getElementById("profileFormEmails").value = profile.Emails || "";
         document.getElementById("profileFormConnectionString").value = profile.ConnectionString;
 
         var connType = profile.ConnectionStringType || "Direct";
@@ -1706,6 +1714,7 @@
         document.getElementById("profileFormUsers").value = "1";
         document.getElementById("profileFormExe").value = "TmsApp.exe";
         document.getElementById("profileFormFolder").value = "";
+        document.getElementById("profileFormEmails").value = "";
         document.getElementById("profileFormConnectionString").value = "";
 
         document.getElementById("profileFormConnectionStringType").value = "Direct";

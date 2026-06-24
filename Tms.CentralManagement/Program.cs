@@ -67,7 +67,8 @@ using (var scope = app.Services.CreateScope())
                     { "DbUser", "TEXT NULL" },
                     { "DbPassword", "TEXT NULL" },
                     { "DbUseWindowsAuth", "INTEGER NOT NULL DEFAULT 0" },
-                    { "ConfigFilePath", "TEXT NULL" }
+                    { "ConfigFilePath", "TEXT NULL" },
+                    { "Emails", "TEXT NULL" }
                 };
 
                 foreach (var col in columnsToAdd)
@@ -148,6 +149,29 @@ using (var scope = app.Services.CreateScope())
                     {
                         updateCommand.CommandText = "UPDATE ConsoleUsers SET Scope = 'Both' WHERE lower(Username) = 'owner';";
                         updateCommand.ExecuteNonQuery();
+                    }
+                }
+            }
+
+            // Check if BroadcastMessages table exists and create it if missing
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='BroadcastMessages';";
+                var tableExists = command.ExecuteScalar() != null;
+                if (!tableExists)
+                {
+                    using (var createTableCommand = connection.CreateCommand())
+                    {
+                        createTableCommand.CommandText = @"
+                            CREATE TABLE BroadcastMessages (
+                                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                Title TEXT NOT NULL,
+                                Content TEXT NOT NULL,
+                                CreatedDate TEXT NOT NULL,
+                                IsActive INTEGER NOT NULL,
+                                TargetClientApiKey TEXT NULL
+                            );";
+                        createTableCommand.ExecuteNonQuery();
                     }
                 }
             }
@@ -501,6 +525,35 @@ GO
             TargetType = "System"
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Πλήρης απόκρυψη του global owner χρήστη από τη λίστα διαχείρισης χρηστών στον Agent για λόγους ασφαλείας, διατηρώντας τον μόνο στο τοπικό αρχείο users.json για την ταυτοποίηση." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.9"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.9",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Αποστολή Support Emails & Διαφημιστικά/Ενημερώσεις",
+            BinaryFileUrl = "/packages/app_1.5.9.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Δυνατότητα αποστολής emails στο support (support@cleverdata.gr, l.taniskidis@cleverdata.gr, e.kordouli@cleverdata.gr) με θέμα, περιεχόμενο και screenshot/attachment από τον Agent." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διεπαφή διαχείρισης και αποστολής διαφημιστικών/ενημερώσεων (Broadcasts) στους Agents." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Δυνατότητα καταχώρησης πολλαπλών emails ανά εταιρεία/προφίλ (ClientProfile) για επικοινωνία." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Νέα Tabs επικοινωνίας και ενημερώσεων με ένδειξη (🔴) για νέα μη αναγνωσμένα μηνύματα στον Agent." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

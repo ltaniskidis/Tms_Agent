@@ -217,7 +217,8 @@ namespace Tms.CentralManagement.Pages
             bool dbUseWindowsAuth,
             string configFilePath,
             string targetFolder,
-            string targetExeName)
+            string targetExeName,
+            string emails)
         {
             if (string.IsNullOrWhiteSpace(profileId) || string.IsNullOrWhiteSpace(profileName))
             {
@@ -259,6 +260,7 @@ namespace Tms.CentralManagement.Pages
                 ConfigFilePath = configFilePath?.Trim() ?? string.Empty,
                 TargetFolder = targetFolder?.Trim() ?? string.Empty,
                 TargetExeName = string.IsNullOrWhiteSpace(targetExeName) ? "TmsApp.exe" : targetExeName.Trim(),
+                Emails = emails?.Trim() ?? string.Empty,
                 IsAuthorizedForUpdate = false,
                 IsPendingDelete = false
             };
@@ -285,7 +287,8 @@ namespace Tms.CentralManagement.Pages
             bool dbUseWindowsAuth,
             string configFilePath,
             string targetFolder,
-            string targetExeName)
+            string targetExeName,
+            string emails)
         {
             var profile = await _context.ClientProfiles.FindAsync(editProfileId);
             if (profile == null)
@@ -308,6 +311,7 @@ namespace Tms.CentralManagement.Pages
             profile.ConfigFilePath = configFilePath?.Trim() ?? string.Empty;
             profile.TargetFolder = targetFolder?.Trim() ?? string.Empty;
             profile.TargetExeName = targetExeName?.Trim() ?? "TmsApp.exe";
+            profile.Emails = emails?.Trim() ?? string.Empty;
 
             await _context.SaveChangesAsync();
             SuccessMessage = $"Οι αλλαγές για την εταιρεία '{profile.ProfileName}' αποθηκεύτηκαν επιτυχώς.";

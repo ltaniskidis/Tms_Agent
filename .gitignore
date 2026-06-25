@@ -2,7 +2,9 @@
 [Bb]in/
 [Oo]bj/
 [Pp]ublish/
-PublishAndSetup/
+PublishAndSetup/Agent/
+PublishAndSetup/CentralServer/
+PublishAndSetup/*.zip
 
 # SQLite databases
 *.db

@@ -874,25 +874,43 @@ namespace Tms.CentralManagement.Controllers
             var regex = new Regex(@"^\s*-{2,}\s*(?:NEW\s+SCRIPT\s+|SCRIPT\s+)?\[?([a-zA-Z0-9][a-zA-Z0-9\._\-]*)\]?\s*(?:-{2,})?\s*$", RegexOptions.IgnoreCase);
 
             using var reader = new StringReader(content);
-            string line;
-            BulkScriptBlock currentBlock = null;
+            string? line;
+            BulkScriptBlock? currentBlock = null;
             var currentContent = new StringBuilder();
 
             while ((line = reader.ReadLine()) != null)
             {
                 var match = regex.Match(line);
+                bool isValidBlockMatch = false;
+                string blockNumber = "";
+
                 if (match.Success)
+                {
+                    blockNumber = match.Groups[1].Value.Trim();
+                    bool startsWithDigit = char.IsDigit(blockNumber[0]);
+                    bool hasNewScript = line.Contains("NEW SCRIPT", StringComparison.OrdinalIgnoreCase) || line.Contains("SCRIPT ", StringComparison.OrdinalIgnoreCase);
+
+                    if (startsWithDigit || hasNewScript)
+                    {
+                        isValidBlockMatch = true;
+                    }
+                }
+
+                if (isValidBlockMatch)
                 {
                     if (currentBlock != null)
                     {
                         currentBlock.ScriptContent = currentContent.ToString().Trim();
-                        blocks.Add(currentBlock);
+                        if (HasSqlStatements(currentBlock.ScriptContent))
+                        {
+                            blocks.Add(currentBlock);
+                        }
                         currentContent.Clear();
                     }
 
                     currentBlock = new BulkScriptBlock
                     {
-                        ScriptNumber = match.Groups[1].Value.Trim()
+                        ScriptNumber = blockNumber
                     };
                 }
                 else
@@ -907,10 +925,101 @@ namespace Tms.CentralManagement.Controllers
             if (currentBlock != null)
             {
                 currentBlock.ScriptContent = currentContent.ToString().Trim();
-                blocks.Add(currentBlock);
+                if (HasSqlStatements(currentBlock.ScriptContent))
+                {
+                    blocks.Add(currentBlock);
+                }
             }
 
             return blocks;
+        }
+
+        private static string StripSqlComments(string sql)
+        {
+            if (string.IsNullOrEmpty(sql))
+                return string.Empty;
+
+            var sb = new StringBuilder();
+            bool inSingleLineComment = false;
+            bool inMultiLineComment = false;
+            bool inString = false;
+            char stringChar = '\0';
+
+            for (int i = 0; i < sql.Length; i++)
+            {
+                char c = sql[i];
+                char next = i + 1 < sql.Length ? sql[i + 1] : '\0';
+
+                if (inSingleLineComment)
+                {
+                    if (c == '\r' || c == '\n')
+                    {
+                        inSingleLineComment = false;
+                        sb.Append(c);
+                    }
+                    continue;
+                }
+
+                if (inMultiLineComment)
+                {
+                    if (c == '*' && next == '/')
+                    {
+                        inMultiLineComment = false;
+                        i++; // skip '/'
+                    }
+                    continue;
+                }
+
+                if (inString)
+                {
+                    sb.Append(c);
+                    if (c == '\'' && stringChar == '\'')
+                    {
+                        if (next == '\'')
+                        {
+                            sb.Append(next);
+                            i++;
+                        }
+                        else
+                        {
+                            inString = false;
+                        }
+                    }
+                    continue;
+                }
+
+                if (c == '-' && next == '-')
+                {
+                    inSingleLineComment = true;
+                    i++;
+                    continue;
+                }
+                if (c == '/' && next == '*')
+                {
+                    inMultiLineComment = true;
+                    i++;
+                    continue;
+                }
+                if (c == '\'')
+                {
+                    inString = true;
+                    stringChar = '\'';
+                    sb.Append(c);
+                    continue;
+                }
+
+                sb.Append(c);
+            }
+
+            return sb.ToString();
+        }
+
+        private static bool HasSqlStatements(string content)
+        {
+            string stripped = StripSqlComments(content);
+            stripped = Regex.Replace(stripped, @"\bGO\b", "", RegexOptions.IgnoreCase);
+            stripped = stripped.Replace(";", "").Trim();
+            return Regex.IsMatch(stripped, "[a-zA-Z0-9]");
         }
 
         private class BulkScriptBlock

@@ -1358,6 +1358,33 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.32"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.32",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Φιλτράρισμα κενών blocks και βελτίωση ανίχνευσης πραγματικών SQL σεναρίων.",
+            BinaryFileUrl = "/packages/app_1.5.32.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Φιλτράρισμα κενών blocks χωρίς πραγματικές SQL εντολές." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Διόρθωση regex ώστε να μην ανιχνεύονται απλά σχόλια ως blocks." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

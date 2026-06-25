@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.31";
+        public string AppVersion => "1.5.32";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings

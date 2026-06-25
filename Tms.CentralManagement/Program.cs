@@ -1274,6 +1274,37 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.29"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.29",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διορθώσεις ορίων μεγέθους uploads στον Server και ενσωμάτωση ελέγχων φακέλων/συντομεύσεων στον Agent.",
+            BinaryFileUrl = "/packages/app_1.5.29.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Διορθώσεις ορίων μεγέθους uploads στον Server και ενσωμάτωση ελέγχων φακέλων/συντομεύσεων στον Agent." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Αύξηση ορίου μεγέθους multipart request body στα 500MB για την υποστήριξη μεγάλων αρχείων ZIP." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Παράλειψη αναβάθμισης (SQL & αρχεία) εάν ο δηλωμένος φάκελος της εταιρείας δεν υπάρχει στον υπολογιστή." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Παράκαμψη SQL scripts για workstations (Client ρόλος) και εκτέλεσή τους μόνο από Server/Both." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Ανθεκτικότητα κατά τον εντοπισμό παραγωγικού exe όταν απουσιάζουν συντομεύσεις από την επιφάνεια εργασίας." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη Linear Gradient μπάρας προόδου topmost κατά την εγκατάσταση." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

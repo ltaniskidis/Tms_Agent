@@ -148,7 +148,7 @@
                 </StackPanel>
 
                 <!-- Help Info -->
-                <TextBlock Grid.Row="2" Text="Έκδοση 1.5.28" FontSize="10" Foreground="#555566" HorizontalAlignment="Center"/>
+                <TextBlock Grid.Row="2" Text="Έκδοση 1.5.29" FontSize="10" Foreground="#555566" HorizontalAlignment="Center"/>
             </Grid>
         </Border>
 

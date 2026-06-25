@@ -24,10 +24,10 @@ namespace Tms.CentralManagement.Pages
         public string VersionNumber { get; set; } = string.Empty;
 
         [BindProperty]
-        public string Description { get; set; } = string.Empty;
+        public string? Description { get; set; }
 
         [BindProperty]
-        public string BinaryFileUrl { get; set; } = string.Empty;
+        public string? BinaryFileUrl { get; set; }
 
         [BindProperty]
         public string? SecurityCode { get; set; }
@@ -39,13 +39,13 @@ namespace Tms.CentralManagement.Pages
         public IFormFile? UploadedScriptsFile { get; set; }
 
         [BindProperty]
-        public string ReleaseNotesText { get; set; } = string.Empty;
+        public string? ReleaseNotesText { get; set; }
 
         [BindProperty]
-        public string ScriptName { get; set; } = "01_update.sql";
+        public string? ScriptName { get; set; } = "01_update.sql";
 
         [BindProperty]
-        public string ScriptContent { get; set; } = string.Empty;
+        public string? ScriptContent { get; set; }
 
         [BindProperty]
         public string TargetType { get; set; } = "Program"; // "System" or "Program"
@@ -99,7 +99,7 @@ namespace Tms.CentralManagement.Pages
                 ScriptName = UploadedScriptsFile.FileName;
             }
 
-            string finalUrl = BinaryFileUrl.Trim();
+            string finalUrl = (BinaryFileUrl ?? string.Empty).Trim();
             
             if (UploadedPackage != null && UploadedPackage.Length > 0)
             {
@@ -135,7 +135,7 @@ namespace Tms.CentralManagement.Pages
             {
                 VersionNumber = VersionNumber.Trim(),
                 ReleaseDate = DateTime.UtcNow,
-                Description = Description.Trim(),
+                Description = (Description ?? string.Empty).Trim(),
                 BinaryFileUrl = finalUrl,
                 SecurityCode = SecurityCode?.Trim(),
                 TargetType = TargetType.Trim(),

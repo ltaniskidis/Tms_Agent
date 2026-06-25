@@ -77,6 +77,18 @@ if (Test-Path $zipPath) {
 Write-Host "Creating ZIP archive: $zipName..." -ForegroundColor Yellow
 Compress-Archive -Path "$tempDir\*" -DestinationPath $zipPath -Force
 
+# Copy to Dev packages directory
+if (Test-Path $serverPackagesDev) {
+    Write-Host "Copying to Dev packages folder: $serverPackagesDev..." -ForegroundColor Yellow
+    Copy-Item -Path $zipPath -Destination $serverPackagesDev -Force
+}
+
+# Copy to Prod packages directory
+if (Test-Path $serverPackagesProd) {
+    Write-Host "Copying to Prod packages folder: $serverPackagesProd..." -ForegroundColor Yellow
+    Copy-Item -Path $zipPath -Destination $serverPackagesProd -Force
+}
+
 # 6. Serving from PublishAndSetup directly
 Write-Host "Update package is stored directly in PublishAndSetup." -ForegroundColor Cyan
 

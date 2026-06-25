@@ -9,6 +9,8 @@ using Tms.Shared.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore.Http;
 using System.IO;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Tms.CentralManagement.Controllers
 {
@@ -69,12 +71,15 @@ namespace Tms.CentralManagement.Controllers
 
                     if (existingDb == null)
                     {
+                        bool isUsedByProfile = request.Profiles != null && request.Profiles.Any(p => 
+                            string.Equals(p.DbName, discDb.DatabaseName, StringComparison.OrdinalIgnoreCase));
+
                         existingDb = new ClientDatabase
                         {
                             InstanceName = discDb.InstanceName,
                             DatabaseName = discDb.DatabaseName,
                             ConnectionString = discDb.ConnectionString,
-                            IsMonitored = false
+                            IsMonitored = isUsedByProfile
                         };
                         client.Databases.Add(existingDb);
                     }
@@ -250,6 +255,17 @@ namespace Tms.CentralManagement.Controllers
                     }
                 }
 
+                // Auto-enable monitoring for the database associated with this profile
+                if (!string.IsNullOrEmpty(localProfile.DbName))
+                {
+                    var matchingDb = client.Databases.FirstOrDefault(d => 
+                        string.Equals(d.DatabaseName, localProfile.DbName, StringComparison.OrdinalIgnoreCase));
+                    if (matchingDb != null && !matchingDb.IsMonitored)
+                    {
+                        matchingDb.IsMonitored = true;
+                    }
+                }
+
                 // Check for updates (only if upgrade is enabled)
                 if (client.IsUpgradeEnabled)
                 {
@@ -283,7 +299,32 @@ namespace Tms.CentralManagement.Controllers
                         bool isWaitingForDb = false;
                         if (latestUpdate.Scripts != null && latestUpdate.Scripts.Any() && request.MachineRole == "Client")
                         {
-                            if (!Version.TryParse(dbProfile.LastUpdatedDbVersion, out var dbVer) || dbVer < latestParsed)
+                            bool isDbUpToDate = false;
+                            if (Version.TryParse(dbProfile.LastUpdatedDbVersion, out var dbVer))
+                            {
+                                isDbUpToDate = dbVer >= latestParsed;
+                            }
+                            else if (!string.IsNullOrEmpty(dbProfile.LastUpdatedDbVersion))
+                            {
+                                // DB version is stored as the last script identifier (e.g. from a bulk .txt script file)
+                                var lastScript = latestUpdate.Scripts.OrderBy(s => s.SequenceOrder).LastOrDefault();
+                                if (lastScript != null)
+                                {
+                                    string lastScriptIdent = lastScript.ScriptName;
+                                    var blocks = ParseBulkScriptFileContent(lastScript.ScriptContent);
+                                    if (blocks.Any())
+                                    {
+                                        lastScriptIdent = blocks.Last().ScriptNumber;
+                                    }
+                                    else
+                                    {
+                                        lastScriptIdent = Path.GetFileNameWithoutExtension(lastScript.ScriptName);
+                                    }
+                                    isDbUpToDate = string.Equals(dbProfile.LastUpdatedDbVersion, lastScriptIdent, StringComparison.OrdinalIgnoreCase);
+                                }
+                            }
+
+                            if (!isDbUpToDate)
                             {
                                 isWaitingForDb = true;
                             }
@@ -822,6 +863,60 @@ namespace Tms.CentralManagement.Controllers
             }
 
             return Ok(new { Success = true });
+        }
+
+        private static List<BulkScriptBlock> ParseBulkScriptFileContent(string content)
+        {
+            var blocks = new List<BulkScriptBlock>();
+            if (string.IsNullOrEmpty(content))
+                return blocks;
+
+            var regex = new Regex(@"^\s*--\s*\[?([a-zA-Z0-9\._\-]+)\]?\s*(--)?\s*$", RegexOptions.IgnoreCase);
+
+            using var reader = new StringReader(content);
+            string line;
+            BulkScriptBlock currentBlock = null;
+            var currentContent = new StringBuilder();
+
+            while ((line = reader.ReadLine()) != null)
+            {
+                var match = regex.Match(line);
+                if (match.Success)
+                {
+                    if (currentBlock != null)
+                    {
+                        currentBlock.ScriptContent = currentContent.ToString().Trim();
+                        blocks.Add(currentBlock);
+                        currentContent.Clear();
+                    }
+
+                    currentBlock = new BulkScriptBlock
+                    {
+                        ScriptNumber = match.Groups[1].Value.Trim()
+                    };
+                }
+                else
+                {
+                    if (currentBlock != null)
+                    {
+                        currentContent.AppendLine(line);
+                    }
+                }
+            }
+
+            if (currentBlock != null)
+            {
+                currentBlock.ScriptContent = currentContent.ToString().Trim();
+                blocks.Add(currentBlock);
+            }
+
+            return blocks;
+        }
+
+        private class BulkScriptBlock
+        {
+            public string ScriptNumber { get; set; } = string.Empty;
+            public string ScriptContent { get; set; } = string.Empty;
         }
     }
 }

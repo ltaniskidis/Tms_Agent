@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -244,10 +245,11 @@ namespace Tms.Agent.Core.Services
         }
 
         // 3. Execute update workflow
-        public async Task<bool> RunUpdateAsync(
+        public async Task<UpdateResult> RunUpdateAsync(
             string serverUrl, 
             string clientId, 
             string machineName, 
+            string machineRole,
             string apiKey,
             LocalProfile profile, 
             VersionDto newVersion, 
@@ -268,32 +270,70 @@ namespace Tms.Agent.Core.Services
             string errorMessage = string.Empty;
 
             string targetFolder = profile.TargetFolder;
-            string exePath = Path.Combine(targetFolder, profile.TargetExeName);
 
             try
             {
+                if (!Directory.Exists(targetFolder))
+                {
+                    Log($"Παράλειψη αναβάθμισης αρχείων: Ο δηλωμένος φάκελος '{targetFolder}' δεν υπάρχει σε αυτόν τον υπολογιστή.");
+                    return new UpdateResult
+                    {
+                        Success = true,
+                        ErrorMessage = string.Empty
+                    };
+                }
+
                 // STEP 1: Execute SQL Scripts
                 if (newVersion.Scripts != null && newVersion.Scripts.Any())
                 {
-                    var resolvedConnStr = profile.GetResolvedConnectionString(Log);
-                    var dbName = GetDatabaseNameFromConnectionString(resolvedConnStr);
-                    
-                    // Call CheckForUpdates to verify if this database is still monitored
-                    var checkResp = await CheckForUpdatesAsync(serverUrl, clientId, machineName, "Both", "1.3.2", apiKey, new List<LocalProfile> { profile }, false, false);
-                    var monitoredDbs = checkResp?.MonitoredDatabaseNames ?? new List<string>();
-                    
-                    if (!string.IsNullOrEmpty(resolvedConnStr) && !monitoredDbs.Contains(dbName, StringComparer.OrdinalIgnoreCase))
+                    if (machineRole == "Client")
                     {
-                        Log($"Παράλειψη εκτέλεσης SQL scripts: Η βάση '{dbName}' δεν είναι πλέον χαρακτηρισμένη ως παρακολουθούμενη (Monitored) στην κεντρική κονσόλα.");
+                        Log("Παράλειψη εκτέλεσης SQL scripts: Ο υπολογιστής έχει δηλωθεί ως Client (workstation).");
                         dbSuccess = true;
                     }
                     else
                     {
-                        Log($"Βρέθηκαν {newVersion.Scripts.Count} SQL scripts προς εκτέλεση.");
-                        dbSuccess = await ExecuteDatabaseScriptsAsync(resolvedConnStr, newVersion.Scripts, Log);
-                        if (!dbSuccess)
+                        var resolvedConnStr = profile.GetResolvedConnectionString(Log);
+                        var dbName = GetDatabaseNameFromConnectionString(resolvedConnStr);
+                        
+                        // Call CheckForUpdates to verify if this database is still monitored
+                        var checkResp = await CheckForUpdatesAsync(serverUrl, clientId, machineName, machineRole, "1.3.2", apiKey, new List<LocalProfile> { profile }, false, false);
+                        var monitoredDbs = checkResp?.MonitoredDatabaseNames ?? new List<string>();
+                        
+                        if (!string.IsNullOrEmpty(resolvedConnStr) && !monitoredDbs.Contains(dbName, StringComparer.OrdinalIgnoreCase))
                         {
-                            throw new Exception("Αποτυχία κατά την εκτέλεση των SQL Scripts της βάσης δεδομένων.");
+                            Log($"Παράλειψη εκτέλεσης SQL scripts: Η βάση '{dbName}' δεν είναι πλέον χαρακτηρισμένη ως παρακολουθούμενη (Monitored) στην κεντρική κονσόλα.");
+                            dbSuccess = true;
+                        }
+                        else
+                        {
+                            Log($"Βρέθηκαν {newVersion.Scripts.Count} SQL scripts προς εκτέλεση.");
+                            dbSuccess = await ExecuteDatabaseScriptsAsync(resolvedConnStr, newVersion.Scripts, Log);
+                            if (!dbSuccess)
+                            {
+                                // Check if table exists error occurred. The helper logs it.
+                                errorMessage = "Αποτυχία κατά την εκτέλεση των SQL Scripts της βάσης δεδομένων.";
+                                
+                                // Let's check if SQL_HISTORY_UPDATE_SCRIPTS table check failed
+                                bool tableExists = false;
+                                try
+                                {
+                                    using var connection = new SqlConnection(resolvedConnStr);
+                                    await connection.OpenAsync();
+                                    using var checkCmd = new SqlCommand(
+                                        "SELECT CASE WHEN OBJECT_ID(N'[dbo].[SQL_HISTORY_UPDATE_SCRIPTS]', N'U') IS NOT NULL THEN 1 ELSE 0 END", 
+                                        connection);
+                                    var result = await checkCmd.ExecuteScalarAsync();
+                                    tableExists = result != null && Convert.ToInt32(result) == 1;
+                                }
+                                catch { }
+
+                                if (!tableExists)
+                                {
+                                    errorMessage = "Παρακαλώ θα πρέπει να έρθετε σε επικοινωνία με τον συνεργάτη σας!!!";
+                                }
+                                throw new Exception(errorMessage);
+                            }
                         }
                     }
                 }
@@ -306,133 +346,163 @@ namespace Tms.Agent.Core.Services
                 // STEP 2: Download and apply binaries
                 if (!string.IsNullOrEmpty(newVersion.BinaryFileUrl))
                 {
-                    var downloadUrl = newVersion.BinaryFileUrl;
-                    if (!downloadUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                    if (!Directory.Exists(targetFolder))
                     {
-                        downloadUrl = $"{serverUrl.TrimEnd('/')}/{downloadUrl.TrimStart('/')}";
+                        Log($"Παράλειψη αναβάθμισης αρχείων: Ο δηλωμένος φάκελος '{targetFolder}' δεν υπάρχει σε αυτόν τον υπολογιστή.");
+                        fileSuccess = true;
                     }
-                    Log($"Λήψη εκτελέσιμου αρχείου από: {downloadUrl}");
-                    
-                    // Create temp download folder
-                    var tempDir = Path.Combine(Path.GetTempPath(), "TmsAgentUpdates", Guid.NewGuid().ToString());
-                    Directory.CreateDirectory(tempDir);
-                    var tempZipPath = Path.Combine(tempDir, "package.zip");
-
-                    try
+                    else
                     {
-                        await DownloadFileAsync(downloadUrl, tempZipPath, Log);
+                        var downloadUrl = newVersion.BinaryFileUrl;
+                        if (!downloadUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                        {
+                            downloadUrl = $"{serverUrl.TrimEnd('/')}/{downloadUrl.TrimStart('/')}";
+                        }
+                        Log($"Λήψη εκτελέσιμου αρχείου από: {downloadUrl}");
+                        
+                        // Create temp download folder
+                        var tempDir = Path.Combine(Path.GetTempPath(), "TmsAgentUpdates", Guid.NewGuid().ToString());
+                        Directory.CreateDirectory(tempDir);
+                        var tempZipPath = Path.Combine(tempDir, "package.zip");
 
-                        // Terminate running instances of the target desktop application to avoid lock issues
                         try
                         {
-                            var exeNameWithoutExt = Path.GetFileNameWithoutExtension(profile.TargetExeName);
-                            var runningProcesses = System.Diagnostics.Process.GetProcessesByName(exeNameWithoutExt);
-                            foreach (var process in runningProcesses)
+                            await DownloadFileAsync(downloadUrl, tempZipPath, Log);
+
+                            // Find the active productive EXE
+                            string activeExeName = FindActiveProductiveExe(targetFolder, profile.TargetExeName, Log);
+                            string activeExePath = Path.Combine(targetFolder, activeExeName);
+
+                            // Terminate running instances of the active desktop application to avoid lock issues
+                            try
+                            {
+                                var exeNameWithoutExt = Path.GetFileNameWithoutExtension(activeExeName);
+                                var runningProcesses = System.Diagnostics.Process.GetProcessesByName(exeNameWithoutExt);
+                                foreach (var process in runningProcesses)
+                                {
+                                    try
+                                    {
+                                        Log($"Τερματισμός εκτελούμενης διεργασίας '{process.ProcessName}' (PID: {process.Id}) για την εφαρμογή της αναβάθμισης...");
+                                        process.Kill();
+                                        process.WaitForExit(5000);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Log($"Αδυναμία τερματισμού διεργασίας '{process.ProcessName}': {ex.Message}");
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Log($"Σφάλμα κατά τον έλεγχο εκτελούμενων διεργασιών: {ex.Message}");
+                            }
+
+                            // Backup and Delete Logic for activeExeName
+                            string activeExeWithoutExt = Path.GetFileNameWithoutExtension(activeExeName);
+                            string oldExePath1 = Path.Combine(targetFolder, $"{activeExeWithoutExt}_OLD.exe");
+                            string oldExePath2 = Path.Combine(targetFolder, $"{activeExeWithoutExt}_ολδ.exe");
+
+                            if (File.Exists(oldExePath1))
                             {
                                 try
                                 {
-                                    Log($"Τερματισμός εκτελούμενης διεργασίας '{process.ProcessName}' (PID: {process.Id}) για την εφαρμογή της αναβάθμισης...");
-                                    process.Kill();
-                                    process.WaitForExit(5000);
+                                    File.Delete(oldExePath1);
+                                    Log($"Διαγραφή παλαιού backup: {Path.GetFileName(oldExePath1)}");
                                 }
                                 catch (Exception ex)
                                 {
-                                    Log($"Αδυναμία τερματισμού διεργασίας '{process.ProcessName}': {ex.Message}");
+                                    Log($"Αδυναμία διαγραφής παλαιού backup {Path.GetFileName(oldExePath1)}: {ex.Message}");
                                 }
                             }
+                            if (File.Exists(oldExePath2))
+                            {
+                                try
+                                {
+                                    File.Delete(oldExePath2);
+                                    Log($"Διαγραφή παλαιού backup: {Path.GetFileName(oldExePath2)}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log($"Αδυναμία διαγραφής παλαιού backup {Path.GetFileName(oldExePath2)}: {ex.Message}");
+                                }
+                            }
+
+                            if (File.Exists(activeExePath))
+                            {
+                                try
+                                {
+                                    File.Move(activeExePath, oldExePath1);
+                                    Log($"Μετονομασία παραγωγικού αρχείου σε backup: {activeExeName} -> {Path.GetFileName(oldExePath1)}");
+                                }
+                                catch (Exception ex)
+                                {
+                                    Log($"Αδυναμία μετονομασίας παραγωγικού αρχείου {activeExeName} σε backup: {ex.Message}");
+                                    throw;
+                                }
+                            }
+
+                            // Apply new files
+                            Log("Εξαγωγή αρχείων και αντικατάσταση...");
+                            if (Path.GetExtension(downloadUrl).Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                            {
+                                Log("Ασφαλής εξαγωγή αρχείων ZIP...");
+                                using (var archive = ZipFile.OpenRead(tempZipPath))
+                                {
+                                    foreach (var entry in archive.Entries)
+                                    {
+                                        if (string.IsNullOrEmpty(entry.Name)) continue; // Directory entry
+
+                                        string targetFilePath;
+                                        
+                                        // If this is the main EXE inside the zip, rename it to activeExeName when extracting
+                                        if (string.Equals(entry.Name, profile.TargetExeName, StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, activeExeName));
+                                            Log($"Εξαγωγή νέου εκτελέσιμου αρχείου ως {activeExeName} (από {entry.Name} στο ZIP)...");
+                                        }
+                                        else
+                                        {
+                                            targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, entry.FullName));
+                                        }
+                                        
+                                        // Ensure directory exists
+                                        var parentDir = Path.GetDirectoryName(targetFilePath);
+                                        if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+                                        {
+                                            Directory.CreateDirectory(parentDir);
+                                        }
+
+                                        // Extract the entry (overwriting if it already exists, other files have no renaming/backup)
+                                        entry.ExtractToFile(targetFilePath, overwrite: true);
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                var targetFilePath = Path.Combine(targetFolder, activeExeName);
+                                if (!Directory.Exists(targetFolder))
+                                {
+                                    Directory.CreateDirectory(targetFolder);
+                                }
+                                File.Copy(tempZipPath, targetFilePath, overwrite: true);
+                                Log($"Αντιγραφή νέου εκτελέσιμου αρχείου ως {activeExeName}...");
+                            }
+
+                            fileSuccess = true;
+                            Log("Η αντιγραφή των αρχείων ολοκληρώθηκε με επιτυχία.");
                         }
                         catch (Exception ex)
                         {
-                            Log($"Σφάλμα κατά τον έλεγχο εκτελούμενων διεργασιών: {ex.Message}");
+                            Log($"Σφάλμα κατά την ενημέρωση αρχείων: {ex.Message}");
+                            throw;
                         }
-
-                        // Apply new files
-                        Log("Εξαγωγή αρχείων και αντικατάσταση...");
-                        if (Path.GetExtension(downloadUrl).Equals(".zip", StringComparison.OrdinalIgnoreCase))
+                        finally
                         {
-                            Log("Ασφαλής εξαγωγή αρχείων ZIP...");
-                            using (var archive = ZipFile.OpenRead(tempZipPath))
+                            // Clean up temp dir
+                            if (Directory.Exists(tempDir))
                             {
-                                foreach (var entry in archive.Entries)
-                                {
-                                    if (string.IsNullOrEmpty(entry.Name)) continue; // Directory entry
-
-                                    var targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, entry.FullName));
-                                    
-                                    // Ensure directory exists
-                                    var parentDir = Path.GetDirectoryName(targetFilePath);
-                                    if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
-                                    {
-                                        Directory.CreateDirectory(parentDir);
-                                    }
-
-                                    var ext = Path.GetExtension(entry.Name).ToLower();
-                                    if (ext == ".exe" || ext == ".dll" || ext == ".rpt" || ext == ".rdlc")
-                                    {
-                                        var dir = Path.GetDirectoryName(targetFilePath) ?? targetFolder;
-                                        var nameWithoutExt = Path.GetFileNameWithoutExtension(entry.Name);
-                                        var oldFileName = $"{nameWithoutExt}_OLD{ext}";
-                                        var oldFilePath = Path.Combine(dir, oldFileName);
-
-                                        if (File.Exists(targetFilePath))
-                                        {
-                                            if (File.Exists(oldFilePath))
-                                            {
-                                                File.Delete(oldFilePath);
-                                            }
-                                            File.Move(targetFilePath, oldFilePath);
-                                            Log($"Δημιουργία backup: {entry.Name} -> {oldFileName}");
-                                        }
-                                    }
-
-                                    // Extract the entry (overwriting if it already exists)
-                                    entry.ExtractToFile(targetFilePath, overwrite: true);
-                                }
+                                Directory.Delete(tempDir, recursive: true);
                             }
-                        }
-                        else
-                        {
-                            var targetFilePath = exePath;
-                            var ext = Path.GetExtension(targetFilePath).ToLower();
-                            if (ext == ".exe" || ext == ".dll" || ext == ".rpt" || ext == ".rdlc")
-                            {
-                                var dir = Path.GetDirectoryName(targetFilePath) ?? targetFolder;
-                                var nameWithoutExt = Path.GetFileNameWithoutExtension(targetFilePath);
-                                var oldFileName = $"{nameWithoutExt}_OLD{ext}";
-                                var oldFilePath = Path.Combine(dir, oldFileName);
-
-                                if (File.Exists(targetFilePath))
-                                {
-                                    if (File.Exists(oldFilePath))
-                                    {
-                                        File.Delete(oldFilePath);
-                                    }
-                                    File.Move(targetFilePath, oldFilePath);
-                                    Log($"Δημιουργία backup: {Path.GetFileName(targetFilePath)} -> {oldFileName}");
-                                }
-                            }
-
-                            if (!Directory.Exists(targetFolder))
-                            {
-                                Directory.CreateDirectory(targetFolder);
-                            }
-                            File.Copy(tempZipPath, targetFilePath, overwrite: true);
-                        }
-
-                        fileSuccess = true;
-                        Log("Η αντιγραφή των αρχείων ολοκληρώθηκε με επιτυχία.");
-                    }
-                    catch (Exception ex)
-                    {
-                        Log($"Σφάλμα κατά την ενημέρωση αρχείων: {ex.Message}");
-                        throw;
-                    }
-                    finally
-                    {
-                        // Clean up temp dir
-                        if (Directory.Exists(tempDir))
-                        {
-                            Directory.Delete(tempDir, recursive: true);
                         }
                     }
                 }
@@ -445,9 +515,33 @@ namespace Tms.Agent.Core.Services
                 // If both succeeded, update versions
                 if (dbSuccess && fileSuccess)
                 {
-                    if (newVersion.Scripts != null && newVersion.Scripts.Any())
+                    if (newVersion.Scripts != null && newVersion.Scripts.Any() && machineRole != "Client")
                     {
-                        profile.CurrentDbVersion = newVersion.VersionNumber;
+                        // Query the database for the actual last executed script to set as CurrentDbVersion
+                        string? actualDbVersion = null;
+                        try
+                        {
+                            var resolvedConnStr = profile.GetResolvedConnectionString(Log);
+                            using var connection = new SqlConnection(resolvedConnStr);
+                            await connection.OpenAsync();
+                            using var cmd = new SqlCommand("SELECT TOP 1 LAST_SCRIPT_NUMBER FROM [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] ORDER BY ID DESC", connection);
+                            var result = await cmd.ExecuteScalarAsync();
+                            actualDbVersion = result == null || result == DBNull.Value ? null : result.ToString();
+                        }
+                        catch (Exception ex)
+                        {
+                            Log($"Σφάλμα κατά την ανάκτηση της έκδοσης της βάσης: {ex.Message}");
+                        }
+
+                        if (!string.IsNullOrEmpty(actualDbVersion))
+                        {
+                            profile.CurrentDbVersion = actualDbVersion;
+                            Log($"Έκδοση βάσης ενημερώθηκε σε: {actualDbVersion}");
+                        }
+                        else
+                        {
+                            profile.CurrentDbVersion = newVersion.VersionNumber;
+                        }
                     }
                     if (!string.IsNullOrEmpty(newVersion.BinaryFileUrl))
                     {
@@ -479,7 +573,7 @@ namespace Tms.Agent.Core.Services
                 errorMessage, 
                 logBuilder.ToString());
 
-            return finalSuccess;
+            return new UpdateResult { Success = finalSuccess, ErrorMessage = errorMessage };
         }
 
         // 3b. Generate a dry-run script preview
@@ -625,7 +719,7 @@ namespace Tms.Agent.Core.Services
 
                         if (!tableExists)
                         {
-                            log("Θα πρέπει να έρθετε σε επικοινωνία με τον συνεργάτη σας, η αναβάθμιση δεν μπορεί να ολοκληρωθεί");
+                            log("Παρακαλώ θα πρέπει να έρθετε σε επικοινωνία με τον συνεργάτη σας!!!");
                             return false;
                         }
 
@@ -721,7 +815,7 @@ namespace Tms.Agent.Core.Services
 
                         if (!tableExists)
                         {
-                            log("Θα πρέπει να έρθετε σε επικοινωνία με τον συνεργάτη σας, η αναβάθμιση δεν μπορεί να ολοκληρωθεί");
+                            log("Παρακαλώ θα πρέπει να έρθετε σε επικοινωνία με τον συνεργάτη σας!!!");
                             return false;
                         }
 
@@ -876,24 +970,47 @@ namespace Tms.Agent.Core.Services
         }
 
         // Helper to download files, with mock fallback for testing
-        private async Task DownloadFileAsync(string url, string destinationPath, Action<string> log)
+        private async Task DownloadFileAsync(string url, string destinationPath, Action<string>? log, Action<double>? progressCallback = null)
         {
             try
             {
                 using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();
 
+                var totalBytes = response.Content.Headers.ContentLength ?? -1L;
                 using var stream = await response.Content.ReadAsStreamAsync();
                 using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
-                await stream.CopyToAsync(fileStream);
+                
+                if (progressCallback != null && totalBytes > 0)
+                {
+                    var buffer = new byte[81920];
+                    var bytesRead = 0L;
+                    int read;
+                    while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, read);
+                        bytesRead += read;
+                        var percentage = (double)bytesRead / totalBytes * 100.0;
+                        progressCallback.Invoke(percentage);
+                    }
+                }
+                else
+                {
+                    await stream.CopyToAsync(fileStream);
+                }
             }
             catch (Exception ex)
             {
-                log($"Αποτυχία λήψης αρχείου από το δίκτυο ({ex.Message}). Δημιουργία mock αρχείου για δοκιμή.");
+#if DEBUG
+                log?.Invoke($"Αποτυχία λήψης αρχείου από το δίκτυο ({ex.Message}). Δημιουργία mock αρχείου για δοκιμή.");
                 
                 // Fallback: Create mock zip package
                 CreateMockZipFile(destinationPath);
-                log("Δημιουργήθηκε mock zip πακέτο επιτυχώς.");
+                log?.Invoke("Δημιουργήθηκε mock zip πακέτο επιτυχώς.");
+#else
+                log?.Invoke($"Αποτυχία λήψης αρχείου από το δίκτυο ({ex.Message}).");
+                throw;
+#endif
             }
         }
 
@@ -1027,7 +1144,7 @@ namespace Tms.Agent.Core.Services
             return list;
         }
 
-        public async Task<bool> RunAgentSelfUpgradeAsync(string serverUrl, string systemBinaryUrl, bool isService, Action<string> logCallback)
+        public async Task<bool> RunAgentSelfUpgradeAsync(string serverUrl, string systemBinaryUrl, bool isService, Action<string>? logCallback, Action<double>? progressCallback = null)
         {
             try
             {
@@ -1044,7 +1161,7 @@ namespace Tms.Agent.Core.Services
                 Directory.CreateDirectory(extractDir);
 
                 logCallback?.Invoke($"Λήψη αναβάθμισης Agent από {downloadUrl}...");
-                await DownloadFileAsync(downloadUrl, tempZipPath, logCallback);
+                await DownloadFileAsync(downloadUrl, tempZipPath, logCallback, progressCallback);
 
                 logCallback?.Invoke("Αποσυμπίεση αρχείων αναβάθμισης...");
                 ZipFile.ExtractToDirectory(tempZipPath, extractDir);
@@ -1120,5 +1237,159 @@ namespace Tms.Agent.Core.Services
                 return false;
             }
         }
+
+        #region Shortcut Resolution & Active EXE Finding Helpers
+
+        public static string FindActiveProductiveExe(string targetFolder, string targetExeName, Action<string> log)
+        {
+            string baseName = Path.GetFileNameWithoutExtension(targetExeName);
+            string extension = Path.GetExtension(targetExeName);
+            
+            // Try resolving via Desktop shortcuts first
+            var activeExesFromShortcuts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                var desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+                var commonDesktopPath = Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory);
+                
+                var shortcutFiles = new List<string>();
+                if (Directory.Exists(desktopPath))
+                {
+                    shortcutFiles.AddRange(Directory.GetFiles(desktopPath, "*.lnk"));
+                }
+                if (Directory.Exists(commonDesktopPath))
+                {
+                    shortcutFiles.AddRange(Directory.GetFiles(commonDesktopPath, "*.lnk"));
+                }
+                
+                foreach (var shortcut in shortcutFiles)
+                {
+                    var target = ResolveShortcut(shortcut);
+                    if (!string.IsNullOrEmpty(target) && File.Exists(target))
+                    {
+                        var targetDir = Path.GetDirectoryName(target);
+                        var targetName = Path.GetFileName(target);
+                        
+                        if (targetDir != null && string.Equals(Path.GetFullPath(targetDir), Path.GetFullPath(targetFolder), StringComparison.OrdinalIgnoreCase))
+                        {
+                            var regex = new Regex($"^{Regex.Escape(baseName)}\\d*{Regex.Escape(extension)}$", RegexOptions.IgnoreCase);
+                            if (regex.IsMatch(targetName))
+                            {
+                                activeExesFromShortcuts.Add(targetName);
+                                log($"Βρέθηκε ενεργή συντόμευση επιφάνειας εργασίας: '{Path.GetFileName(shortcut)}' -> '{targetName}'");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log($"Σφάλμα κατά την ανάγνωση συντομεύσεων επιφάνειας εργασίας: {ex.Message}");
+            }
+            
+            if (activeExesFromShortcuts.Count == 1)
+            {
+                var resolvedExe = activeExesFromShortcuts.First();
+                log($"Χρήση παραγωγικού εκτελέσιμου μέσω συντόμευσης: {resolvedExe}");
+                return resolvedExe;
+            }
+            else if (activeExesFromShortcuts.Count > 1)
+            {
+                log($"Βρέθηκαν πολλαπλά εκτελέσιμα μέσω συντομεύσεων: {string.Join(", ", activeExesFromShortcuts)}. Θα γίνει επιλογή του πρώτου.");
+                return activeExesFromShortcuts.First();
+            }
+            
+            log("Δεν βρέθηκε συντόμευση στην επιφάνεια εργασίας. Έναρξη σάρωσης του φακέλου εφαρμογής...");
+            if (Directory.Exists(targetFolder))
+            {
+                try
+                {
+                    var files = Directory.GetFiles(targetFolder, "*.exe");
+                    var regex = new Regex($"^{Regex.Escape(baseName)}\\d*{Regex.Escape(extension)}$", RegexOptions.IgnoreCase);
+                    var matchedFiles = files
+                        .Select(Path.GetFileName)
+                        .Where(f => !string.IsNullOrEmpty(f) && regex.IsMatch(f))
+                        .ToList();
+                    
+                    if (matchedFiles.Any())
+                    {
+                        var sorted = matchedFiles.OrderByDescending(f => f).ToList();
+                        log($"Βρέθηκαν εκτελέσιμα στο φάκελο: {string.Join(", ", sorted)}. Επιλογή: {sorted.First()}");
+                        return sorted.First() ?? targetExeName;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log($"Σφάλμα κατά τη σάρωση του φακέλου {targetFolder}: {ex.Message}");
+                }
+            }
+            
+            log($"Δεν βρέθηκε αντιστοιχία. Fallback στο προκαθορισμένο όνομα: {targetExeName}");
+            return targetExeName;
+        }
+
+        public static string ResolveShortcut(string shortcutPath)
+        {
+            try
+            {
+                var link = (IShellLinkW)new ShellLink();
+                var file = (IPersistFile)link;
+                file.Load(shortcutPath, 0); // STGM_READ = 0
+                var sb = new StringBuilder(260);
+                link.GetPath(sb, sb.Capacity, out _, 0);
+                return sb.ToString();
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
+        [ComImport]
+        [Guid("00021401-0000-0000-C000-000000000046")]
+        internal class ShellLink
+        {
+        }
+
+        [ComImport]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        [Guid("000214F9-0000-0000-C000-000000000046")]
+        internal interface IShellLinkW
+        {
+            void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cchMaxPath, out IntPtr pfd, int fFlags);
+            void GetIDList(out IntPtr ppidl);
+            void SetIDList(IntPtr pidl);
+            void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cchMaxName);
+            void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+            void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cch);
+            void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+            void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cchMaxPath);
+            void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+            void GetHotkey(out short pwHotkey);
+            void SetHotkey(short wHotkey);
+            void GetShowCmd(out int piShowCmd);
+            void SetShowCmd(int iShowCmd);
+            void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath, int cchIconPath, out int piIcon);
+            void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+            void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, int dwReserved);
+            void Resolve(IntPtr hwnd, int fFlags);
+            void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+        }
+
+        [ComImport]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        [Guid("0000010b-0000-0000-C000-000000000046")]
+        internal interface IPersistFile
+        {
+            void GetClassID(out Guid pClassID);
+            [PreserveSig]
+            int IsDirty();
+            void Load([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, int dwMode);
+            void Save([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, [MarshalAs(UnmanagedType.Bool)] bool fRemember);
+            void SaveCompleted([MarshalAs(UnmanagedType.LPWStr)] string pszFileName);
+            void GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string ppszFileName);
+        }
+
+        #endregion
     }
 }

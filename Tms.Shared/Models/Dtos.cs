@@ -176,4 +176,10 @@ namespace Tms.Shared.Models
         public DateTime? ResponseDate { get; set; }
         public string? AttachmentFileName { get; set; }
     }
+
+    public class UpdateResult
+    {
+        public bool Success { get; set; }
+        public string ErrorMessage { get; set; } = string.Empty;
+    }
 }

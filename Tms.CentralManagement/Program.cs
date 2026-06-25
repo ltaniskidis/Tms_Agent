@@ -1171,14 +1171,92 @@ GO
         {
             VersionNumber = "1.5.26",
             ReleaseDate = DateTime.UtcNow,
-            Description = "Αφορά: Server - Διόρθωση αρχικοποίησης φόρμας προσθήκης εταιρείας για πελάτες χωρίς υφιστάμενα προφίλ.",
+            Description = "Αφορά: Server & Client - Διορθώσεις στη διαχείριση αναβαθμίσεων του Agent (progress bar) και της αυτόματης παρακολούθησης βάσεων.",
             BinaryFileUrl = "/packages/app_1.5.26.zip",
             SecurityCode = "clever2026",
             IsActive = true,
             IsCurrent = true,
             TargetType = "System"
         };
-        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διόρθωση αρχικοποίησης φόρμας προσθήκης εταιρείας για πελάτες χωρίς υφιστάμενα προφίλ (μετακίνηση του resetProfileForm στην αρχή της renderProfilesList)." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Διορθώσεις στη διαχείριση αναβαθμίσεων του Agent (progress bar) και της αυτόματης παρακολούθησης βάσεων." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Αυτόματη παρακολούθηση των νέων βάσεων δεδομένων κατά την προσθήκη τους (IsMonitored = true)." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη μπάρας προόδου (progress bar) κατά τη λήψη της νέας έκδοσης του Agent." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διόρθωση του ατέρμονου βρόχου επανεκκίνησης (infinite restart loop) σε περίπτωση αποτυχίας λήψης του πακέτου αναβάθμισης." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διόρθωση αρχικοποίησης φόρμας προσθήκης εταιρείας για πελάτες χωρίς υφιστάμενα προφίλ (resetProfileForm)." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.27"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.27",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διορθώσεις στη διαχείριση αναβαθμίσεων του Agent (progress bar) και της αυτόματης παρακολούθησης βάσεων (IsMonitored=true).",
+            BinaryFileUrl = "/packages/app_1.5.27.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Διορθώσεις στη διαχείριση αναβαθμίσεων του Agent (progress bar) και της αυτόματης παρακολούθησης βάσεων (IsMonitored=true)." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Αυτόματη παρακολούθηση των νέων βάσεων δεδομένων κατά την προσθήκη τους (IsMonitored = true)." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη μπάρας προόδου (progress bar) κατά τη λήψη της νέας έκδοσης του Agent." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διόρθωση του ατέρμονου βρόχου επανεκκίνησης (infinite restart loop) σε περίπτωση αποτυχίας λήψης του πακέτου αναβάθμισης." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+
+        // One-time cleanup for v1.5.27: set IsMonitored = false for all databases NOT used by a profile.
+        // This will clean up databases that previously defaulted to true.
+        var tempDbs = context.ClientDatabases.ToList();
+        var tempProfiles = context.ClientProfiles.ToList();
+        foreach (var db in tempDbs)
+        {
+            bool isUsed = tempProfiles.Any(p => 
+                string.Equals(p.DbName, db.DatabaseName, StringComparison.OrdinalIgnoreCase) && 
+                p.ClientMachineId == db.ClientMachineId);
+            if (!isUsed && db.IsMonitored)
+            {
+                db.IsMonitored = false;
+            }
+        }
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.28"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.28",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη ελέγχου ύπαρξης φακέλου, ανθεκτικότητα συντομεύσεων επιφάνειας εργασίας και διαχωρισμός αναβαθμίσεων Server/Client.",
+            BinaryFileUrl = "/packages/app_1.5.28.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη ελέγχου ύπαρξης φακέλου, ανθεκτικότητα συντομεύσεων επιφάνειας εργασίας και διαχωρισμός αναβαθμίσεων Server/Client." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Παράλειψη αναβάθμισης (SQL & αρχεία) εάν ο δηλωμένος φάκελος της εταιρείας δεν υπάρχει στον υπολογιστή." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Παράκαμψη SQL scripts για workstations (Client ρόλος) και εκτέλεσή τους μόνο από Server/Both." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Ανθεκτικότητα κατά τον εντοπισμό παραγωγικού exe όταν απουσιάζουν συντομεύσεις από την επιφάνεια εργασίας." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη Linear Gradient μπάρας προόδου topmost κατά την εγκατάσταση." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;
@@ -1206,6 +1284,23 @@ GO
             Scope = "Both"
         });
         hasChanges = true;
+    }
+
+    // Force monitoring ONLY for databases that are currently associated with a declared profile.
+    // The rest (other databases) are optional and their monitored status is controlled by the user via the console.
+    var allDbs = context.ClientDatabases.ToList();
+    var allProfiles = context.ClientProfiles.ToList();
+    foreach (var db in allDbs)
+    {
+        bool isUsedByProfile = allProfiles.Any(p => 
+            string.Equals(p.DbName, db.DatabaseName, StringComparison.OrdinalIgnoreCase) && 
+            p.ClientMachineId == db.ClientMachineId);
+
+        if (isUsedByProfile && !db.IsMonitored)
+        {
+            db.IsMonitored = true;
+            hasChanges = true;
+        }
     }
 
     if (hasChanges)

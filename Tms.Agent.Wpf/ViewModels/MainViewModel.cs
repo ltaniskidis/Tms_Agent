@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.24";
+        public string AppVersion => "1.5.28";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings
@@ -667,7 +667,7 @@ namespace Tms.Agent.Wpf.ViewModels
                 if (!IsUpgradeAllowed)
                 {
                     System.Windows.MessageBox.Show(
-                        "Για την Ολοκλήρωση της αναβάθμισης παρακαλώ επικοινωνήστε με τον προμηθευτή σας",
+                        "Υπάρχουν διαθέσιμες ενημερώσεις, παρακαλώ επικοινωνήστε με τον συνεργάτη σας για να εκτελεστούν",
                         "TMS Agent - Απαγόρευση Αναβάθμισης",
                         MessageBoxButton.OK,
                         MessageBoxImage.Warning);
@@ -1146,6 +1146,8 @@ namespace Tms.Agent.Wpf.ViewModels
                 return;
             }
 
+            IsUpgradeAllowed = response.IsUpgradeAllowed;
+
             // Sync StartWithWindows if server sent a different status
             if (response.StartWithWindows != StartWithWindows)
             {
@@ -1349,6 +1351,36 @@ namespace Tms.Agent.Wpf.ViewModels
                 }
             }
 
+            // Business Admin update prompt modal
+            if (IsAdmin)
+            {
+                foreach (var p in Profiles)
+                {
+                    if (p.AvailableVersion != null && !p.IsWaitingForDb)
+                    {
+                        var key = $"admin_prompt_{p.ProfileId}_{p.AvailableVersion.VersionNumber}";
+                        if (!_promptedUpdates.Contains(key))
+                        {
+                            _promptedUpdates.Add(key);
+                            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                var result = System.Windows.MessageBox.Show(
+                                    $"Ανιχνεύθηκε νέα έκδοση ({p.AvailableVersion.VersionNumber}) για την εταιρεία '{p.ProfileName}'.\n\nΘέλετε να προχωρήσετε με την εκτέλεση της αναβάθμισης τώρα;",
+                                    "TMS Agent - Διαθέσιμη Αναβάθμιση",
+                                    MessageBoxButton.YesNo,
+                                    MessageBoxImage.Question);
+                                
+                                if (result == MessageBoxResult.Yes)
+                                {
+                                    OpenWizard(p);
+                                }
+                            }));
+                            break;
+                        }
+                    }
+                }
+            }
+
             // Handle Broadcast Messages
             if (response.Broadcasts != null)
             {
@@ -1454,6 +1486,16 @@ namespace Tms.Agent.Wpf.ViewModels
 
             StatusMessage = "Λήψη και εγκατάσταση αναβάθμισης Agent...";
             
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                WizardTitle = "Αναβάθμιση του Agent";
+                WizardVersion = targetVersion;
+                WizardStage = 2; // Progress stage (hides buttons)
+                WizardProgress = 0;
+                WizardStatus = "Έναρξη λήψης αρχείων αναβάθμισης...";
+                IsWizardOpen = true;
+            });
+
             bool success = await Task.Run(async () =>
             {
                 return await _updateEngine.RunAgentSelfUpgradeAsync(
@@ -1463,6 +1505,17 @@ namespace Tms.Agent.Wpf.ViewModels
                     logLine =>
                     {
                         System.Diagnostics.Debug.WriteLine(logLine);
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            WizardStatus = logLine;
+                        });
+                    },
+                    progress =>
+                    {
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            WizardProgress = progress;
+                        });
                     }
                 );
             });
@@ -1479,6 +1532,12 @@ namespace Tms.Agent.Wpf.ViewModels
             {
                 _isSelfUpgrading = false;
                 StatusMessage = "Αποτυχία αυτόματης αναβάθμισης του Agent.";
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    WizardStage = 3;
+                    WizardSuccess = false;
+                    WizardErrorMessage = "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης.";
+                });
             }
         }
 
@@ -1492,12 +1551,13 @@ namespace Tms.Agent.Wpf.ViewModels
             wrapper.Status = "Ενημέρωση...";
             StatusMessage = $"Ενημέρωση {wrapper.ProfileName}...";
 
-            bool success = await Task.Run(async () =>
+            var result = await Task.Run(async () =>
             {
                 return await _updateEngine.RunUpdateAsync(
                     ServerUrl,
                     _clientId,
                     _machineName,
+                    MachineRole,
                     ApiKey,
                     wrapper.Profile,
                     wrapper.AvailableVersion,
@@ -1511,6 +1571,8 @@ namespace Tms.Agent.Wpf.ViewModels
                     }
                 );
             });
+
+            bool success = result.Success;
 
             if (success)
             {
@@ -1594,6 +1656,13 @@ namespace Tms.Agent.Wpf.ViewModels
                 WizardStage = 2;
                 WizardProgress = 10;
                 WizardStatus = "Έναρξη αναβάθμισης...";
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var progressWindow = new UpgradeProgressWindow();
+                    progressWindow.DataContext = this;
+                    progressWindow.Show();
+                });
                 
                 if (PendingUpdateWrapper == null || PendingUpdateWrapper.AvailableVersion == null)
                 {
@@ -1628,12 +1697,13 @@ namespace Tms.Agent.Wpf.ViewModels
                 LogOutput = string.Empty;
                 CurrentView = "Logs";
                 
-                bool success = await Task.Run(async () =>
+                var result = await Task.Run(async () =>
                 {
                     return await _updateEngine.RunUpdateAsync(
                         ServerUrl,
                         _clientId,
                         _machineName,
+                        MachineRole,
                         ApiKey,
                         wrapper.Profile,
                         wrapper.AvailableVersion,
@@ -1668,6 +1738,8 @@ namespace Tms.Agent.Wpf.ViewModels
                     );
                 });
 
+                bool success = result.Success;
+
                 if (success)
                 {
                     wrapper.Status = "Ενημερώθηκε!";
@@ -1690,7 +1762,7 @@ namespace Tms.Agent.Wpf.ViewModels
                     WizardProgress = 100;
                     WizardStatus = "Αποτυχία αναβάθμισης.";
                     WizardSuccess = false;
-                    WizardErrorMessage = "Προέκυψε σφάλμα κατά την αναβάθμιση. Ελέγξτε την κονσόλα logs για λεπτομέρειες.";
+                    WizardErrorMessage = !string.IsNullOrEmpty(result.ErrorMessage) ? result.ErrorMessage : "Προέκυψε σφάλμα κατά την αναβάθμιση. Ελέγξτε την κονσόλα logs για λεπτομέρειες.";
                 }
                 
                 WizardStage = 3;

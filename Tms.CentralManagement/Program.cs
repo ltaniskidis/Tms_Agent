@@ -3,6 +3,12 @@ using Tms.CentralManagement.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure Kestrel upload limits (500 MB)
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 524288000;
+});
+
 // Add services to the container.
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -10,6 +16,12 @@ builder.Services.AddControllers()
         // Prevent cycle reference issues in JSON serialization
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
+
+// Configure multipart form upload limits (500 MB)
+builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 524288000;
+});
 
 builder.Services.AddRazorPages(options =>
 {

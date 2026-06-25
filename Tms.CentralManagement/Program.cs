@@ -1331,6 +1331,33 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.31"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.31",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Βελτιώσεις στο φιλτράρισμα διαχωριστικών σχολίων (divider lines) και προσθήκη προεπισκόπησης του τελευταίου εκτελεσμένου block.",
+            BinaryFileUrl = "/packages/app_1.5.31.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Βελτιώσεις στο Regex ώστε να αγνοούνται διακοσμητικές γραμμές σχολίων." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Εμφάνιση του τελευταίου εκτελεσμένου block από τη βάση δεδομένων στην προεπισκόπηση αναβάθμισης." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

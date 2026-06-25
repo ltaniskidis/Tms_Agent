@@ -184,7 +184,7 @@ namespace Tms.Agent.Wpf
                         _tempClientId,
                         Environment.MachineName,
                         role,
-                        "1.5.30",
+                        "1.5.31",
                         apiKey,
                         new List<LocalProfile>(),
                         startWithWindows

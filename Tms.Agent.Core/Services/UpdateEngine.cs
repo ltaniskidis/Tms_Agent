@@ -623,6 +623,8 @@ namespace Tms.Agent.Core.Services
                             lastScriptNumber = result == null || result == DBNull.Value ? null : result.ToString();
                         }
 
+                        sb.AppendLine($"  -> Τελευταίο Εκτελεσμένο Block: {lastScriptNumber ?? "Κανένα"} (από τον πίνακα SQL_HISTORY_UPDATE_SCRIPTS)");
+
                         var blocks = ParseBulkScriptFile(script.ScriptContent);
                         if (!blocks.Any())
                         {
@@ -892,7 +894,8 @@ namespace Tms.Agent.Core.Services
                 return blocks;
 
             // Regex matches comment lines like: --1, -- 2.1, --[3], -- 4 --, and ---NEW SCRIPT 2341
-            var regex = new Regex(@"^\s*-{2,}\s*(?:NEW\s+SCRIPT\s+|SCRIPT\s+)?\[?([a-zA-Z0-9\._\-]+)\]?\s*(?:-{2,})?\s*$", RegexOptions.IgnoreCase);
+            // Requires the block identifier to start with an alphanumeric character to prevent matching divider lines like '------------------'
+            var regex = new Regex(@"^\s*-{2,}\s*(?:NEW\s+SCRIPT\s+|SCRIPT\s+)?\[?([a-zA-Z0-9][a-zA-Z0-9\._\-]*)\]?\s*(?:-{2,})?\s*$", RegexOptions.IgnoreCase);
 
             using var reader = new StringReader(content);
             string? line;

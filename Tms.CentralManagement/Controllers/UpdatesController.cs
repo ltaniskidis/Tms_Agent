@@ -871,7 +871,7 @@ namespace Tms.CentralManagement.Controllers
             if (string.IsNullOrEmpty(content))
                 return blocks;
 
-            var regex = new Regex(@"^\s*-{2,}\s*(?:NEW\s+SCRIPT\s+|SCRIPT\s+)?\[?([a-zA-Z0-9\._\-]+)\]?\s*(?:-{2,})?\s*$", RegexOptions.IgnoreCase);
+            var regex = new Regex(@"^\s*-{2,}\s*(?:NEW\s+SCRIPT\s+|SCRIPT\s+)?\[?([a-zA-Z0-9][a-zA-Z0-9\._\-]*)\]?\s*(?:-{2,})?\s*$", RegexOptions.IgnoreCase);
 
             using var reader = new StringReader(content);
             string line;

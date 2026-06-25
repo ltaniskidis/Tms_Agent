@@ -891,8 +891,8 @@ namespace Tms.Agent.Core.Services
             if (string.IsNullOrEmpty(content))
                 return blocks;
 
-            // Regex matches comment lines like: --1, -- 2.1, --[3], -- 4 --
-            var regex = new Regex(@"^\s*--\s*\[?([a-zA-Z0-9\._\-]+)\]?\s*(--)?\s*$", RegexOptions.IgnoreCase);
+            // Regex matches comment lines like: --1, -- 2.1, --[3], -- 4 --, and ---NEW SCRIPT 2341
+            var regex = new Regex(@"^\s*-{2,}\s*(?:NEW\s+SCRIPT\s+|SCRIPT\s+)?\[?([a-zA-Z0-9\._\-]+)\]?\s*(?:-{2,})?\s*$", RegexOptions.IgnoreCase);
 
             using var reader = new StringReader(content);
             string? line;

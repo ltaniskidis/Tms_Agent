@@ -779,14 +779,28 @@ namespace Tms.Agent.Core.Services
                                     await command.ExecuteNonQueryAsync();
                                 }
 
-                                // Update history table
-                                using (var insertCmd = new SqlCommand(
-                                    "INSERT INTO [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] (LAST_SCRIPT_NUMBER, DATE_UPDATE) VALUES (@lastScriptNum, GETDATE())", 
+                                // Update history table (if not already inserted by the script commands)
+                                bool alreadyInserted = false;
+                                using (var checkExistCmd = new SqlCommand(
+                                    "SELECT COUNT(*) FROM [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] WHERE LAST_SCRIPT_NUMBER = @lastScriptNum", 
                                     connection, 
                                     transaction))
                                 {
-                                    insertCmd.Parameters.AddWithValue("@lastScriptNum", block.ScriptNumber);
-                                    await insertCmd.ExecuteNonQueryAsync();
+                                    checkExistCmd.Parameters.AddWithValue("@lastScriptNum", block.ScriptNumber);
+                                    var existsResult = await checkExistCmd.ExecuteScalarAsync();
+                                    alreadyInserted = existsResult != null && Convert.ToInt32(existsResult) > 0;
+                                }
+
+                                if (!alreadyInserted)
+                                {
+                                    using (var insertCmd = new SqlCommand(
+                                        "INSERT INTO [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] (LAST_SCRIPT_NUMBER, DATE_UPDATE) VALUES (@lastScriptNum, GETDATE())", 
+                                        connection, 
+                                        transaction))
+                                    {
+                                        insertCmd.Parameters.AddWithValue("@lastScriptNum", block.ScriptNumber);
+                                        await insertCmd.ExecuteNonQueryAsync();
+                                    }
                                 }
 
                                 await transaction.CommitAsync();

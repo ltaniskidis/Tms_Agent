@@ -1385,6 +1385,34 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.33"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.33",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Αποτροπή διπλής εγγραφής block, έλεγχος κωδικού admin και προτεραιότητα αναβάθμισης Agent.",
+            BinaryFileUrl = "/packages/app_1.5.33.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Έλεγχος κωδικού έγκρισης βάσει των τοπικών χρηστών Admin/Owner." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Απενεργοποίηση updates εφαρμογής αν εκκρεμεί αναβάθμιση του Agent." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αποτροπή διπλοεγγραφών στο ιστορικό εκτέλεσης σεναρίων." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

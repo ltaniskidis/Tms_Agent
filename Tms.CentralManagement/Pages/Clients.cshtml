@@ -489,7 +489,7 @@
                             </div>
                             <div class="form-group-sm">
                                 <label>Όνομα EXE</label>
-                                <input type="text" name="targetExeName" id="profileFormExe" class="form-control form-control-sm" value="TmsApp.exe" />
+                                <input type="text" name="targetExeName" id="profileFormExe" class="form-control form-control-sm" value="TIMOLOGISI.exe" />
                             </div>
                         </div>
 
@@ -513,7 +513,7 @@
                         <!-- Email(s) for notifications -->
                         <div class="form-group-sm">
                             <label>Emails Επικοινωνίας (διαχωρισμένα με κόμμα)</label>
-                            <input type="text" name="emails" id="profileFormEmails" class="form-control form-control-sm" placeholder="π.χ. support@company.com, admin@company.com" />
+                            <input type="text" name="emails" id="profileFormEmails" class="form-control form-control-sm" placeholder="π.χ. support@company.com, admin@company.com" value="support@cleverdata.gr,l.taniskdis@cleverdata.gr,e.kordouli@cleverdata.gr" />
                         </div>
 
                         <!-- Connection Configuration Type -->
@@ -557,7 +557,10 @@
                                 </div>
                                 <div class="form-group-sm">
                                     <label>Κωδικός Χρήστη</label>
-                                    <input type="password" name="dbPassword" id="profileFormDbPassword" class="form-control form-control-sm" placeholder="password" oninput="compileConnectionStringFromBuilder()" />
+                                    <div style="position: relative; display: flex; align-items: center;">
+                                        <input type="password" name="dbPassword" id="profileFormDbPassword" class="form-control form-control-sm" placeholder="password" oninput="compileConnectionStringFromBuilder()" style="padding-right: 32px; width: 100%;" />
+                                        <button type="button" id="toggleDbPasswordBtn" onclick="toggleDbPasswordVisibility()" style="position: absolute; right: 8px; background: none; border: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; outline: none; font-size: 13px;" title="Εμφάνιση/Απόκρυψη Κωδικού">👁️</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1567,6 +1570,9 @@
         var listContainer = document.getElementById("modalProfilesList");
         var noProfilesMsg = document.getElementById("modalNoProfilesMsg");
         
+        // Initialize form for this machineId first (crucial for clients with 0 profiles)
+        resetProfileForm(machineId);
+        
         var activeProfiles = profiles.filter(function(p) { return !p.IsPendingDelete; });
         document.getElementById("modalProfilesCount").innerText = activeProfiles.length;
         document.getElementById("modalProfilesCountText").innerText = activeProfiles.length;
@@ -1658,9 +1664,6 @@
             card.appendChild(actions);
             listContainer.appendChild(card);
         });
-
-        // Initialize form for this machineId
-        resetProfileForm(machineId);
     }
 
     function loadProfileIntoForm(profile) {
@@ -1724,9 +1727,9 @@
         document.getElementById("profileFormAfm").value = "";
         document.getElementById("profileFormSerial").value = "";
         document.getElementById("profileFormUsers").value = "1";
-        document.getElementById("profileFormExe").value = "TmsApp.exe";
+        document.getElementById("profileFormExe").value = "TIMOLOGISI.exe";
         document.getElementById("profileFormFolder").value = "";
-        document.getElementById("profileFormEmails").value = "";
+        document.getElementById("profileFormEmails").value = "support@cleverdata.gr,l.taniskdis@cleverdata.gr,e.kordouli@cleverdata.gr";
         document.getElementById("profileFormConnectionString").value = "";
 
         document.getElementById("profileFormConnectionStringType").value = "Direct";
@@ -1745,6 +1748,18 @@
         document.getElementById("profileFormSubmitBtn").innerText = "➕ Προσθήκη Εταιρείας";
         document.getElementById("profileFormSubmitBtn").className = "btn btn-login btn-sm";
         document.getElementById("profileFormCancelBtn").style.display = "none";
+    }
+
+    function toggleDbPasswordVisibility() {
+        var pwdInput = document.getElementById("profileFormDbPassword");
+        var toggleBtn = document.getElementById("toggleDbPasswordBtn");
+        if (pwdInput.type === "password") {
+            pwdInput.type = "text";
+            toggleBtn.innerText = "👁️‍🗨️";
+        } else {
+            pwdInput.type = "password";
+            toggleBtn.innerText = "👁️";
+        }
     }
 
     function triggerFolderBrowse(inputId) {

@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.18";
+        public string AppVersion => "1.5.24";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings
@@ -158,6 +158,8 @@ namespace Tms.Agent.Wpf.ViewModels
                         EditDbPassword = value.Profile.DbPassword ?? string.Empty;
                         EditConfigFilePath = value.Profile.ConfigFilePath ?? string.Empty;
                         EditCurrentVersion = value.Profile.CurrentVersion;
+                        EditCurrentProgramVersion = value.Profile.CurrentProgramVersion;
+                        EditCurrentDbVersion = value.Profile.CurrentDbVersion;
                         EditSerialNumber = value.Profile.SerialNumber;
                         EditActiveUsersCount = value.Profile.ActiveUsersCount;
                     }
@@ -182,7 +184,7 @@ namespace Tms.Agent.Wpf.ViewModels
         private string _editTargetFolder = string.Empty;
         public string EditTargetFolder { get => _editTargetFolder; set => SetProperty(ref _editTargetFolder, value); }
 
-        private string _editTargetExeName = "TmsApp.exe";
+        private string _editTargetExeName = "TIMOLOGISI.exe";
         public string EditTargetExeName { get => _editTargetExeName; set => SetProperty(ref _editTargetExeName, value); }
 
         private string _editConnectionString = string.Empty;
@@ -240,6 +242,12 @@ namespace Tms.Agent.Wpf.ViewModels
         private string _editCurrentVersion = "1.0.0";
         public string EditCurrentVersion { get => _editCurrentVersion; set => SetProperty(ref _editCurrentVersion, value); }
 
+        private string _editCurrentProgramVersion = "1.0.0";
+        public string EditCurrentProgramVersion { get => _editCurrentProgramVersion; set => SetProperty(ref _editCurrentProgramVersion, value); }
+
+        private string _editCurrentDbVersion = "1.0.0";
+        public string EditCurrentDbVersion { get => _editCurrentDbVersion; set => SetProperty(ref _editCurrentDbVersion, value); }
+
         private string _editSerialNumber = string.Empty;
         public string EditSerialNumber { get => _editSerialNumber; set => SetProperty(ref _editSerialNumber, value); }
 
@@ -247,6 +255,7 @@ namespace Tms.Agent.Wpf.ViewModels
         public int EditActiveUsersCount { get => _editActiveUsersCount; set => SetProperty(ref _editActiveUsersCount, value); }
 
         // Live Log Output
+        private readonly HashSet<string> _promptedUpdates = new();
         private string _logOutput = string.Empty;
         public string LogOutput
         {
@@ -598,6 +607,7 @@ namespace Tms.Agent.Wpf.ViewModels
         public ICommand RefreshSupportTicketsCommand { get; }
         public ICommand MarkBroadcastsReadCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
+        public ICommand AuthorizeUpdateCommand { get; }
         public ICommand UpdateProfileCommand { get; }
         public ICommand SaveProfileCommand { get; }
         public ICommand DeleteProfileCommand { get; }
@@ -676,6 +686,8 @@ namespace Tms.Agent.Wpf.ViewModels
                     IsPasscodeModalOpen = true;
                 }
             });
+
+            AuthorizeUpdateCommand = new RelayCommand<ProfileUiWrapper>(async p => await AuthorizeUpdateAsync(p));
 
             SaveProfileCommand = new RelayCommand(SaveProfile);
             DeleteProfileCommand = new RelayCommand(DeleteProfile);
@@ -835,7 +847,7 @@ namespace Tms.Agent.Wpf.ViewModels
             EditProfileName = string.Empty;
             EditAfm = string.Empty;
             EditTargetFolder = string.Empty;
-            EditTargetExeName = "TmsApp.exe";
+            EditTargetExeName = "TIMOLOGISI.exe";
             EditConnectionString = string.Empty;
             EditConnectionStringType = "Direct";
             EditDbServer = string.Empty;
@@ -845,6 +857,8 @@ namespace Tms.Agent.Wpf.ViewModels
             EditDbPassword = string.Empty;
             EditConfigFilePath = string.Empty;
             EditCurrentVersion = "1.0.0";
+            EditCurrentProgramVersion = "1.0.0";
+            EditCurrentDbVersion = "1.0.0";
             EditSerialNumber = string.Empty;
             EditActiveUsersCount = 0;
         }
@@ -903,6 +917,8 @@ namespace Tms.Agent.Wpf.ViewModels
                     DbUseWindowsAuth = EditDbUseWindowsAuth,
                     ConfigFilePath = EditConfigFilePath,
                     CurrentVersion = EditCurrentVersion,
+                    CurrentProgramVersion = EditCurrentProgramVersion,
+                    CurrentDbVersion = EditCurrentDbVersion,
                     SerialNumber = EditSerialNumber,
                     ActiveUsersCount = EditActiveUsersCount
                 };
@@ -928,6 +944,8 @@ namespace Tms.Agent.Wpf.ViewModels
                 existing.DbUseWindowsAuth = EditDbUseWindowsAuth;
                 existing.ConfigFilePath = EditConfigFilePath;
                 existing.CurrentVersion = EditCurrentVersion;
+                existing.CurrentProgramVersion = EditCurrentProgramVersion;
+                existing.CurrentDbVersion = EditCurrentDbVersion;
                 existing.SerialNumber = EditSerialNumber;
                 existing.ActiveUsersCount = EditActiveUsersCount;
 
@@ -1156,6 +1174,10 @@ namespace Tms.Agent.Wpf.ViewModels
             if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != AppVersion)
             {
                 SystemVersionWarning = $"⚠️ Προειδοποίηση: Η έκδοση του Agent (v{AppVersion}) διαφέρει από την τρέχουσα έκδοση συστήματος (v{response.CurrentSystemVersion}).";
+                if (response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
+                {
+                    _ = RunSelfUpgradeAsync(response.SystemBinaryUrl, response.CurrentSystemVersion);
+                }
             }
             else
             {
@@ -1183,7 +1205,16 @@ namespace Tms.Agent.Wpf.ViewModels
                                 TargetFolder = cmd.TargetFolder,
                                 TargetExeName = cmd.TargetExeName,
                                 ConnectionString = cmd.ConnectionString,
+                                ConnectionStringType = cmd.ConnectionStringType,
+                                DbServer = cmd.DbServer,
+                                DbName = cmd.DbName,
+                                DbUser = cmd.DbUser,
+                                DbPassword = cmd.DbPassword,
+                                DbUseWindowsAuth = cmd.DbUseWindowsAuth,
+                                ConfigFilePath = cmd.ConfigFilePath,
                                 CurrentVersion = cmd.CurrentVersion,
+                                CurrentProgramVersion = cmd.CurrentProgramVersion,
+                                CurrentDbVersion = cmd.CurrentDbVersion,
                                 SerialNumber = cmd.SerialNumber,
                                 ActiveUsersCount = cmd.ActiveUsersCount
                             };
@@ -1197,7 +1228,16 @@ namespace Tms.Agent.Wpf.ViewModels
                             existing.TargetFolder = cmd.TargetFolder;
                             existing.TargetExeName = cmd.TargetExeName;
                             existing.ConnectionString = cmd.ConnectionString;
+                            existing.ConnectionStringType = cmd.ConnectionStringType;
+                            existing.DbServer = cmd.DbServer;
+                            existing.DbName = cmd.DbName;
+                            existing.DbUser = cmd.DbUser;
+                            existing.DbPassword = cmd.DbPassword;
+                            existing.DbUseWindowsAuth = cmd.DbUseWindowsAuth;
+                            existing.ConfigFilePath = cmd.ConfigFilePath;
                             existing.CurrentVersion = cmd.CurrentVersion;
+                            existing.CurrentProgramVersion = cmd.CurrentProgramVersion;
+                            existing.CurrentDbVersion = cmd.CurrentDbVersion;
                             existing.SerialNumber = cmd.SerialNumber;
                             existing.ActiveUsersCount = cmd.ActiveUsersCount;
                             profilesChanged = true;
@@ -1239,6 +1279,7 @@ namespace Tms.Agent.Wpf.ViewModels
                     p.Status = "Δεν παρακολουθείται";
                     p.AvailableVersion = null;
                     p.IsAuthorizedByAdmin = false;
+                    p.IsWaitingForDb = false;
                     continue;
                 }
 
@@ -1247,9 +1288,19 @@ namespace Tms.Agent.Wpf.ViewModels
                 {
                     bool isNewUpdate = p.AvailableVersion == null || p.AvailableVersion.VersionNumber != update.NewVersion.VersionNumber;
 
-                    p.Status = $"Διαθέσιμη: {update.NewVersion.VersionNumber}";
                     p.AvailableVersion = update.NewVersion;
                     p.IsAuthorizedByAdmin = update.IsAuthorizedByAdmin;
+                    p.IsWaitingForDb = update.IsWaitingForDb;
+
+                    if (p.IsWaitingForDb)
+                    {
+                        p.Status = "Αναμονή αναβάθμισης βάσης από Server...";
+                    }
+                    else
+                    {
+                        p.Status = $"Διαθέσιμη: {update.NewVersion.VersionNumber}";
+                    }
+
                     hasMonitoredUpdates = true;
 
                     if (isNewUpdate)
@@ -1272,6 +1323,30 @@ namespace Tms.Agent.Wpf.ViewModels
             else
             {
                 StatusMessage = "Όλες οι παρακολουθούμενες εταιρείες είναι ενημερωμένες.";
+            }
+
+            // Operator close program popup logic
+            if (UserRole == "Operator" || UserRole == "Admin" || UserRole == "Owner")
+            {
+                foreach (var p in Profiles)
+                {
+                    if (p.AvailableVersion != null && p.IsAuthorizedByAdmin && !p.IsWaitingForDb)
+                    {
+                        var key = $"{p.ProfileId}_{p.AvailableVersion.VersionNumber}";
+                        if (!_promptedUpdates.Contains(key))
+                        {
+                            _promptedUpdates.Add(key);
+                            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                            {
+                                System.Windows.MessageBox.Show(
+                                    $"Έχει εγκριθεί η νέα αναβάθμιση {p.AvailableVersion.VersionNumber} για το προφίλ '{p.ProfileName}'.\nΠαρακαλώ κλείστε το TMS πρόγραμμα για να πραγματοποιηθεί η λήψη και εγκατάσταση των αρχείων.",
+                                    "TMS Agent - Απαιτείται Κλείσιμο Προγράμματος",
+                                    MessageBoxButton.OK,
+                                    MessageBoxImage.Warning);
+                            }));
+                        }
+                    }
+                }
             }
 
             // Handle Broadcast Messages
@@ -1314,6 +1389,96 @@ namespace Tms.Agent.Wpf.ViewModels
                         BroadcastDetected?.Invoke(newB.Title, newB.Content);
                     }
                 }
+            }
+        }
+
+        private async Task AuthorizeUpdateAsync(ProfileUiWrapper wrapper)
+        {
+            if (wrapper == null || wrapper.AvailableVersion == null) return;
+
+            StatusMessage = $"Έγκριση αναβάθμισης για το προφίλ '{wrapper.ProfileName}'...";
+            try
+            {
+                bool success = await _updateEngine.AuthorizeUpdateAsync(
+                    ServerUrl,
+                    ApiKey,
+                    _clientId,
+                    wrapper.ProfileId,
+                    wrapper.AvailableVersion.VersionNumber
+                );
+
+                if (success)
+                {
+                    wrapper.IsAuthorizedByAdmin = true;
+                    StatusMessage = $"Η αναβάθμιση για το προφίλ '{wrapper.ProfileName}' εγκρίθηκε.";
+                    
+                    System.Windows.MessageBox.Show(
+                        $"Η αναβάθμιση εγκρίθηκε επιτυχώς! Οι Operators θα λάβουν ειδοποίηση.",
+                        "TMS Agent",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
+
+                    await CheckForUpdatesAsync();
+                }
+                else
+                {
+                    StatusMessage = "Αποτυχία έγκρισης αναβάθμισης.";
+                    System.Windows.MessageBox.Show(
+                        "Αποτυχία έγκρισης αναβάθμισης από τον διακομιστή.",
+                        "TMS Agent",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Σφάλμα έγκρισης: {ex.Message}";
+            }
+        }
+
+        private bool _isSelfUpgrading = false;
+        private async Task RunSelfUpgradeAsync(string systemBinaryUrl, string targetVersion)
+        {
+            if (_isSelfUpgrading) return;
+            _isSelfUpgrading = true;
+
+            // Show mandatory popup to force update
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                System.Windows.MessageBox.Show(
+                    $"Βρέθηκε νέα έκδοση του Agent (v{targetVersion}).\nΗ αναβάθμιση είναι υποχρεωτική για τη σωστή λειτουργία του συστήματος.\n\nΠατήστε 'OK' για αυτόματη λήψη και επανεκκίνηση του Agent.",
+                    "TMS Agent - Απαιτείται Αναβάθμιση",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+            });
+
+            StatusMessage = "Λήψη και εγκατάσταση αναβάθμισης Agent...";
+            
+            bool success = await Task.Run(async () =>
+            {
+                return await _updateEngine.RunAgentSelfUpgradeAsync(
+                    ServerUrl,
+                    systemBinaryUrl,
+                    false, // Not running as service here
+                    logLine =>
+                    {
+                        System.Diagnostics.Debug.WriteLine(logLine);
+                    }
+                );
+            });
+
+            if (success)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    System.Windows.Application.Current.Shutdown();
+                });
+                Environment.Exit(0);
+            }
+            else
+            {
+                _isSelfUpgrading = false;
+                StatusMessage = "Αποτυχία αυτόματης αναβάθμισης του Agent.";
             }
         }
 
@@ -1439,6 +1604,27 @@ namespace Tms.Agent.Wpf.ViewModels
                 }
                 
                 var wrapper = PendingUpdateWrapper;
+
+                // Dry Run Preview for Database scripts
+                if (wrapper.AvailableVersion.Scripts != null && wrapper.AvailableVersion.Scripts.Any())
+                {
+                    var resolvedConnStr = wrapper.Profile.GetResolvedConnectionString();
+                    var previewText = await _updateEngine.GenerateScriptPreviewAsync(resolvedConnStr, wrapper.AvailableVersion.Scripts);
+                    
+                    var confirmResult = System.Windows.MessageBox.Show(
+                        $"Προεπισκόπηση Εκτέλεσης SQL Scripts:\n\n{previewText}\n\nΘέλετε να προχωρήσετε με την εκτέλεση;",
+                        "TMS Agent - Προεπισκόπηση Αναβάθμισης Βάσης",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (confirmResult != MessageBoxResult.Yes)
+                    {
+                        WizardStatus = "Η αναβάθμιση ακυρώθηκε από τον χρήστη.";
+                        IsWizardOpen = false;
+                        return;
+                    }
+                }
+
                 LogOutput = string.Empty;
                 CurrentView = "Logs";
                 
@@ -1883,6 +2069,8 @@ namespace Tms.Agent.Wpf.ViewModels
         public string Afm => Profile.Afm;
         public string TargetFolder => Profile.TargetFolder;
         public string CurrentVersion => Profile.CurrentVersion;
+        public string CurrentProgramVersion => Profile.CurrentProgramVersion;
+        public string CurrentDbVersion => Profile.CurrentDbVersion;
         public string SerialNumber => Profile.SerialNumber;
         public int ActiveUsersCount => Profile.ActiveUsersCount;
 
@@ -1915,12 +2103,21 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _isAuthorizedByAdmin, value);
         }
 
+        private bool _isWaitingForDb;
+        public bool IsWaitingForDb
+        {
+            get => _isWaitingForDb;
+            set => SetProperty(ref _isWaitingForDb, value);
+        }
+
         public void RefreshProperties()
         {
             OnPropertyChanged(nameof(ProfileName));
             OnPropertyChanged(nameof(Afm));
             OnPropertyChanged(nameof(TargetFolder));
             OnPropertyChanged(nameof(CurrentVersion));
+            OnPropertyChanged(nameof(CurrentProgramVersion));
+            OnPropertyChanged(nameof(CurrentDbVersion));
             OnPropertyChanged(nameof(SerialNumber));
             OnPropertyChanged(nameof(ActiveUsersCount));
         }

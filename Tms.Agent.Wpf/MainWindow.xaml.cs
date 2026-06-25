@@ -203,7 +203,12 @@ namespace Tms.Agent.Wpf
             {
                 e.Cancel = true;
                 Hide();
-                _notifyIcon?.ShowBalloonTip(2000, "TMS Agent", "Ο Agent εκτελείται στο System Tray.", System.Windows.Forms.ToolTipIcon.Info);
+                System.Windows.MessageBox.Show(
+                    "Η εφαρμογή TMS Agent Panel θα συνεχίσει να εκτελείται στη γραμμή εργασιών (System Tray) για αυτόματη λήψη ενημερώσεων.",
+                    "TMS Agent",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Information
+                );
             }
             else
             {

@@ -51,44 +51,60 @@ namespace Tms.CentralManagement.Pages
                 return RedirectToPage();
             }
 
-            var newClient = new ClientMachine
+            try
             {
-                ClientGuid = Guid.NewGuid().ToString().ToUpper(),
-                MachineName = machineName,
-                MachineRole = machineRole ?? "Both",
-                ApiKey = GenerateRandomApiKey(),
-                IsUpgradeEnabled = true,
-                RegistrationDate = DateTime.UtcNow,
-                Permissions = new AgentPermissions
+                var newClient = new ClientMachine
                 {
-                    CanOperatorViewLogs = true,
-                    CanOperatorRunUpdates = false
-                }
-            };
+                    ClientGuid = Guid.NewGuid().ToString().ToUpper(),
+                    MachineName = machineName,
+                    MachineRole = machineRole ?? "Both",
+                    ApiKey = GenerateRandomApiKey(),
+                    IsUpgradeEnabled = true,
+                    RegistrationDate = DateTime.UtcNow,
+                    Permissions = new AgentPermissions
+                    {
+                        CanOperatorViewLogs = true,
+                        CanOperatorRunUpdates = false
+                    }
+                };
 
-            _context.Clients.Add(newClient);
-            await _context.SaveChangesAsync();
+                _context.Clients.Add(newClient);
+                await _context.SaveChangesAsync();
+                SuccessMessage = $"Ο πελάτης '{machineName}' δημιουργήθηκε επιτυχώς με API Key: {newClient.ApiKey}";
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in OnPostCreateClientAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά τη δημιουργία πελάτη: {ex.Message}";
+            }
 
-            SuccessMessage = $"Ο πελάτης '{machineName}' δημιουργήθηκε επιτυχώς με API Key: {newClient.ApiKey}";
             return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostDeleteClientAsync(int id)
         {
-            var client = await _context.Clients
-                .Include(c => c.Permissions)
-                .Include(c => c.LocalUsers)
-                .FirstOrDefaultAsync(c => c.Id == id);
+            try
+            {
+                var client = await _context.Clients
+                    .Include(c => c.Permissions)
+                    .Include(c => c.LocalUsers)
+                    .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (client != null)
-            {
-                _context.Clients.Remove(client);
-                await _context.SaveChangesAsync();
-                SuccessMessage = "Ο πελάτης διαγράφηκε επιτυχώς.";
+                if (client != null)
+                {
+                    _context.Clients.Remove(client);
+                    await _context.SaveChangesAsync();
+                    SuccessMessage = "Ο πελάτης διαγράφηκε επιτυχώς.";
+                }
+                else
+                {
+                    ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                }
             }
-            else
+            catch (Exception ex)
             {
-                ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                Console.WriteLine($"Error in OnPostDeleteClientAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά τη διαγραφή πελάτη: {ex.Message}";
             }
 
             return RedirectToPage();
@@ -96,53 +112,69 @@ namespace Tms.CentralManagement.Pages
 
         public async Task<IActionResult> OnPostUpdateClientSettingsAsync(int id, string machineName, string machineRole, bool isUpgradeEnabled, bool canOperatorViewLogs, bool canOperatorRunUpdates, bool startWithWindows)
         {
-            var client = await _context.Clients
-                .Include(c => c.Permissions)
-                .FirstOrDefaultAsync(c => c.Id == id);
-
-            if (client == null)
+            try
             {
-                ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
-                return RedirectToPage();
-            }
+                var client = await _context.Clients
+                    .Include(c => c.Permissions)
+                    .FirstOrDefaultAsync(c => c.Id == id);
 
-            if (!string.IsNullOrWhiteSpace(machineName))
+                if (client == null)
+                {
+                    ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                    return RedirectToPage();
+                }
+
+                if (!string.IsNullOrWhiteSpace(machineName))
+                {
+                    client.MachineName = machineName;
+                }
+                if (!string.IsNullOrWhiteSpace(machineRole))
+                {
+                    client.MachineRole = machineRole;
+                }
+
+                client.IsUpgradeEnabled = isUpgradeEnabled;
+                client.StartWithWindows = startWithWindows;
+
+                if (client.Permissions == null)
+                {
+                    client.Permissions = new AgentPermissions();
+                }
+                client.Permissions.CanOperatorViewLogs = canOperatorViewLogs;
+                client.Permissions.CanOperatorRunUpdates = canOperatorRunUpdates;
+
+                await _context.SaveChangesAsync();
+                SuccessMessage = "Οι ρυθμίσεις του πελάτη ενημερώθηκαν επιτυχώς.";
+            }
+            catch (Exception ex)
             {
-                client.MachineName = machineName;
+                Console.WriteLine($"Error in OnPostUpdateClientSettingsAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά την ενημέρωση ρυθμίσεων πελάτη: {ex.Message}";
             }
-            if (!string.IsNullOrWhiteSpace(machineRole))
-            {
-                client.MachineRole = machineRole;
-            }
-
-            client.IsUpgradeEnabled = isUpgradeEnabled;
-            client.StartWithWindows = startWithWindows;
-
-            if (client.Permissions == null)
-            {
-                client.Permissions = new AgentPermissions();
-            }
-            client.Permissions.CanOperatorViewLogs = canOperatorViewLogs;
-            client.Permissions.CanOperatorRunUpdates = canOperatorRunUpdates;
-
-            await _context.SaveChangesAsync();
-            SuccessMessage = "Οι ρυθμίσεις του πελάτη ενημερώθηκαν επιτυχώς.";
             return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostRegenerateApiKeyAsync(int id)
         {
-            var client = await _context.Clients.FindAsync(id);
-            if (client == null)
+            try
             {
-                ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
-                return RedirectToPage();
+                var client = await _context.Clients.FindAsync(id);
+                if (client == null)
+                {
+                    ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                    return RedirectToPage();
+                }
+
+                client.ApiKey = GenerateRandomApiKey();
+                await _context.SaveChangesAsync();
+
+                SuccessMessage = $"Νέο API Key για τον πελάτη '{client.MachineName}': {client.ApiKey}";
             }
-
-            client.ApiKey = GenerateRandomApiKey();
-            await _context.SaveChangesAsync();
-
-            SuccessMessage = $"Νέο API Key για τον πελάτη '{client.MachineName}': {client.ApiKey}";
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in OnPostRegenerateApiKeyAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά τη δημιουργία API Key: {ex.Message}";
+            }
             return RedirectToPage();
         }
 
@@ -154,49 +186,65 @@ namespace Tms.CentralManagement.Pages
                 return RedirectToPage();
             }
 
-            var client = await _context.Clients
-                .Include(c => c.LocalUsers)
-                .FirstOrDefaultAsync(c => c.Id == clientMachineId);
-
-            if (client == null)
+            try
             {
-                ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
-                return RedirectToPage();
+                var client = await _context.Clients
+                    .Include(c => c.LocalUsers)
+                    .FirstOrDefaultAsync(c => c.Id == clientMachineId);
+
+                if (client == null)
+                {
+                    ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                    return RedirectToPage();
+                }
+
+                if (client.LocalUsers.Any(u => u.Username.ToLower() == username.ToLower()))
+                {
+                    ErrorMessage = $"Υπάρχει ήδη χρήστης με το όνομα '{username}' για αυτόν τον πελάτη.";
+                    return RedirectToPage();
+                }
+
+                var newUser = new AgentUser
+                {
+                    ClientMachineId = clientMachineId,
+                    Username = username,
+                    Password = password, // Store plain-text or custom hashed for easy transfer/sync
+                    Role = role ?? "Operator"
+                };
+
+                client.LocalUsers.Add(newUser);
+                await _context.SaveChangesAsync();
+
+                SuccessMessage = $"Ο χρήστης '{username}' προστέθηκε επιτυχώς.";
             }
-
-            if (client.LocalUsers.Any(u => u.Username.ToLower() == username.ToLower()))
+            catch (Exception ex)
             {
-                ErrorMessage = $"Υπάρχει ήδη χρήστης με το όνομα '{username}' για αυτόν τον πελάτη.";
-                return RedirectToPage();
+                Console.WriteLine($"Error in OnPostAddAgentUserAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά την προσθήκη χρήστη: {ex.Message}";
             }
-
-            var newUser = new AgentUser
-            {
-                ClientMachineId = clientMachineId,
-                Username = username,
-                Password = password, // Store plain-text or custom hashed for easy transfer/sync
-                Role = role ?? "Operator"
-            };
-
-            client.LocalUsers.Add(newUser);
-            await _context.SaveChangesAsync();
-
-            SuccessMessage = $"Ο χρήστης '{username}' προστέθηκε επιτυχώς.";
             return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostDeleteAgentUserAsync(int userId)
         {
-            var user = await _context.AgentUsers.FindAsync(userId);
-            if (user != null)
+            try
             {
-                _context.AgentUsers.Remove(user);
-                await _context.SaveChangesAsync();
-                SuccessMessage = "Ο χρήστης του Agent διαγράφηκε επιτυχώς.";
+                var user = await _context.AgentUsers.FindAsync(userId);
+                if (user != null)
+                {
+                    _context.AgentUsers.Remove(user);
+                    await _context.SaveChangesAsync();
+                    SuccessMessage = "Ο χρήστης του Agent διαγράφηκε επιτυχώς.";
+                }
+                else
+                {
+                    ErrorMessage = "Ο χρήστης δεν βρέθηκε.";
+                }
             }
-            else
+            catch (Exception ex)
             {
-                ErrorMessage = "Ο χρήστης δεν βρέθηκε.";
+                Console.WriteLine($"Error in OnPostDeleteAgentUserAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά τη διαγραφή χρήστη: {ex.Message}";
             }
 
             return RedirectToPage();
@@ -227,49 +275,57 @@ namespace Tms.CentralManagement.Pages
                 return RedirectToPage();
             }
 
-            var client = await _context.Clients
-                .Include(c => c.Profiles)
-                .FirstOrDefaultAsync(c => c.Id == clientMachineId);
-
-            if (client == null)
+            try
             {
-                ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
-                return RedirectToPage();
+                var client = await _context.Clients
+                    .Include(c => c.Profiles)
+                    .FirstOrDefaultAsync(c => c.Id == clientMachineId);
+
+                if (client == null)
+                {
+                    ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                    return RedirectToPage();
+                }
+
+                if (client.Profiles.Any(p => p.ProfileId.ToLower() == profileId.ToLower().Trim()))
+                {
+                    ErrorMessage = $"Υπάρχει ήδη εταιρεία με ID Προφίλ '{profileId}' για αυτόν τον πελάτη.";
+                    return RedirectToPage();
+                }
+
+                var newProfile = new ClientProfile
+                {
+                    ClientMachineId = clientMachineId,
+                    ProfileId = profileId.Trim(),
+                    ProfileName = profileName.Trim(),
+                    Afm = afm?.Trim() ?? string.Empty,
+                    SerialNumber = serialNumber?.Trim() ?? string.Empty,
+                    ActiveUsersCount = activeUsersCount,
+                    ConnectionString = connectionString?.Trim() ?? string.Empty,
+                    ConnectionStringType = connectionStringType?.Trim() ?? "Direct",
+                    DbServer = dbServer?.Trim() ?? string.Empty,
+                    DbName = dbName?.Trim() ?? string.Empty,
+                    DbUser = dbUser?.Trim() ?? string.Empty,
+                    DbPassword = dbPassword?.Trim() ?? string.Empty,
+                    DbUseWindowsAuth = dbUseWindowsAuth,
+                    ConfigFilePath = configFilePath?.Trim() ?? string.Empty,
+                    TargetFolder = targetFolder?.Trim() ?? string.Empty,
+                    TargetExeName = string.IsNullOrWhiteSpace(targetExeName) ? "TIMOLOGISI.exe" : targetExeName.Trim(),
+                    Emails = emails?.Trim() ?? string.Empty,
+                    IsAuthorizedForUpdate = false,
+                    IsPendingDelete = false
+                };
+
+                client.Profiles.Add(newProfile);
+                await _context.SaveChangesAsync();
+
+                SuccessMessage = $"Η εταιρεία '{profileName}' προστέθηκε επιτυχώς.";
             }
-
-            if (client.Profiles.Any(p => p.ProfileId.ToLower() == profileId.ToLower().Trim()))
+            catch (Exception ex)
             {
-                ErrorMessage = $"Υπάρχει ήδη εταιρεία με ID Προφίλ '{profileId}' για αυτόν τον πελάτη.";
-                return RedirectToPage();
+                Console.WriteLine($"Error in OnPostAddClientProfileAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά την προσθήκη εταιρείας: {ex.Message}";
             }
-
-            var newProfile = new ClientProfile
-            {
-                ClientMachineId = clientMachineId,
-                ProfileId = profileId.Trim(),
-                ProfileName = profileName.Trim(),
-                Afm = afm?.Trim() ?? string.Empty,
-                SerialNumber = serialNumber?.Trim() ?? string.Empty,
-                ActiveUsersCount = activeUsersCount,
-                ConnectionString = connectionString?.Trim() ?? string.Empty,
-                ConnectionStringType = connectionStringType?.Trim() ?? "Direct",
-                DbServer = dbServer?.Trim() ?? string.Empty,
-                DbName = dbName?.Trim() ?? string.Empty,
-                DbUser = dbUser?.Trim() ?? string.Empty,
-                DbPassword = dbPassword?.Trim() ?? string.Empty,
-                DbUseWindowsAuth = dbUseWindowsAuth,
-                ConfigFilePath = configFilePath?.Trim() ?? string.Empty,
-                TargetFolder = targetFolder?.Trim() ?? string.Empty,
-                TargetExeName = string.IsNullOrWhiteSpace(targetExeName) ? "TmsApp.exe" : targetExeName.Trim(),
-                Emails = emails?.Trim() ?? string.Empty,
-                IsAuthorizedForUpdate = false,
-                IsPendingDelete = false
-            };
-
-            client.Profiles.Add(newProfile);
-            await _context.SaveChangesAsync();
-
-            SuccessMessage = $"Η εταιρεία '{profileName}' προστέθηκε επιτυχώς.";
             return RedirectToPage();
         }
 
@@ -291,46 +347,62 @@ namespace Tms.CentralManagement.Pages
             string targetExeName,
             string emails)
         {
-            var profile = await _context.ClientProfiles.FindAsync(editProfileId);
-            if (profile == null)
+            try
             {
-                ErrorMessage = "Η εταιρεία δεν βρέθηκε.";
-                return RedirectToPage();
+                var profile = await _context.ClientProfiles.FindAsync(editProfileId);
+                if (profile == null)
+                {
+                    ErrorMessage = "Η εταιρεία δεν βρέθηκε.";
+                    return RedirectToPage();
+                }
+
+                profile.ProfileName = profileName?.Trim() ?? string.Empty;
+                profile.Afm = afm?.Trim() ?? string.Empty;
+                profile.SerialNumber = serialNumber?.Trim() ?? string.Empty;
+                profile.ActiveUsersCount = activeUsersCount;
+                profile.ConnectionString = connectionString?.Trim() ?? string.Empty;
+                profile.ConnectionStringType = connectionStringType?.Trim() ?? "Direct";
+                profile.DbServer = dbServer?.Trim() ?? string.Empty;
+                profile.DbName = dbName?.Trim() ?? string.Empty;
+                profile.DbUser = dbUser?.Trim() ?? string.Empty;
+                profile.DbPassword = dbPassword?.Trim() ?? string.Empty;
+                profile.DbUseWindowsAuth = dbUseWindowsAuth;
+                profile.ConfigFilePath = configFilePath?.Trim() ?? string.Empty;
+                profile.TargetFolder = targetFolder?.Trim() ?? string.Empty;
+                profile.TargetExeName = targetExeName?.Trim() ?? "TIMOLOGISI.exe";
+                profile.Emails = emails?.Trim() ?? string.Empty;
+
+                await _context.SaveChangesAsync();
+                SuccessMessage = $"Οι αλλαγές για την εταιρεία '{profile.ProfileName}' αποθηκεύτηκαν επιτυχώς.";
             }
-
-            profile.ProfileName = profileName?.Trim() ?? string.Empty;
-            profile.Afm = afm?.Trim() ?? string.Empty;
-            profile.SerialNumber = serialNumber?.Trim() ?? string.Empty;
-            profile.ActiveUsersCount = activeUsersCount;
-            profile.ConnectionString = connectionString?.Trim() ?? string.Empty;
-            profile.ConnectionStringType = connectionStringType?.Trim() ?? "Direct";
-            profile.DbServer = dbServer?.Trim() ?? string.Empty;
-            profile.DbName = dbName?.Trim() ?? string.Empty;
-            profile.DbUser = dbUser?.Trim() ?? string.Empty;
-            profile.DbPassword = dbPassword?.Trim() ?? string.Empty;
-            profile.DbUseWindowsAuth = dbUseWindowsAuth;
-            profile.ConfigFilePath = configFilePath?.Trim() ?? string.Empty;
-            profile.TargetFolder = targetFolder?.Trim() ?? string.Empty;
-            profile.TargetExeName = targetExeName?.Trim() ?? "TmsApp.exe";
-            profile.Emails = emails?.Trim() ?? string.Empty;
-
-            await _context.SaveChangesAsync();
-            SuccessMessage = $"Οι αλλαγές για την εταιρεία '{profile.ProfileName}' αποθηκεύτηκαν επιτυχώς.";
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in OnPostSaveClientProfileSettingsAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά την αποθήκευση αλλαγών εταιρείας: {ex.Message}";
+            }
             return RedirectToPage();
         }
 
         public async Task<IActionResult> OnPostDeleteClientProfileAsync(int profileId)
         {
-            var profile = await _context.ClientProfiles.FindAsync(profileId);
-            if (profile != null)
+            try
             {
-                profile.IsPendingDelete = true;
-                await _context.SaveChangesAsync();
-                SuccessMessage = $"Ζητήθηκε η διαγραφή της εταιρείας '{profile.ProfileName}'. Θα διαγραφεί μόλις συγχρονίσει ο Agent.";
+                var profile = await _context.ClientProfiles.FindAsync(profileId);
+                if (profile != null)
+                {
+                    profile.IsPendingDelete = true;
+                    await _context.SaveChangesAsync();
+                    SuccessMessage = $"Ζητήθηκε η διαγραφή της εταιρείας '{profile.ProfileName}'. Θα διαγραφεί μόλις συγχρονίσει ο Agent.";
+                }
+                else
+                {
+                    ErrorMessage = "Η εταιρεία δεν βρέθηκε.";
+                }
             }
-            else
+            catch (Exception ex)
             {
-                ErrorMessage = "Η εταιρεία δεν βρέθηκε.";
+                Console.WriteLine($"Error in OnPostDeleteClientProfileAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά τη διαγραφή εταιρείας: {ex.Message}";
             }
             return RedirectToPage();
         }

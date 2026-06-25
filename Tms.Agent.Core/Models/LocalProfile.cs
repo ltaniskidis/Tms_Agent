@@ -14,7 +14,7 @@ namespace Tms.Agent.Core.Models
         public string ProfileName { get; set; } = string.Empty;
         public string Afm { get; set; } = string.Empty;
         public string TargetFolder { get; set; } = string.Empty;
-        public string TargetExeName { get; set; } = "TmsApp.exe";
+        public string TargetExeName { get; set; } = "TIMOLOGISI.exe";
         
         // Connection string settings
         public string ConnectionString { get; set; } = string.Empty;
@@ -27,6 +27,21 @@ namespace Tms.Agent.Core.Models
         public string ConfigFilePath { get; set; } = string.Empty;
 
         public string CurrentVersion { get; set; } = "1.0.0";
+
+        private string? _currentProgramVersion;
+        public string CurrentProgramVersion
+        {
+            get => !string.IsNullOrEmpty(_currentProgramVersion) ? _currentProgramVersion : CurrentVersion;
+            set => _currentProgramVersion = value;
+        }
+
+        private string? _currentDbVersion;
+        public string CurrentDbVersion
+        {
+            get => !string.IsNullOrEmpty(_currentDbVersion) ? _currentDbVersion : CurrentVersion;
+            set => _currentDbVersion = value;
+        }
+
         public string SerialNumber { get; set; } = string.Empty;
         public int ActiveUsersCount { get; set; } = 0;
 

@@ -93,6 +93,7 @@ namespace Tms.CentralManagement.Controllers
                 .Where(v => v.TargetType == "System" && v.IsCurrent)
                 .FirstOrDefaultAsync();
             response.CurrentSystemVersion = currentSystemVersionObj?.VersionNumber ?? "1.5.0";
+            response.SystemBinaryUrl = currentSystemVersionObj?.BinaryFileUrl ?? string.Empty;
 
             // Sync users
             response.LocalUsers = client.LocalUsers.Select(u => new AgentUserDto
@@ -170,10 +171,12 @@ namespace Tms.CentralManagement.Controllers
                         SerialNumber = localProfile.SerialNumber,
                         ActiveUsersCount = localProfile.ActiveUsersCount,
                         LastUpdatedVersion = localProfile.CurrentVersion,
+                        LastUpdatedProgramVersion = localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion,
+                        LastUpdatedDbVersion = localProfile.CurrentDbVersion ?? localProfile.CurrentVersion,
                         LastUpdateStatus = "Registered",
                         LastUpdatedTime = DateTime.UtcNow,
                         TargetFolder = localProfile.TargetFolder ?? string.Empty,
-                        TargetExeName = localProfile.TargetExeName ?? "TmsApp.exe",
+                        TargetExeName = localProfile.TargetExeName ?? "TIMOLOGISI.exe",
                         ConnectionString = localProfile.ConnectionString ?? string.Empty,
                         ConnectionStringType = localProfile.ConnectionStringType ?? "Direct",
                         DbServer = localProfile.DbServer ?? string.Empty,
@@ -233,6 +236,8 @@ namespace Tms.CentralManagement.Controllers
                             DbUseWindowsAuth = dbProfile.DbUseWindowsAuth,
                             ConfigFilePath = dbProfile.ConfigFilePath,
                             CurrentVersion = dbProfile.LastUpdatedVersion,
+                            CurrentProgramVersion = dbProfile.LastUpdatedProgramVersion,
+                            CurrentDbVersion = dbProfile.LastUpdatedDbVersion,
                             SerialNumber = dbProfile.SerialNumber,
                             ActiveUsersCount = dbProfile.ActiveUsersCount
                         });
@@ -240,47 +245,56 @@ namespace Tms.CentralManagement.Controllers
                     else
                     {
                         dbProfile.LastUpdatedVersion = localProfile.CurrentVersion;
+                        dbProfile.LastUpdatedProgramVersion = localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion;
+                        dbProfile.LastUpdatedDbVersion = localProfile.CurrentDbVersion ?? localProfile.CurrentVersion;
                     }
                 }
 
                 // Check for updates (only if upgrade is enabled)
                 if (client.IsUpgradeEnabled)
                 {
-                    if (!Version.TryParse(localProfile.CurrentVersion, out var currentVer))
+                    if (!Version.TryParse(localProfile.CurrentProgramVersion, out var currentProgVer))
                     {
-                        currentVer = new Version(0, 0, 0);
+                        if (!Version.TryParse(localProfile.CurrentVersion, out currentProgVer))
+                        {
+                            currentProgVer = new Version(0, 0, 0);
+                        }
+                    }
+
+                    if (!Version.TryParse(localProfile.CurrentDbVersion, out var currentDbVer))
+                    {
+                        if (!Version.TryParse(localProfile.CurrentVersion, out currentDbVer))
+                        {
+                            currentDbVer = new Version(0, 0, 0);
+                        }
                     }
 
                     var newerVersions = allActiveVersions
                         .Select(v => new { VersionInfo = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
-                        .Where(x => x.Parsed > currentVer)
+                        .Where(x => x.Parsed > currentProgVer || (x.VersionInfo.Scripts != null && x.VersionInfo.Scripts.Any() && x.Parsed > currentDbVer))
                         .OrderByDescending(x => x.Parsed)
                         .ToList();
 
                     if (newerVersions.Any())
                     {
                         var latestUpdate = newerVersions.First().VersionInfo;
+                        var latestParsed = newerVersions.First().Parsed;
 
-                        // Restriction: If client role is Client and update contains scripts, database must be upgraded first
+                        bool isWaitingForDb = false;
                         if (latestUpdate.Scripts != null && latestUpdate.Scripts.Any() && request.MachineRole == "Client")
                         {
-                            bool isDbUpgraded = await _context.ClientProfiles
-                                .AnyAsync(p => p.ProfileId == localProfile.ProfileId && 
-                                               p.LastUpdatedVersion == latestUpdate.VersionNumber && 
-                                               p.LastUpdateStatus == "Success");
-                            
-                            if (!isDbUpgraded)
+                            if (!Version.TryParse(dbProfile.LastUpdatedDbVersion, out var dbVer) || dbVer < latestParsed)
                             {
-                                // Database not upgraded yet, skip update for this Client machine
-                                continue;
+                                isWaitingForDb = true;
                             }
                         }
-                        
+
                         response.Updates.Add(new ProfileUpdateDto
                         {
                             ProfileId = localProfile.ProfileId,
                             Afm = localProfile.Afm,
                             IsAuthorizedByAdmin = dbProfile.IsAuthorizedForUpdate,
+                            IsWaitingForDb = isWaitingForDb,
                             NewVersion = new VersionDto
                             {
                                 Id = latestUpdate.Id,
@@ -337,6 +351,8 @@ namespace Tms.CentralManagement.Controllers
                     DbUseWindowsAuth = serverProfile.DbUseWindowsAuth,
                     ConfigFilePath = serverProfile.ConfigFilePath,
                     CurrentVersion = serverProfile.LastUpdatedVersion,
+                    CurrentProgramVersion = serverProfile.LastUpdatedProgramVersion,
+                    CurrentDbVersion = serverProfile.LastUpdatedDbVersion,
                     SerialNumber = serverProfile.SerialNumber,
                     ActiveUsersCount = serverProfile.ActiveUsersCount
                 });
@@ -360,6 +376,35 @@ namespace Tms.CentralManagement.Controllers
 
             response.HasUpdates = response.Updates.Any();
             return Ok(response);
+        }
+
+        // POST: api/updates/authorize
+        [HttpPost("authorize")]
+        public async Task<IActionResult> AuthorizeUpdate([FromBody] AuthorizeUpdateRequest request)
+        {
+            if (string.IsNullOrEmpty(request.ApiKey))
+            {
+                return Unauthorized("API Key is required.");
+            }
+
+            var client = await _context.Clients
+                .Include(c => c.Profiles)
+                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey);
+
+            if (client == null)
+            {
+                return Unauthorized("Invalid API Key.");
+            }
+
+            var profile = client.Profiles.FirstOrDefault(p => p.ProfileId == request.ProfileId);
+            if (profile == null)
+            {
+                return NotFound("Profile not found.");
+            }
+
+            profile.IsAuthorizedForUpdate = true;
+            await _context.SaveChangesAsync();
+            return Ok();
         }
 
         // 2. Submit logs from Agents
@@ -399,6 +444,8 @@ namespace Tms.CentralManagement.Controllers
             {
                 ClientProfileId = profile.Id,
                 VersionNumber = request.VersionNumber,
+                ProgramVersion = !string.IsNullOrEmpty(request.ProgramVersion) ? request.ProgramVersion : request.VersionNumber,
+                DbVersion = !string.IsNullOrEmpty(request.DbVersion) ? request.DbVersion : request.VersionNumber,
                 ExecutionTime = request.ExecutionTime,
                 Success = request.Success,
                 ErrorMessage = request.ErrorMessage,
@@ -409,6 +456,8 @@ namespace Tms.CentralManagement.Controllers
 
             // Update profile status
             profile.LastUpdatedVersion = request.VersionNumber;
+            profile.LastUpdatedProgramVersion = !string.IsNullOrEmpty(request.ProgramVersion) ? request.ProgramVersion : request.VersionNumber;
+            profile.LastUpdatedDbVersion = !string.IsNullOrEmpty(request.DbVersion) ? request.DbVersion : request.VersionNumber;
             profile.LastUpdateStatus = request.Success ? "Success" : "Failed";
             profile.LastUpdatedTime = request.ExecutionTime;
             if (request.Success)

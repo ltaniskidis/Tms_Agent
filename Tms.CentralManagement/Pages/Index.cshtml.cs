@@ -34,7 +34,7 @@ namespace Tms.CentralManagement.Pages
         [BindProperty]
         public string EditTargetFolder { get; set; } = string.Empty;
         [BindProperty]
-        public string EditTargetExeName { get; set; } = "TmsApp.exe";
+        public string EditTargetExeName { get; set; } = "TIMOLOGISI.exe";
 
         public async Task OnGetAsync()
         {
@@ -67,7 +67,7 @@ namespace Tms.CentralManagement.Pages
                 profile.ActiveUsersCount = EditActiveUsersCount;
                 profile.ConnectionString = EditConnectionString?.Trim() ?? string.Empty;
                 profile.TargetFolder = EditTargetFolder?.Trim() ?? string.Empty;
-                profile.TargetExeName = EditTargetExeName?.Trim() ?? "TmsApp.exe";
+                profile.TargetExeName = EditTargetExeName?.Trim() ?? "TIMOLOGISI.exe";
                 
                 await _context.SaveChangesAsync();
             }

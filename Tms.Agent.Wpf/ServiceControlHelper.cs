@@ -5,9 +5,9 @@ namespace Tms.Agent.Wpf
 {
     public static class ServiceControlHelper
     {
-        public static void ApplyStartWithWindows(bool enable)
+        public static void ApplyStartWithWindows(bool enable, string? targetExePath = null)
         {
-            string? exePath = Environment.ProcessPath;
+            string? exePath = targetExePath ?? Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath)) return;
 
             if (enable)

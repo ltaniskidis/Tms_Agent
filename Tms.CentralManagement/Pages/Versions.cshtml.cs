@@ -91,6 +91,14 @@ namespace Tms.CentralManagement.Pages
                 }
             }
 
+            // Handle uploaded scripts file
+            if (UploadedScriptsFile != null && UploadedScriptsFile.Length > 0)
+            {
+                using var reader = new System.IO.StreamReader(UploadedScriptsFile.OpenReadStream());
+                ScriptContent = await reader.ReadToEndAsync();
+                ScriptName = UploadedScriptsFile.FileName;
+            }
+
             string finalUrl = BinaryFileUrl.Trim();
             
             if (UploadedPackage != null && UploadedPackage.Length > 0)
@@ -113,7 +121,14 @@ namespace Tms.CentralManagement.Pages
             }
             else if (string.IsNullOrWhiteSpace(finalUrl))
             {
-                finalUrl = $"/packages/app_{VersionNumber.Trim()}.zip";
+                if (!string.IsNullOrWhiteSpace(ScriptContent))
+                {
+                    finalUrl = string.Empty;
+                }
+                else
+                {
+                    finalUrl = $"/packages/app_{VersionNumber.Trim()}.zip";
+                }
             }
 
             var version = new VersionInfo
@@ -139,13 +154,7 @@ namespace Tms.CentralManagement.Pages
                 }
             }
 
-            // Handle uploaded scripts file
-            if (UploadedScriptsFile != null && UploadedScriptsFile.Length > 0)
-            {
-                using var reader = new System.IO.StreamReader(UploadedScriptsFile.OpenReadStream());
-                ScriptContent = await reader.ReadToEndAsync();
-                ScriptName = UploadedScriptsFile.FileName;
-            }
+            
 
             // Parse SQL scripts from textarea or uploaded file
             if (!string.IsNullOrWhiteSpace(ScriptContent))

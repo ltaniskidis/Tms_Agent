@@ -29,7 +29,35 @@ builder.Services.AddOpenApi();
 
 // Register DbContext with SQLite
 builder.Services.AddDbContext<CentralDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=central.db"));
+{
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrEmpty(connectionString))
+    {
+        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        // Resolve central.db path reliably (independent of Process Cwd and environment mode)
+        var parentDir = System.IO.Directory.GetParent(baseDir)?.Parent?.Parent?.FullName;
+        if (parentDir != null && System.IO.File.Exists(System.IO.Path.Combine(parentDir, "central.db")))
+        {
+            baseDir = parentDir;
+        }
+        else
+        {
+            var curDir = System.IO.Directory.GetCurrentDirectory();
+            var subProjectDb = System.IO.Path.Combine(curDir, "Tms.CentralManagement");
+            if (System.IO.File.Exists(System.IO.Path.Combine(subProjectDb, "central.db")))
+            {
+                baseDir = subProjectDb;
+            }
+            else if (System.IO.File.Exists(System.IO.Path.Combine(curDir, "central.db")))
+            {
+                baseDir = curDir;
+            }
+        }
+        connectionString = $"Data Source={System.IO.Path.Combine(baseDir, "central.db")}";
+    }
+    Console.WriteLine($"[DATABASE CONNECTION] Using SQLite Connection String: {connectionString}");
+    options.UseSqlite(connectionString);
+});
 
 var app = builder.Build();
 
@@ -68,7 +96,9 @@ using (var scope = app.Services.CreateScope())
                     { "DbPassword", "TEXT NULL" },
                     { "DbUseWindowsAuth", "INTEGER NOT NULL DEFAULT 0" },
                     { "ConfigFilePath", "TEXT NULL" },
-                    { "Emails", "TEXT NULL" }
+                    { "Emails", "TEXT NULL" },
+                    { "LastUpdatedProgramVersion", "TEXT NULL" },
+                    { "LastUpdatedDbVersion", "TEXT NULL" }
                 };
 
                 foreach (var col in columnsToAdd)
@@ -81,6 +111,18 @@ using (var scope = app.Services.CreateScope())
                             alterCommand.ExecuteNonQuery();
                         }
                     }
+                }
+
+                // Initialize NULL values for the new columns in database from LastUpdatedVersion
+                using (var updateCommand = connection.CreateCommand())
+                {
+                    updateCommand.CommandText = "UPDATE ClientProfiles SET LastUpdatedProgramVersion = LastUpdatedVersion WHERE LastUpdatedProgramVersion IS NULL;";
+                    updateCommand.ExecuteNonQuery();
+                }
+                using (var updateCommand = connection.CreateCommand())
+                {
+                    updateCommand.CommandText = "UPDATE ClientProfiles SET LastUpdatedDbVersion = LastUpdatedVersion WHERE LastUpdatedDbVersion IS NULL;";
+                    updateCommand.ExecuteNonQuery();
                 }
             }
 
@@ -171,6 +213,38 @@ using (var scope = app.Services.CreateScope())
                     using (var alterCommand = connection.CreateCommand())
                     {
                         alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN StartWithWindows INTEGER NOT NULL DEFAULT 0;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
+            }
+
+            // 5. UpdateLogs table columns check
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "PRAGMA table_info(UpdateLogs);";
+                var columns = new List<string>();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        columns.Add(reader["name"].ToString() ?? "");
+                    }
+                }
+
+                if (!columns.Contains("ProgramVersion", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE UpdateLogs ADD COLUMN ProgramVersion TEXT NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
+
+                if (!columns.Contains("DbVersion", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE UpdateLogs ADD COLUMN DbVersion TEXT NULL;";
                         alterCommand.ExecuteNonQuery();
                     }
                 }
@@ -889,6 +963,222 @@ GO
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη διαδραστικού οδηγού εγκατάστασης Setup Wizard για εύκολη ρύθμιση της διεύθυνσης Server, API Key, ρόλου και αυτόματης εκκίνησης." });
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αυτόματη ανίχνευση μη ρυθμισμένης εγκατάστασης κατά την εκκίνηση της εφαρμογής και προβολή του wizard." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.19"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.19",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διαχωρισμός εκδόσεων, έλεγχος scripts βάσης, έγκριση αναβάθμισης, responsive UI & ασφαλές backup",
+            BinaryFileUrl = "/packages/app_1.5.19.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Υλοποίηση ξεχωριστής παρακολούθησης έκδοσης προγράμματος και βάσης δεδομένων." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Υποστήριξη ελέγχου SQL scripts μέσω του πίνακα SQL_HISTORY_UPDATE_SCRIPTS και αποτροπή αν λείπει." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη επιβεβαίωσης αναβάθμισης από Admin και ειδοποίηση Operators για κλείσιμο εφαρμογής." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Βελτιστοποίηση της κονσόλας διαχείρισης ώστε να είναι πλήρως responsive από κινητά τηλέφωνα." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Ασφαλής αντικατάσταση αρχείων με αυτόματη δημιουργία αντιγράφων ασφαλείας με επίθεμα _OLD." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.20"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.20",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Δοκιμαστική έκδοση για αυτόματη ενημέρωση συστήματος",
+            BinaryFileUrl = "/packages/app_1.5.20.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = false,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Δοκιμαστικός έλεγχος και επιβεβαίωση της λειτουργίας αυτόματης ενημέρωσης του Agent." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.21"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.21",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Διορθώσεις σφαλμάτων διαχείρισης εταιρείας και βελτιστοποιήσεις SQLite",
+            BinaryFileUrl = "/packages/app_1.5.21.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = false,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Θωράκιση των POST handlers με try-catch blocks για την αποφυγή κρασαρισμάτων του Kestrel." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Βελτιστοποίηση SQLite σύνδεσης με busy timeout 5 δευτερολέπτων για αποφυγή σφαλμάτων locked." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.22"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.22",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προκαθορισμένα στοιχεία εταιρείας, οπτική ένδειξη κωδικού & διόρθωση λίστας πελατών",
+            BinaryFileUrl = "/packages/app_1.5.22.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = false,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Αλλαγή προτεινόμενου EXE σε TIMOLOGISI.exe και προ-συμπλήρωση των default emails επικοινωνίας cleverdata." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Προσθήκη κουμπιού (ματάκι) για εμφάνιση/απόκρυψη του κωδικού χρήστη της βάσης." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διασφάλιση σύνδεσης με την SQLite βάση central.db ανεξαρτήτως του Process Working Directory (Cwd) για αποτροπή εμφάνισης κενής λίστας." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.23"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.23",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διορθώσεις αξιοπιστίας στην αυτόματη αναβάθμιση του Agent",
+            BinaryFileUrl = "/packages/app_1.5.23.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Υλοποίηση βρόχου αναμονής στο batch script ώστε να περιμένει την απελευθέρωση του κλειδώματος αρχείου (file lock) του τρέχοντος exe πριν την αντιγραφή." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη αιτήματος admin elevation (UAC prompt via runas Verb) κατά την εκτέλεση της αναβάθμισης για αποφυγή σφαλμάτων Access Denied σε προστατευμένους φακέλους." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.24"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.24",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση συγχρονισμού ρυθμίσεων SQL Server της εταιρείας",
+            BinaryFileUrl = "/packages/app_1.5.24.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διόρθωση σφάλματος κατά το οποίο οι παράμετροι σύνδεσης SQL Server της εταιρείας (ConnectionStringType, DbServer, DbName κλπ.) δεν αποθηκεύονταν τοπικά στον Agent κατά τον συγχρονισμό." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.25"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.25",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Διασφάλιση σύνδεσης με την SQLite βάση central.db ανεξαρτήτως του Process Working Directory (Cwd) για αποτροπή εμφάνισης κενής λίστας.",
+            BinaryFileUrl = "/packages/app_1.5.25.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = false,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διασφάλιση σύνδεσης με την SQLite βάση central.db ανεξαρτήτως του Process Working Directory (Cwd) για αποτροπή εμφάνισης κενής λίστας." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.26"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.26",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Διόρθωση αρχικοποίησης φόρμας προσθήκης εταιρείας για πελάτες χωρίς υφιστάμενα προφίλ.",
+            BinaryFileUrl = "/packages/app_1.5.26.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διόρθωση αρχικοποίησης φόρμας προσθήκης εταιρείας για πελάτες χωρίς υφιστάμενα προφίλ (μετακίνηση του resetProfileForm στην αρχή της renderProfilesList)." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

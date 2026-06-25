@@ -67,6 +67,8 @@ namespace Tms.Agent.Core.Services
                     ProfileName = p.ProfileName,
                     Afm = p.Afm,
                     CurrentVersion = p.CurrentVersion,
+                    CurrentProgramVersion = p.CurrentProgramVersion,
+                    CurrentDbVersion = p.CurrentDbVersion,
                     SerialNumber = p.SerialNumber,
                     ActiveUsersCount = p.ActiveUsersCount,
                     TargetFolder = p.TargetFolder,
@@ -99,7 +101,19 @@ namespace Tms.Agent.Core.Services
         }
 
         // 2. Submit logs back to central management
-        public async Task SubmitLogAsync(string serverUrl, string clientId, string machineName, string apiKey, LocalProfile profile, string versionNumber, bool success, string errorMessage, string logDetails)
+        // 2. Submit logs back to central management
+        public async Task SubmitLogAsync(
+            string serverUrl, 
+            string clientId, 
+            string machineName, 
+            string apiKey, 
+            LocalProfile profile, 
+            string versionNumber, 
+            string programVersion,
+            string dbVersion,
+            bool success, 
+            string errorMessage, 
+            string logDetails)
         {
             var url = $"{serverUrl.TrimEnd('/')}/api/updates/log";
             
@@ -112,6 +126,8 @@ namespace Tms.Agent.Core.Services
                 ProfileName = profile.ProfileName,
                 Afm = profile.Afm,
                 VersionNumber = versionNumber,
+                ProgramVersion = programVersion,
+                DbVersion = dbVersion,
                 ExecutionTime = DateTime.UtcNow,
                 Success = success,
                 ErrorMessage = errorMessage,
@@ -147,6 +163,29 @@ namespace Tms.Agent.Core.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Error syncing users to central server: {ex.Message}");
+                return false;
+            }
+        }
+
+        public async Task<bool> AuthorizeUpdateAsync(string serverUrl, string apiKey, string clientId, string profileId, string versionNumber)
+        {
+            var url = $"{serverUrl.TrimEnd('/')}/api/updates/authorize";
+            var request = new AuthorizeUpdateRequest
+            {
+                ClientId = clientId,
+                ApiKey = apiKey,
+                ProfileId = profileId,
+                VersionNumber = versionNumber
+            };
+
+            try
+            {
+                var response = await _httpClient.PostAsJsonAsync(url, request);
+                return response.IsSuccessStatusCode;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error authorizing update: {ex.Message}");
                 return false;
             }
         }
@@ -230,7 +269,6 @@ namespace Tms.Agent.Core.Services
 
             string targetFolder = profile.TargetFolder;
             string exePath = Path.Combine(targetFolder, profile.TargetExeName);
-            string oldExePath = Path.Combine(targetFolder, Path.GetFileNameWithoutExtension(profile.TargetExeName) + "_old.exe");
 
             try
             {
@@ -282,8 +320,8 @@ namespace Tms.Agent.Core.Services
 
                     try
                     {
-                        // In real implementation, download the file
-                        // For mock testing/prototype we can write a dummy zip if network fails or mock it
+                        await DownloadFileAsync(downloadUrl, tempZipPath, Log);
+
                         // Terminate running instances of the target desktop application to avoid lock issues
                         try
                         {
@@ -308,30 +346,77 @@ namespace Tms.Agent.Core.Services
                             Log($"Σφάλμα κατά τον έλεγχο εκτελούμενων διεργασιών: {ex.Message}");
                         }
 
-                        Log("Μετονομασία προηγούμενου εκτελέσιμου αρχείου σε _old");
-                        if (File.Exists(exePath))
-                        {
-                            if (File.Exists(oldExePath))
-                            {
-                                File.Delete(oldExePath);
-                            }
-                            File.Move(exePath, oldExePath);
-                        }
-
                         // Apply new files
                         Log("Εξαγωγή αρχείων και αντικατάσταση...");
                         if (Path.GetExtension(downloadUrl).Equals(".zip", StringComparison.OrdinalIgnoreCase))
                         {
-                            ZipFile.ExtractToDirectory(tempZipPath, targetFolder, overwriteFiles: true);
+                            Log("Ασφαλής εξαγωγή αρχείων ZIP...");
+                            using (var archive = ZipFile.OpenRead(tempZipPath))
+                            {
+                                foreach (var entry in archive.Entries)
+                                {
+                                    if (string.IsNullOrEmpty(entry.Name)) continue; // Directory entry
+
+                                    var targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, entry.FullName));
+                                    
+                                    // Ensure directory exists
+                                    var parentDir = Path.GetDirectoryName(targetFilePath);
+                                    if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+                                    {
+                                        Directory.CreateDirectory(parentDir);
+                                    }
+
+                                    var ext = Path.GetExtension(entry.Name).ToLower();
+                                    if (ext == ".exe" || ext == ".dll" || ext == ".rpt" || ext == ".rdlc")
+                                    {
+                                        var dir = Path.GetDirectoryName(targetFilePath) ?? targetFolder;
+                                        var nameWithoutExt = Path.GetFileNameWithoutExtension(entry.Name);
+                                        var oldFileName = $"{nameWithoutExt}_OLD{ext}";
+                                        var oldFilePath = Path.Combine(dir, oldFileName);
+
+                                        if (File.Exists(targetFilePath))
+                                        {
+                                            if (File.Exists(oldFilePath))
+                                            {
+                                                File.Delete(oldFilePath);
+                                            }
+                                            File.Move(targetFilePath, oldFilePath);
+                                            Log($"Δημιουργία backup: {entry.Name} -> {oldFileName}");
+                                        }
+                                    }
+
+                                    // Extract the entry (overwriting if it already exists)
+                                    entry.ExtractToFile(targetFilePath, overwrite: true);
+                                }
+                            }
                         }
                         else
                         {
-                            // If it's a direct EXE file, just copy it
+                            var targetFilePath = exePath;
+                            var ext = Path.GetExtension(targetFilePath).ToLower();
+                            if (ext == ".exe" || ext == ".dll" || ext == ".rpt" || ext == ".rdlc")
+                            {
+                                var dir = Path.GetDirectoryName(targetFilePath) ?? targetFolder;
+                                var nameWithoutExt = Path.GetFileNameWithoutExtension(targetFilePath);
+                                var oldFileName = $"{nameWithoutExt}_OLD{ext}";
+                                var oldFilePath = Path.Combine(dir, oldFileName);
+
+                                if (File.Exists(targetFilePath))
+                                {
+                                    if (File.Exists(oldFilePath))
+                                    {
+                                        File.Delete(oldFilePath);
+                                    }
+                                    File.Move(targetFilePath, oldFilePath);
+                                    Log($"Δημιουργία backup: {Path.GetFileName(targetFilePath)} -> {oldFileName}");
+                                }
+                            }
+
                             if (!Directory.Exists(targetFolder))
                             {
                                 Directory.CreateDirectory(targetFolder);
                             }
-                            File.Copy(tempZipPath, exePath, overwrite: true);
+                            File.Copy(tempZipPath, targetFilePath, overwrite: true);
                         }
 
                         fileSuccess = true;
@@ -340,18 +425,6 @@ namespace Tms.Agent.Core.Services
                     catch (Exception ex)
                     {
                         Log($"Σφάλμα κατά την ενημέρωση αρχείων: {ex.Message}");
-                        Log("Έναρξη διαδικασίας επαναφοράς (Rollback) αρχείων...");
-                        
-                        // Rollback file changes
-                        if (File.Exists(oldExePath))
-                        {
-                            if (File.Exists(exePath))
-                            {
-                                File.Delete(exePath);
-                            }
-                            File.Move(oldExePath, exePath);
-                            Log("Τα αρχεία επαναφέρθηκαν στην προηγούμενη κατάσταση.");
-                        }
                         throw;
                     }
                     finally
@@ -369,22 +442,17 @@ namespace Tms.Agent.Core.Services
                     fileSuccess = true;
                 }
 
-                // If both succeeded, delete the _old backup
+                // If both succeeded, update versions
                 if (dbSuccess && fileSuccess)
                 {
-                    if (File.Exists(oldExePath))
+                    if (newVersion.Scripts != null && newVersion.Scripts.Any())
                     {
-                        try
-                        {
-                            File.Delete(oldExePath);
-                        }
-                        catch
-                        {
-                            // Don't fail the update if we just can't delete the backup file
-                            Log("Προειδοποίηση: Αδυναμία διαγραφής του backup _old αρχείου.");
-                        }
+                        profile.CurrentDbVersion = newVersion.VersionNumber;
                     }
-                    
+                    if (!string.IsNullOrEmpty(newVersion.BinaryFileUrl))
+                    {
+                        profile.CurrentProgramVersion = newVersion.VersionNumber;
+                    }
                     profile.CurrentVersion = newVersion.VersionNumber;
                     Log($"Η αναβάθμιση ολοκληρώθηκε επιτυχώς στην έκδοση {newVersion.VersionNumber}!");
                 }
@@ -398,9 +466,129 @@ namespace Tms.Agent.Core.Services
             bool finalSuccess = dbSuccess && fileSuccess;
 
             // Submit logs to Central API
-            await SubmitLogAsync(serverUrl, clientId, machineName, apiKey, profile, newVersion.VersionNumber, finalSuccess, errorMessage, logBuilder.ToString());
+            await SubmitLogAsync(
+                serverUrl, 
+                clientId, 
+                machineName, 
+                apiKey, 
+                profile, 
+                newVersion.VersionNumber, 
+                profile.CurrentProgramVersion,
+                profile.CurrentDbVersion,
+                finalSuccess, 
+                errorMessage, 
+                logBuilder.ToString());
 
             return finalSuccess;
+        }
+
+        // 3b. Generate a dry-run script preview
+        public async Task<string> GenerateScriptPreviewAsync(string connectionString, List<ScriptDto> scripts)
+        {
+            var sb = new StringBuilder();
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                return "Σφάλμα: Δεν έχει οριστεί connection string.";
+            }
+
+            try
+            {
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+                var dbName = GetDatabaseNameFromConnectionString(connectionString);
+                sb.AppendLine($"Βάση Δεδομένων: {dbName}");
+
+                foreach (var script in scripts.OrderBy(s => s.SequenceOrder))
+                {
+                    sb.AppendLine($"Αρχείο: {script.ScriptName}");
+
+                    bool tableExists = false;
+                    using (var checkCmd = new SqlCommand(
+                        "SELECT CASE WHEN OBJECT_ID(N'[dbo].[SQL_HISTORY_UPDATE_SCRIPTS]', N'U') IS NOT NULL THEN 1 ELSE 0 END", 
+                        connection))
+                    {
+                        var result = await checkCmd.ExecuteScalarAsync();
+                        tableExists = result != null && Convert.ToInt32(result) == 1;
+                    }
+
+                    if (!tableExists)
+                    {
+                        sb.AppendLine("  -> ΠΡΟΣΟΧΗ: Ο πίνακας SQL_HISTORY_UPDATE_SCRIPTS δεν υπάρχει στη βάση. Η αναβάθμιση θα αποτύχει.");
+                        continue;
+                    }
+
+                    if (script.ScriptName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) || 
+                        (script.ScriptName.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && ParseBulkScriptFile(script.ScriptContent).Any()))
+                    {
+                        string? lastScriptNumber = null;
+                        using (var getCmd = new SqlCommand(
+                            "SELECT TOP 1 LAST_SCRIPT_NUMBER FROM [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] ORDER BY ID DESC", 
+                            connection))
+                        {
+                            var result = await getCmd.ExecuteScalarAsync();
+                            lastScriptNumber = result == null || result == DBNull.Value ? null : result.ToString();
+                        }
+
+                        var blocks = ParseBulkScriptFile(script.ScriptContent);
+                        if (!blocks.Any())
+                        {
+                            sb.AppendLine("  -> Δεν ανιχνεύθηκαν σενάρια στο αρχείο.");
+                            continue;
+                        }
+
+                        int startIndex = 0;
+                        if (!string.IsNullOrEmpty(lastScriptNumber))
+                        {
+                            var lastIndex = blocks.FindIndex(b => b.ScriptNumber.Equals(lastScriptNumber, StringComparison.OrdinalIgnoreCase));
+                            if (lastIndex == -1)
+                            {
+                                sb.AppendLine($"  -> Σφάλμα: Το τελευταίο εκτελεσμένο block '{lastScriptNumber}' δεν υπάρχει στο αρχείο.");
+                                continue;
+                            }
+                            startIndex = lastIndex + 1;
+                        }
+
+                        if (startIndex >= blocks.Count)
+                        {
+                            sb.AppendLine($"  -> Η βάση είναι ήδη ενημερωμένη (Τελευταίο block στη βάση: {lastScriptNumber ?? "Κανένα"}).");
+                        }
+                        else
+                        {
+                            var fromBlock = blocks[startIndex].ScriptNumber;
+                            var toBlock = blocks[blocks.Count - 1].ScriptNumber;
+                            sb.AppendLine($"  -> Θα εκτελεστούν τα blocks από '{fromBlock}' έως '{toBlock}' ({blocks.Count - startIndex} σενάρια).");
+                        }
+                    }
+                    else
+                    {
+                        string fallbackVersion = Path.GetFileNameWithoutExtension(script.ScriptName);
+                        bool alreadyRun = false;
+                        using (var checkRunCmd = new SqlCommand(
+                            "SELECT COUNT(*) FROM [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] WHERE LAST_SCRIPT_NUMBER = @scriptNum", 
+                            connection))
+                        {
+                            checkRunCmd.Parameters.AddWithValue("@scriptNum", fallbackVersion);
+                            var result = await checkRunCmd.ExecuteScalarAsync();
+                            alreadyRun = result != null && Convert.ToInt32(result) > 0;
+                        }
+
+                        if (alreadyRun)
+                        {
+                            sb.AppendLine($"  -> Το script '{fallbackVersion}' έχει ήδη εκτελεστεί στη βάση.");
+                        }
+                        else
+                        {
+                            sb.AppendLine($"  -> Θα εκτελεστεί το script '{fallbackVersion}'.");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                sb.AppendLine($"Σφάλμα κατά τη σύνδεση στη βάση: {ex.Message}");
+            }
+
+            return sb.ToString();
         }
 
         // 4. Run database scripts in a transaction, split by GO
@@ -437,8 +625,7 @@ namespace Tms.Agent.Core.Services
 
                         if (!tableExists)
                         {
-                            log("Σφάλμα: Ο πίνακας [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] δεν υπάρχει στη βάση δεδομένων.");
-                            log("Δεν μπορεί να ολοκληρωθεί η αναβάθμιση. Παρακαλώ επικοινωνήστε με τον προμηθευτή σας");
+                            log("Θα πρέπει να έρθετε σε επικοινωνία με τον συνεργάτη σας, η αναβάθμιση δεν μπορεί να ολοκληρωθεί");
                             return false;
                         }
 
@@ -522,6 +709,41 @@ namespace Tms.Agent.Core.Services
                     {
                         log($"Εκτέλεση script: {script.ScriptName}");
 
+                        // 1. Check if SQL_HISTORY_UPDATE_SCRIPTS table exists
+                        bool tableExists = false;
+                        using (var checkCmd = new SqlCommand(
+                            "SELECT CASE WHEN OBJECT_ID(N'[dbo].[SQL_HISTORY_UPDATE_SCRIPTS]', N'U') IS NOT NULL THEN 1 ELSE 0 END", 
+                            connection))
+                        {
+                            var result = await checkCmd.ExecuteScalarAsync();
+                            tableExists = result != null && Convert.ToInt32(result) == 1;
+                        }
+
+                        if (!tableExists)
+                        {
+                            log("Θα πρέπει να έρθετε σε επικοινωνία με τον συνεργάτη σας, η αναβάθμιση δεν μπορεί να ολοκληρωθεί");
+                            return false;
+                        }
+
+                        string fallbackVersion = Path.GetFileNameWithoutExtension(script.ScriptName);
+
+                        // 2. Check if this fallbackVersion has already been run
+                        bool alreadyRun = false;
+                        using (var checkRunCmd = new SqlCommand(
+                            "SELECT COUNT(*) FROM [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] WHERE LAST_SCRIPT_NUMBER = @scriptNum", 
+                            connection))
+                        {
+                            checkRunCmd.Parameters.AddWithValue("@scriptNum", fallbackVersion);
+                            var result = await checkRunCmd.ExecuteScalarAsync();
+                            alreadyRun = result != null && Convert.ToInt32(result) > 0;
+                        }
+
+                        if (alreadyRun)
+                        {
+                            log($"Το script '{fallbackVersion}' έχει ήδη εκτελεστεί στη βάση. Παράλειψη.");
+                            continue;
+                        }
+
                         // Split script by GO
                         var commandTexts = SplitSqlScript(script.ScriptContent);
 
@@ -536,6 +758,17 @@ namespace Tms.Agent.Core.Services
                                 using var command = new SqlCommand(commandText, connection, transaction);
                                 await command.ExecuteNonQueryAsync();
                             }
+
+                            // Update history table
+                            using (var insertCmd = new SqlCommand(
+                                "INSERT INTO [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] (LAST_SCRIPT_NUMBER, DATE_UPDATE) VALUES (@lastScriptNum, GETDATE())", 
+                                connection, 
+                                transaction))
+                            {
+                                insertCmd.Parameters.AddWithValue("@lastScriptNum", fallbackVersion);
+                                await insertCmd.ExecuteNonQueryAsync();
+                            }
+
                             await transaction.CommitAsync();
                             log($"Το script {script.ScriptName} εκτελέστηκε με επιτυχία.");
                         }
@@ -792,6 +1025,100 @@ namespace Tms.Agent.Core.Services
                 }
             }
             return list;
+        }
+
+        public async Task<bool> RunAgentSelfUpgradeAsync(string serverUrl, string systemBinaryUrl, bool isService, Action<string> logCallback)
+        {
+            try
+            {
+                var downloadUrl = systemBinaryUrl;
+                if (!downloadUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    downloadUrl = $"{serverUrl.TrimEnd('/')}/{downloadUrl.TrimStart('/')}";
+                }
+
+                var tempDir = Path.Combine(Path.GetTempPath(), "TmsAgentSelfUpdate", Guid.NewGuid().ToString());
+                Directory.CreateDirectory(tempDir);
+                var tempZipPath = Path.Combine(tempDir, "agent_package.zip");
+                var extractDir = Path.Combine(tempDir, "extracted");
+                Directory.CreateDirectory(extractDir);
+
+                logCallback?.Invoke($"Λήψη αναβάθμισης Agent από {downloadUrl}...");
+                await DownloadFileAsync(downloadUrl, tempZipPath, logCallback);
+
+                logCallback?.Invoke("Αποσυμπίεση αρχείων αναβάθμισης...");
+                ZipFile.ExtractToDirectory(tempZipPath, extractDir);
+
+                var currentExe = Environment.ProcessPath;
+                if (string.IsNullOrEmpty(currentExe))
+                {
+                    currentExe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                }
+                if (string.IsNullOrEmpty(currentExe))
+                {
+                    throw new Exception("Unable to determine current process path.");
+                }
+
+                var currentFolder = Path.GetDirectoryName(currentExe);
+                if (string.IsNullOrEmpty(currentFolder))
+                {
+                    throw new Exception("Unable to determine current directory.");
+                }
+
+                var batchPath = Path.Combine(Path.GetTempPath(), $"update_agent_{Guid.NewGuid().ToString().Substring(0, 8)}.bat");
+                var batchContent = new StringBuilder();
+                batchContent.AppendLine("@echo off");
+                batchContent.AppendLine("chcp 65001 > nul");
+                
+                if (isService)
+                {
+                    batchContent.AppendLine("sc stop TmsAgent > nul");
+                }
+
+                // Loop and check if the executable is locked. Wait until type is successful (meaning process terminated and lock released)
+                batchContent.AppendLine(":wait_unlock");
+                batchContent.AppendLine($"type nul >> \"{currentExe}\" 2>nul");
+                batchContent.AppendLine("if errorlevel 1 (");
+                batchContent.AppendLine("    timeout /t 1 /nobreak > nul");
+                batchContent.AppendLine("    goto wait_unlock");
+                batchContent.AppendLine(")");
+
+                batchContent.AppendLine($"xcopy /y /s /e \"{extractDir}\\*\" \"{currentFolder}\\\" > nul");
+
+                if (isService)
+                {
+                    batchContent.AppendLine("sc start TmsAgent > nul");
+                }
+                else
+                {
+                    batchContent.AppendLine($"start \"\" \"{currentExe}\"");
+                }
+
+                // Delete the temp directory and the batch file itself
+                batchContent.AppendLine($"rd /s /q \"{tempDir}\"");
+                batchContent.AppendLine($"(goto) 2>nul & del \"%~f0\"");
+
+                await File.WriteAllTextAsync(batchPath, batchContent.ToString(), Encoding.UTF8);
+
+                var psi = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = $"/c \"{batchPath}\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = true, // Spawn completely independently
+                    Verb = "runas", // Request administrator elevation (UAC prompt) to allow writing to protected folders like Program Files
+                    WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+                };
+
+                logCallback?.Invoke("Εκκίνηση διαδικασίας εγκατάστασης και επανεκκίνηση του Agent...");
+                System.Diagnostics.Process.Start(psi);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logCallback?.Invoke($"Σφάλμα κατά την αυτόματη αναβάθμιση του Agent: {ex.Message}");
+                return false;
+            }
         }
     }
 }

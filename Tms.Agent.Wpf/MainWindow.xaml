@@ -487,7 +487,8 @@
                                         </StackPanel>
 
                                         <StackPanel Grid.Row="1" Margin="0,0,0,10">
-                                            <TextBlock Text="{Binding CurrentVersion, StringFormat='Τρέχουσα Έκδοση: {0}'}" FontSize="12" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="{Binding CurrentProgramVersion, StringFormat='Έκδοση Εφαρμογής: {0}'}" FontSize="12" Foreground="#FFFFFF"/>
+                                            <TextBlock Text="{Binding CurrentDbVersion, StringFormat='Έκδοση Βάσης: {0}'}" FontSize="12" Foreground="#FFFFFF"/>
                                             <TextBlock Text="{Binding SerialNumber, StringFormat='S/N: {0}'}" FontSize="11" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis"/>
                                             <TextBlock Text="{Binding ActiveUsersCount, StringFormat='Ενεργοί Χρήστες: {0}'}" FontSize="11" Foreground="#A0A0B0"/>
                                             <TextBlock Text="{Binding TargetFolder}" FontSize="10" Foreground="#A0A0B0" TextTrimming="CharacterEllipsis"/>
@@ -517,20 +518,59 @@
                                             <TextBlock Text="{Binding Status}" FontSize="10" FontWeight="SemiBold" Foreground="#FFFFFF"/>
                                         </Border>
 
-                                        <!-- Update Button -->
-                                        <Button Grid.Row="3" Content="Αναβάθμιση Τώρα" Style="{StaticResource PrimaryButton}" 
-                                                Height="32" Padding="0" Margin="0"
-                                                Command="{Binding DataContext.UpdateProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
-                                                CommandParameter="{Binding}"
-                                                IsEnabled="{Binding DataContext.CanRunUpdates, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}">
-                                            <Button.Background>
-                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                    <GradientStop Color="#6366F1" Offset="0"/>
-                                                    <GradientStop Color="#A855F7" Offset="1"/>
-                                                </LinearGradientBrush>
-                                            </Button.Background>
-                                        </Button>
+                                        <!-- Update / Authorize Actions -->
+                                        <Grid Grid.Row="3">
+                                            <!-- Authorize Button (Visible only to Admin when not authorized) -->
+                                            <Button Content="Επιβεβαίωση" 
+                                                    Height="32" Padding="0" Margin="0"
+                                                    Command="{Binding DataContext.AuthorizeUpdateCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                    CommandParameter="{Binding}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding HasUpdate}" Value="True"/>
+                                                                    <Condition Binding="{Binding IsAuthorizedByAdmin}" Value="False"/>
+                                                                    <Condition Binding="{Binding DataContext.IsAdmin, RelativeSource={RelativeSource AncestorType=Window}}" Value="True"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+
+                                            <!-- Update Button (Visible when authorized by admin and not waiting on DB) -->
+                                            <Button Content="Αναβάθμιση Τώρα" 
+                                                    Height="32" Padding="0" Margin="0"
+                                                    Command="{Binding DataContext.UpdateProfileCommand, RelativeSource={RelativeSource AncestorType=Window}}" 
+                                                    CommandParameter="{Binding}"
+                                                    IsEnabled="{Binding DataContext.CanRunUpdates, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding HasUpdate}" Value="True"/>
+                                                                    <Condition Binding="{Binding IsAuthorizedByAdmin}" Value="True"/>
+                                                                    <Condition Binding="{Binding IsWaitingForDb}" Value="False"/>
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible"/>
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                                <Button.Background>
+                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                        <GradientStop Color="#6366F1" Offset="0"/>
+                                                        <GradientStop Color="#A855F7" Offset="1"/>
+                                                    </LinearGradientBrush>
+                                                </Button.Background>
+                                            </Button>
+                                        </Grid>
                                     </Grid>
                                 </Border>
                             </DataTemplate>
@@ -714,12 +754,36 @@
                                 </Grid>
                             </StackPanel>
                             
+                            <!-- Versioning Inputs -->
+                            <Grid Margin="0,0,0,25">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="20" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Γενική Έκδοση:" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding EditCurrentVersion, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" IsReadOnly="{Binding IsSettingsLocked}"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Έκδοση Εφαρμογής:" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding EditCurrentProgramVersion, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" IsReadOnly="{Binding IsSettingsLocked}"/>
+                                </StackPanel>
+                                
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Έκδοση Βάσης:" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                    <TextBox Text="{Binding EditCurrentDbVersion, UpdateSourceTrigger=PropertyChanged}" Width="120" HorizontalAlignment="Left" IsReadOnly="{Binding IsSettingsLocked}"/>
+                                </StackPanel>
+                            </Grid>
+                            
                             <!-- Test Database Connection -->
                             <Button Content="Δοκιμή Σύνδεσης Βάσης" Style="{StaticResource OutlineButton}" 
                                     HorizontalAlignment="Left" Width="180" Margin="0,0,0,20" Command="{Binding TestConnectionCommand}" IsEnabled="{Binding IsOwner}"/>
 
-                            <!-- Current Version Config -->
-                            <TextBlock Text="Τρέχουσα Έκδοση (για επαναφορά/ρύθμιση):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
                             <TextBox Text="{Binding EditCurrentVersion, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,25" Width="120" HorizontalAlignment="Left" IsReadOnly="{Binding IsSettingsLocked}"/>
 
                             <!-- Form Actions -->

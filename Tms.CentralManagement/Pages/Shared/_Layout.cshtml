@@ -265,6 +265,85 @@
             resize: vertical;
             min-height: 80px;
         }
+
+        /* Responsive Split Container */
+        .responsive-split {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+
+        @@media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+
+            aside {
+                width: 100%;
+                border-right: none;
+                border-bottom: 1px solid var(--border-color);
+                padding: 15px;
+            }
+
+            .logo-area {
+                margin-bottom: 15px;
+                text-align: center;
+            }
+
+            nav {
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 5px;
+            }
+
+            nav a {
+                padding: 8px 12px;
+                font-size: 13px;
+            }
+
+            .footer-info {
+                display: none; /* Hide verbose footer on mobile to save vertical space */
+            }
+
+            main {
+                padding: 20px 15px;
+            }
+
+            .responsive-split {
+                flex-direction: column;
+                align-items: stretch !important;
+            }
+            
+            .responsive-split > div {
+                flex: 1 !important;
+                width: 100% !important;
+                min-width: unset !important;
+            }
+
+            header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+
+            table {
+                display: block;
+                overflow-x: auto;
+                width: 100%;
+            }
+
+            /* Responsive tabs */
+            .tabs {
+                flex-wrap: wrap;
+                gap: 5px !important;
+            }
+
+            .tab-btn {
+                padding: 8px 10px !important;
+                font-size: 12px !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -284,7 +363,7 @@
                     <span>👥</span> Διαχείριση Πελατών
                 </a>
                 <a href="/Versions" class="@(ViewContext.RouteData.Values["page"]?.ToString() == "/Versions" ? "active" : "")">
-                    <span>📦</span> Διαχείριση Εκδόσεων
+                    <span>📦</span> Ιστορικό Εκδόσεων
                 </a>
                 <a href="/Logs" class="@(ViewContext.RouteData.Values["page"]?.ToString() == "/Logs" ? "active" : "")">
                     <span>📋</span> Ιστορικό Ενημερώσεων

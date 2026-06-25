@@ -1,14 +1,14 @@
 @page
 @model Tms.CentralManagement.Pages.VersionsModel
 @{
-    ViewData["Title"] = "Διαχείριση Εκδόσεων";
+    ViewData["Title"] = "Ιστορικό Εκδόσεων";
     var programVersions = Model.Versions.Where(v => v.TargetType == "Program").ToList();
     var systemVersions = Model.Versions.Where(v => v.TargetType == "System" || string.IsNullOrEmpty(v.TargetType)).ToList();
 }
 
 <header>
     <div>
-        <h1>📦 Διαχείριση Εκδόσεων</h1>
+        <h1>📦 Ιστορικό Εκδόσεων</h1>
         <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Καταχωρήστε νέες εκδόσεις, release notes και SQL scripts αναβάθμισης.</p>
     </div>
 </header>
@@ -16,14 +16,14 @@
 <!-- Tabs Navigation -->
 <div class="tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 5px;">
     <button class="tab-btn active" id="btn-program" onclick="switchTab('program')" style="background: none; border: none; color: var(--accent); font-weight: bold; cursor: pointer; padding: 10px 20px; border-bottom: 2px solid var(--accent); font-size: 14px; transition: all 0.2s;">
-        📦 Ενημερώσεις Desktop Προγράμματος (@programVersions.Count)
+        📦 Ενημερώσεις Desktop Εφαρμογής (@programVersions.Count)
     </button>
     <button class="tab-btn" id="btn-system" onclick="switchTab('system')" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 10px 20px; border-bottom: 2px solid transparent; font-size: 14px; transition: all 0.2s;">
         🖥️ Εκδόσεις Συστήματος - Console &amp; Agents (@systemVersions.Count)
     </button>
 </div>
 
-<div style="display: flex; gap: 20px;">
+<div class="responsive-split">
     <!-- Versions List -->
     <div style="flex: 1.2;">
         <div class="card">

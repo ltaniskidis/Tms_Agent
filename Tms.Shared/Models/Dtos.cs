@@ -29,10 +29,12 @@ namespace Tms.Shared.Models
         public string ProfileName { get; set; } = string.Empty;
         public string Afm { get; set; } = string.Empty;
         public string CurrentVersion { get; set; } = "0.0.0";
+        public string CurrentProgramVersion { get; set; } = "0.0.0";
+        public string CurrentDbVersion { get; set; } = "0.0.0";
         public string SerialNumber { get; set; } = string.Empty;
         public int ActiveUsersCount { get; set; } = 0;
         public string TargetFolder { get; set; } = string.Empty;
-        public string TargetExeName { get; set; } = "TmsApp.exe";
+        public string TargetExeName { get; set; } = "TIMOLOGISI.exe";
         public string ConnectionString { get; set; } = string.Empty;
         public string ConnectionStringType { get; set; } = "Direct";
         public string DbServer { get; set; } = string.Empty;
@@ -55,6 +57,7 @@ namespace Tms.Shared.Models
         public AgentPermissionsDto Permissions { get; set; } = new();
         public List<BroadcastMessageDto> Broadcasts { get; set; } = new();
         public bool StartWithWindows { get; set; }
+        public string SystemBinaryUrl { get; set; } = string.Empty;
     }
 
     public class ProfileConfigCommandDto
@@ -64,7 +67,7 @@ namespace Tms.Shared.Models
         public string ProfileName { get; set; } = string.Empty;
         public string Afm { get; set; } = string.Empty;
         public string TargetFolder { get; set; } = string.Empty;
-        public string TargetExeName { get; set; } = "TmsApp.exe";
+        public string TargetExeName { get; set; } = "TIMOLOGISI.exe";
         public string ConnectionString { get; set; } = string.Empty;
         public string ConnectionStringType { get; set; } = "Direct";
         public string DbServer { get; set; } = string.Empty;
@@ -74,6 +77,8 @@ namespace Tms.Shared.Models
         public bool DbUseWindowsAuth { get; set; } = false;
         public string ConfigFilePath { get; set; } = string.Empty;
         public string CurrentVersion { get; set; } = "1.0.0";
+        public string CurrentProgramVersion { get; set; } = "1.0.0";
+        public string CurrentDbVersion { get; set; } = "1.0.0";
         public string SerialNumber { get; set; } = string.Empty;
         public int ActiveUsersCount { get; set; } = 0;
     }
@@ -84,6 +89,15 @@ namespace Tms.Shared.Models
         public string Afm { get; set; } = string.Empty;
         public VersionDto NewVersion { get; set; } = new();
         public bool IsAuthorizedByAdmin { get; set; } = false; // Flag to indicate if Admin has authorized/scheduled this update
+        public bool IsWaitingForDb { get; set; } = false;
+    }
+
+    public class AuthorizeUpdateRequest
+    {
+        public string ClientId { get; set; } = string.Empty;
+        public string ApiKey { get; set; } = string.Empty;
+        public string ProfileId { get; set; } = string.Empty;
+        public string VersionNumber { get; set; } = string.Empty;
     }
 
     public class VersionDto
@@ -116,6 +130,8 @@ namespace Tms.Shared.Models
         public string ProfileName { get; set; } = string.Empty;
         public string Afm { get; set; } = string.Empty;
         public string VersionNumber { get; set; } = string.Empty;
+        public string ProgramVersion { get; set; } = string.Empty;
+        public string DbVersion { get; set; } = string.Empty;
         public DateTime ExecutionTime { get; set; }
         public bool Success { get; set; }
         public string ErrorMessage { get; set; } = string.Empty;

@@ -76,7 +76,7 @@ namespace Tms.Agent.Wpf
                             clientId,
                             machineName,
                             settings.MachineRole,
-                            "1.5.18", // Bumped version
+                            "1.5.24", // Bumped version
                             settings.ApiKey,
                             profiles,
                             settings.StartWithWindows,
@@ -85,6 +85,14 @@ namespace Tms.Agent.Wpf
 
                         if (response != null)
                         {
+                            // Check for Agent self-upgrade
+                            if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != "1.5.24" && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Service triggers self upgrade to version {response.CurrentSystemVersion}...");
+                                await updateEngine.RunAgentSelfUpgradeAsync(settings.ServerUrl, response.SystemBinaryUrl, true, msg => System.Diagnostics.Debug.WriteLine(msg));
+                                return;
+                            }
+
                             // 1. Handle Configuration Sync Commands from Server
                             if (response.ConfigCommands != null && response.ConfigCommands.Any())
                             {
@@ -104,7 +112,16 @@ namespace Tms.Agent.Wpf
                                                 TargetFolder = cmd.TargetFolder,
                                                 TargetExeName = cmd.TargetExeName,
                                                 ConnectionString = cmd.ConnectionString,
+                                                ConnectionStringType = cmd.ConnectionStringType,
+                                                DbServer = cmd.DbServer,
+                                                DbName = cmd.DbName,
+                                                DbUser = cmd.DbUser,
+                                                DbPassword = cmd.DbPassword,
+                                                DbUseWindowsAuth = cmd.DbUseWindowsAuth,
+                                                ConfigFilePath = cmd.ConfigFilePath,
                                                 CurrentVersion = cmd.CurrentVersion,
+                                                CurrentProgramVersion = cmd.CurrentProgramVersion,
+                                                CurrentDbVersion = cmd.CurrentDbVersion,
                                                 SerialNumber = cmd.SerialNumber,
                                                 ActiveUsersCount = cmd.ActiveUsersCount
                                             });
@@ -117,7 +134,16 @@ namespace Tms.Agent.Wpf
                                             existing.TargetFolder = cmd.TargetFolder;
                                             existing.TargetExeName = cmd.TargetExeName;
                                             existing.ConnectionString = cmd.ConnectionString;
+                                            existing.ConnectionStringType = cmd.ConnectionStringType;
+                                            existing.DbServer = cmd.DbServer;
+                                            existing.DbName = cmd.DbName;
+                                            existing.DbUser = cmd.DbUser;
+                                            existing.DbPassword = cmd.DbPassword;
+                                            existing.DbUseWindowsAuth = cmd.DbUseWindowsAuth;
+                                            existing.ConfigFilePath = cmd.ConfigFilePath;
                                             existing.CurrentVersion = cmd.CurrentVersion;
+                                            existing.CurrentProgramVersion = cmd.CurrentProgramVersion;
+                                            existing.CurrentDbVersion = cmd.CurrentDbVersion;
                                             existing.SerialNumber = cmd.SerialNumber;
                                             existing.ActiveUsersCount = cmd.ActiveUsersCount;
                                             profilesChanged = true;

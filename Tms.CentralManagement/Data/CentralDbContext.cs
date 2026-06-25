@@ -131,7 +131,7 @@ namespace Tms.CentralManagement.Data
         public string ProfileName { get; set; } = string.Empty;
         public string Afm { get; set; } = string.Empty;
         public string TargetFolder { get; set; } = string.Empty;
-        public string TargetExeName { get; set; } = "TmsApp.exe";
+        public string TargetExeName { get; set; } = "TIMOLOGISI.exe";
         public string ConnectionString { get; set; } = string.Empty;
         public string ConnectionStringType { get; set; } = "Direct"; // Direct, Builder, ConfigFile
         public string DbServer { get; set; } = string.Empty;
@@ -143,6 +143,8 @@ namespace Tms.CentralManagement.Data
         public string SerialNumber { get; set; } = string.Empty;
         public int ActiveUsersCount { get; set; } = 0;
         public string LastUpdatedVersion { get; set; } = "0.0.0";
+        public string LastUpdatedProgramVersion { get; set; } = "0.0.0";
+        public string LastUpdatedDbVersion { get; set; } = "0.0.0";
         public string LastUpdateStatus { get; set; } = "Unknown";
         public DateTime? LastUpdatedTime { get; set; }
         
@@ -171,6 +173,8 @@ namespace Tms.CentralManagement.Data
         public int Id { get; set; }
         public int ClientProfileId { get; set; }
         public string VersionNumber { get; set; } = string.Empty;
+        public string ProgramVersion { get; set; } = string.Empty;
+        public string DbVersion { get; set; } = string.Empty;
         public DateTime ExecutionTime { get; set; } = DateTime.UtcNow;
         public bool Success { get; set; }
         public string ErrorMessage { get; set; } = string.Empty;

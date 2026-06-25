@@ -184,7 +184,7 @@ namespace Tms.Agent.Wpf
                         _tempClientId,
                         Environment.MachineName,
                         role,
-                        "1.5.18",
+                        "1.5.24",
                         apiKey,
                         new List<LocalProfile>(),
                         startWithWindows
@@ -228,18 +228,6 @@ namespace Tms.Agent.Wpf
             // Finalize and Save
             try
             {
-                // Ensure the client directory exists
-                var appDataPath = PathHelper.GetAgentDataFolder();
-                if (!Directory.Exists(appDataPath))
-                {
-                    Directory.CreateDirectory(appDataPath);
-                }
-
-                // Save Client ID
-                var idFile = Path.Combine(appDataPath, "client_id.txt");
-                File.WriteAllText(idFile, _tempClientId);
-
-                // Save Settings
                 var settings = new AgentSettings
                 {
                     ServerUrl = ServerUrlInput.Text.Trim(),
@@ -247,9 +235,83 @@ namespace Tms.Agent.Wpf
                     MachineRole = GetSelectedRole(),
                     StartWithWindows = StartWithWindowsCheckbox.IsChecked == true
                 };
+
+                // Handle self-installation to Program Files (x86) if not already there and not running in development mode
+                string? currentExe = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(currentExe))
+                {
+                    string currentFolder = Path.GetDirectoryName(currentExe) ?? string.Empty;
+                    bool isDev = currentFolder.Contains(@"\bin\Debug") || currentFolder.Contains(@"\bin\Release") || currentFolder.Contains(".git");
+                    
+                    string targetFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "TmsAgent");
+                    string targetExe = Path.Combine(targetFolder, "Tms.Agent.Wpf.exe");
+
+                    if (!isDev && !string.Equals(currentExe, targetExe, StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            // Try to install directly (in case we already have admin privileges)
+                            if (!Directory.Exists(targetFolder))
+                            {
+                                Directory.CreateDirectory(targetFolder);
+                            }
+
+                            // Copy the executable
+                            File.Copy(currentExe, targetExe, true);
+
+                            // Save client details
+                            var appDataPath = PathHelper.GetAgentDataFolder();
+                            if (!Directory.Exists(appDataPath))
+                            {
+                                Directory.CreateDirectory(appDataPath);
+                            }
+                            File.WriteAllText(Path.Combine(appDataPath, "client_id.txt"), _tempClientId);
+                            _settingsManager.SaveSettings(settings);
+
+                            // Register startup task and service using target path
+                            App.RegisterStartupTask(targetExe);
+                            ServiceControlHelper.ApplyStartWithWindows(settings.StartWithWindows, targetExe);
+
+                            // Start the installed executable
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                            {
+                                FileName = targetExe,
+                                UseShellExecute = true
+                            });
+
+                            // Shutdown this configuration wizard instance
+                            System.Windows.Application.Current.Shutdown();
+                            return;
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                            // Relaunch self as administrator to complete setup and installation
+                            string args = $"--install-from \"{currentExe}\" --url \"{settings.ServerUrl}\" --key \"{settings.ApiKey}\" --role \"{settings.MachineRole}\" --startup-windows {(settings.StartWithWindows ? 1 : 0)}";
+                            
+                            var selfStartInfo = new System.Diagnostics.ProcessStartInfo
+                            {
+                                FileName = currentExe,
+                                Arguments = args,
+                                UseShellExecute = true,
+                                Verb = "runas" // Request UAC elevation
+                            };
+                            System.Diagnostics.Process.Start(selfStartInfo);
+                            System.Windows.Application.Current.Shutdown();
+                            return;
+                        }
+                    }
+                }
+
+                // If running in development or already installed, save normally
+                var appDataPathNormal = PathHelper.GetAgentDataFolder();
+                if (!Directory.Exists(appDataPathNormal))
+                {
+                    Directory.CreateDirectory(appDataPathNormal);
+                }
+                File.WriteAllText(Path.Combine(appDataPathNormal, "client_id.txt"), _tempClientId);
                 _settingsManager.SaveSettings(settings);
 
-                // Apply Start with Windows service loop registration
+                // Apply Start with Windows service loop registration (normal path)
                 bool serviceEnable = settings.StartWithWindows;
                 Task.Run(() =>
                 {

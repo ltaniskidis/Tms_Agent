@@ -66,7 +66,7 @@ if (!(Test-Path $serverPackagesDev)) {
 
 # 4. Compile and Publish updated Client/Agent binaries to temp directory
 Write-Host "Publishing WPF Agent binaries..." -ForegroundColor Yellow
-& "C:\Program Files\dotnet\dotnet.exe" publish Tms.Agent.Wpf\Tms.Agent.Wpf.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $tempDir
+& "C:\Program Files\dotnet\dotnet.exe" publish Tms.Agent.Wpf\Tms.Agent.Wpf.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $tempDir
 
 # 5. Compress to ZIP
 $zipPath = Join-Path $currentDir "PublishAndSetup\$zipName"

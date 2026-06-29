@@ -22,6 +22,7 @@ namespace Tms.Agent.Wpf
         private readonly UpdateEngine _updateEngine = new();
         private readonly SettingsManager _settingsManager = new();
         private string _tempClientId = string.Empty;
+        private Tms.Shared.Models.UpdateCheckResponse? _lastResponse;
 
         public SetupWizardWindow()
         {
@@ -184,12 +185,15 @@ namespace Tms.Agent.Wpf
                         _tempClientId,
                         Environment.MachineName,
                         role,
-                        "1.5.33",
+                        "1.5.37",
                         apiKey,
                         new List<LocalProfile>(),
-                        startWithWindows
+                        startWithWindows,
+                        true // forceSyncStartWithWindows
                     )
                 );
+
+                _lastResponse = response;
 
                 if (response != null)
                 {
@@ -256,8 +260,19 @@ namespace Tms.Agent.Wpf
                                 Directory.CreateDirectory(targetFolder);
                             }
 
-                            // Copy the executable
-                            File.Copy(currentExe, targetExe, true);
+                            // Copy all files in the directory (including native libraries and pdb/txt files)
+                            foreach (var file in Directory.GetFiles(currentFolder))
+                            {
+                                try
+                                {
+                                    string destFile = Path.Combine(targetFolder, Path.GetFileName(file));
+                                    File.Copy(file, destFile, true);
+                                }
+                                catch (Exception ex)
+                                {
+                                    System.Diagnostics.Debug.WriteLine($"Failed to copy file '{file}': {ex.Message}");
+                                }
+                            }
 
                             // Save client details
                             var appDataPath = PathHelper.GetAgentDataFolder();
@@ -267,6 +282,12 @@ namespace Tms.Agent.Wpf
                             }
                             File.WriteAllText(Path.Combine(appDataPath, "client_id.txt"), _tempClientId);
                             _settingsManager.SaveSettings(settings);
+
+                            if (_lastResponse != null && _lastResponse.LocalUsers != null)
+                            {
+                                var usersJson = System.Text.Json.JsonSerializer.Serialize(_lastResponse.LocalUsers, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                                File.WriteAllText(Path.Combine(appDataPath, "users.json"), usersJson);
+                            }
 
                             // Register startup task and service using target path
                             App.RegisterStartupTask(targetExe);
@@ -310,6 +331,12 @@ namespace Tms.Agent.Wpf
                 }
                 File.WriteAllText(Path.Combine(appDataPathNormal, "client_id.txt"), _tempClientId);
                 _settingsManager.SaveSettings(settings);
+
+                if (_lastResponse != null && _lastResponse.LocalUsers != null)
+                {
+                    var usersJson = System.Text.Json.JsonSerializer.Serialize(_lastResponse.LocalUsers, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(Path.Combine(appDataPathNormal, "users.json"), usersJson);
+                }
 
                 // Apply Start with Windows service loop registration (normal path)
                 bool serviceEnable = settings.StartWithWindows;

@@ -19,10 +19,10 @@ if (!(Test-Path $agentDir)) {
 }
 
 Write-Host "Publishing WPF Agent (win-x64, Self-Contained) to AgentSetup..." -ForegroundColor Yellow
-& "C:\Program Files\dotnet\dotnet.exe" publish Tms.Agent.Wpf\Tms.Agent.Wpf.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $agentSetupDir
+& "C:\Program Files\dotnet\dotnet.exe" publish Tms.Agent.Wpf\Tms.Agent.Wpf.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $agentSetupDir
 
 Write-Host "Publishing WPF Agent (win-x64, Self-Contained) to Agent..." -ForegroundColor Yellow
-& "C:\Program Files\dotnet\dotnet.exe" publish Tms.Agent.Wpf\Tms.Agent.Wpf.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o $agentDir
+& "C:\Program Files\dotnet\dotnet.exe" publish Tms.Agent.Wpf\Tms.Agent.Wpf.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $agentDir
 
 # Write ReadMe file
 $readmeContent = @"

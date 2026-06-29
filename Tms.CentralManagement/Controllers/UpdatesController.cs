@@ -79,7 +79,10 @@ namespace Tms.CentralManagement.Controllers
                             InstanceName = discDb.InstanceName,
                             DatabaseName = discDb.DatabaseName,
                             ConnectionString = discDb.ConnectionString,
-                            IsMonitored = isUsedByProfile
+                            IsMonitored = isUsedByProfile,
+                            LastUpdatedVersion = "", // Satisfy SQLite NOT NULL constraint
+                            LastUpdateStatus = "",  // Satisfy SQLite NOT NULL constraint
+                            LastUpdatedTime = DateTime.UtcNow // Satisfy SQLite NOT NULL constraint if any
                         };
                         client.Databases.Add(existingDb);
                     }

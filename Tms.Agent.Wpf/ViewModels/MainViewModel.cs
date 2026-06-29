@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.33";
+        public string AppVersion => "1.5.40";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings
@@ -1295,61 +1295,76 @@ namespace Tms.Agent.Wpf.ViewModels
             var monitoredDbs = response.MonitoredDatabaseNames ?? new List<string>();
             bool hasMonitoredUpdates = false;
 
-            foreach (var p in Profiles)
+            if (IsSelfUpgradePending)
             {
-                var dbName = UpdateEngine.GetDatabaseNameFromConnectionString(p.Profile.ConnectionString);
-                
-                // If it has a connection string but the database is not monitored on the server, skip it!
-                if (!string.IsNullOrEmpty(p.Profile.ConnectionString) && 
-                    !monitoredDbs.Contains(dbName, StringComparer.OrdinalIgnoreCase))
+                foreach (var p in Profiles)
                 {
-                    p.Status = "Δεν παρακολουθείται";
                     p.AvailableVersion = null;
                     p.IsAuthorizedByAdmin = false;
                     p.IsWaitingForDb = false;
-                    continue;
+                    p.Status = "Αναμονή αναβάθμισης Agent...";
                 }
-
-                var update = response.Updates?.FirstOrDefault(u => u.ProfileId == p.Profile.ProfileId);
-                if (update != null)
-                {
-                    bool isNewUpdate = p.AvailableVersion == null || p.AvailableVersion.VersionNumber != update.NewVersion.VersionNumber;
-
-                    p.AvailableVersion = update.NewVersion;
-                    p.IsAuthorizedByAdmin = update.IsAuthorizedByAdmin;
-                    p.IsWaitingForDb = update.IsWaitingForDb;
-
-                    if (p.IsWaitingForDb)
-                    {
-                        p.Status = "Αναμονή αναβάθμισης βάσης από Server...";
-                    }
-                    else
-                    {
-                        p.Status = $"Διαθέσιμη: {update.NewVersion.VersionNumber}";
-                    }
-
-                    hasMonitoredUpdates = true;
-
-                    if (isNewUpdate)
-                    {
-                        UpdateDetected?.Invoke(p.ProfileName, update.NewVersion.VersionNumber);
-                    }
-                }
-                else
-                {
-                    p.Status = "Ενημερωμένο";
-                    p.AvailableVersion = null;
-                    p.IsAuthorizedByAdmin = false;
-                }
-            }
-
-            if (hasMonitoredUpdates)
-            {
-                StatusMessage = "Βρέθηκαν ενημερώσεις!";
+                StatusMessage = "⚠️ Εκκρεμεί αναβάθμιση του Agent.";
             }
             else
             {
-                StatusMessage = "Όλες οι παρακολουθούμενες εταιρείες είναι ενημερωμένες.";
+                foreach (var p in Profiles)
+                {
+                    var dbName = UpdateEngine.GetDatabaseNameFromConnectionString(p.Profile.ConnectionString);
+                    
+                    // If it has a connection string but the database is not monitored on the server, skip it!
+                    if (!string.IsNullOrEmpty(p.Profile.ConnectionString) && 
+                        !monitoredDbs.Contains(dbName, StringComparer.OrdinalIgnoreCase))
+                    {
+                        p.Status = "Δεν παρακολουθείται";
+                        p.AvailableVersion = null;
+                        p.IsAuthorizedByAdmin = false;
+                        p.IsWaitingForDb = false;
+                        continue;
+                    }
+
+                    var update = response.Updates?.FirstOrDefault(u => u.ProfileId == p.Profile.ProfileId);
+                    if (update != null)
+                    {
+                        bool isNewUpdate = p.AvailableVersion == null || p.AvailableVersion.VersionNumber != update.NewVersion.VersionNumber;
+
+                        p.AvailableVersion = update.NewVersion;
+                        p.IsAuthorizedByAdmin = update.IsAuthorizedByAdmin;
+                        p.IsWaitingForDb = update.IsWaitingForDb;
+
+                        if (p.IsWaitingForDb)
+                        {
+                            p.Status = "Αναμονή αναβάθμισης βάσης από Server...";
+                        }
+                        else
+                        {
+                            p.Status = $"Διαθέσιμη: {update.NewVersion.VersionNumber}";
+                        }
+
+                        hasMonitoredUpdates = true;
+
+                        if (isNewUpdate)
+                        {
+                            UpdateDetected?.Invoke(p.ProfileName, update.NewVersion.VersionNumber);
+                        }
+                    }
+                    else
+                    {
+                        p.Status = "Ενημερωμένο";
+                        p.AvailableVersion = null;
+                        p.IsAuthorizedByAdmin = false;
+                        p.IsWaitingForDb = false;
+                    }
+                }
+
+                if (hasMonitoredUpdates)
+                {
+                    StatusMessage = "Βρέθηκαν ενημερώσεις!";
+                }
+                else
+                {
+                    StatusMessage = "Όλες οι παρακολουθούμενες εταιρείες είναι ενημερωμένες.";
+                }
             }
 
             // Operator close program popup logic

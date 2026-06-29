@@ -261,7 +261,25 @@ namespace Tms.Agent.Core.Services
                 var msg = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {message}";
                 logBuilder.AppendLine(msg);
                 logCallback?.Invoke(msg);
+                try
+                {
+                    var logFolder = PathHelper.GetAgentDataFolder();
+                    var logFile = Path.Combine(logFolder, "agent.log");
+                    File.AppendAllText(logFile, msg + Environment.NewLine);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to write to local log file: {ex.Message}");
+                }
             }
+
+            try
+            {
+                var logFolder = PathHelper.GetAgentDataFolder();
+                var logFile = Path.Combine(logFolder, "agent.log");
+                File.AppendAllText(logFile, $"{Environment.NewLine}{Environment.NewLine}=================== NEW UPDATE RUN: {DateTime.Now} ==================={Environment.NewLine}");
+            }
+            catch {}
 
             Log($"Έναρξη αναβάθμισης για το προφίλ '{profile.ProfileName}' (ΑΦΜ: {profile.Afm}) στην έκδοση {newVersion.VersionNumber}");
 
@@ -380,6 +398,11 @@ namespace Tms.Agent.Core.Services
                                 var runningProcesses = System.Diagnostics.Process.GetProcessesByName(exeNameWithoutExt);
                                 foreach (var process in runningProcesses)
                                 {
+                                    if (process.Id == System.Diagnostics.Process.GetCurrentProcess().Id)
+                                    {
+                                        continue;
+                                    }
+
                                     try
                                     {
                                         Log($"Τερματισμός εκτελούμενης διεργασίας '{process.ProcessName}' (PID: {process.Id}) για την εφαρμογή της αναβάθμισης...");
@@ -1313,10 +1336,13 @@ namespace Tms.Agent.Core.Services
                 batchContent.AppendLine("@echo off");
                 batchContent.AppendLine("chcp 65001 > nul");
                 
-                if (isService)
-                {
-                    batchContent.AppendLine("sc stop TmsAgent > nul");
-                }
+                // Track if the service was running so we can restore it
+                batchContent.AppendLine("set wasServiceRunning=0");
+                batchContent.AppendLine("sc query TmsAgent 2>nul | findstr RUNNING > nul");
+                batchContent.AppendLine("if %errorlevel% equ 0 (");
+                batchContent.AppendLine("    set wasServiceRunning=1");
+                batchContent.AppendLine("    sc stop TmsAgent > nul");
+                batchContent.AppendLine(")");
 
                 // Loop and check if the executable is locked. Wait until type is successful (meaning process terminated and lock released)
                 batchContent.AppendLine(":wait_unlock");
@@ -1335,6 +1361,9 @@ namespace Tms.Agent.Core.Services
                 else
                 {
                     batchContent.AppendLine($"start \"\" \"{currentExe}\"");
+                    batchContent.AppendLine("if %wasServiceRunning% equ 1 (");
+                    batchContent.AppendLine("    sc start TmsAgent > nul");
+                    batchContent.AppendLine(")");
                 }
 
                 // Delete the temp directory and the batch file itself
@@ -1349,9 +1378,13 @@ namespace Tms.Agent.Core.Services
                     Arguments = $"/c \"{batchPath}\"",
                     CreateNoWindow = true,
                     UseShellExecute = true, // Spawn completely independently
-                    Verb = "runas", // Request administrator elevation (UAC prompt) to allow writing to protected folders like Program Files
                     WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
                 };
+
+                if (!isService)
+                {
+                    psi.Verb = "runas"; // Request administrator elevation (UAC prompt) to allow writing to protected folders like Program Files
+                }
 
                 logCallback?.Invoke("Εκκίνηση διαδικασίας εγκατάστασης και επανεκκίνηση του Agent...");
                 System.Diagnostics.Process.Start(psi);
@@ -1462,7 +1495,7 @@ namespace Tms.Agent.Core.Services
                 var file = (IPersistFile)link;
                 file.Load(shortcutPath, 0); // STGM_READ = 0
                 var sb = new StringBuilder(260);
-                link.GetPath(sb, sb.Capacity, out _, 0);
+                link.GetPath(sb, sb.Capacity, IntPtr.Zero, 0);
                 return sb.ToString();
             }
             catch
@@ -1482,7 +1515,7 @@ namespace Tms.Agent.Core.Services
         [Guid("000214F9-0000-0000-C000-000000000046")]
         internal interface IShellLinkW
         {
-            void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cchMaxPath, out IntPtr pfd, int fFlags);
+            void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cchMaxPath, IntPtr pfd, int fFlags);
             void GetIDList(out IntPtr ppidl);
             void SetIDList(IntPtr pidl);
             void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cchMaxName);

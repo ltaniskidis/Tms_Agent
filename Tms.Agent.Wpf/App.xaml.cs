@@ -1,8 +1,12 @@
 using System;
-using System.Configuration;
-using System.Data;
 using System.Linq;
 using System.Windows;
+using System.IO;
+using System.Text.Json;
+using System.Collections.Generic;
+using Tms.Agent.Core.Services;
+using Tms.Agent.Core.Models;
+using Tms.Shared.Models;
 
 namespace Tms.Agent.Wpf;
 
@@ -41,8 +45,8 @@ public partial class App : System.Windows.Application
                 bool startWithWindows = string.Equals(GetArgValue(e.Args, "--startup-windows"), "1");
 
                 // Save settings
-                var settingsManager = new Tms.Agent.Core.Services.SettingsManager();
-                var settings = new Tms.Agent.Core.Models.AgentSettings
+                var settingsManager = new SettingsManager();
+                var settings = new AgentSettings
                 {
                     ServerUrl = url,
                     ApiKey = key,
@@ -50,6 +54,34 @@ public partial class App : System.Windows.Application
                     StartWithWindows = startWithWindows
                 };
                 settingsManager.SaveSettings(settings);
+
+                // Fetch and save users.json
+                var updateEngine = new UpdateEngine();
+                try
+                {
+                    var response = updateEngine.CheckForUpdatesAsync(
+                        url,
+                        "temp-install-id",
+                        Environment.MachineName,
+                        role,
+                        "1.5.40",
+                        key,
+                        new List<LocalProfile>(),
+                        startWithWindows,
+                        true // forceSyncStartWithWindows
+                    ).GetAwaiter().GetResult();
+
+                    if (response != null && response.LocalUsers != null)
+                    {
+                        var appDataPath = PathHelper.GetAgentDataFolder();
+                        var usersJson = JsonSerializer.Serialize(response.LocalUsers, new JsonSerializerOptions { WriteIndented = true });
+                        File.WriteAllText(Path.Combine(appDataPath, "users.json"), usersJson);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to sync users during install: {ex.Message}");
+                }
 
                 // Setup installation folder
                 string targetFolder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "TmsAgent");
@@ -60,8 +92,23 @@ public partial class App : System.Windows.Application
                     System.IO.Directory.CreateDirectory(targetFolder);
                 }
 
-                // Copy source executable to target
-                System.IO.File.Copy(sourceExe, targetExe, true);
+                // Copy all files from source folder to target folder (including native libraries)
+                string sourceFolder = System.IO.Path.GetDirectoryName(sourceExe) ?? string.Empty;
+                if (!string.IsNullOrEmpty(sourceFolder))
+                {
+                    foreach (var file in System.IO.Directory.GetFiles(sourceFolder))
+                    {
+                        try
+                        {
+                            string destFile = System.IO.Path.Combine(targetFolder, System.IO.Path.GetFileName(file));
+                            System.IO.File.Copy(file, destFile, true);
+                        }
+                        catch (Exception ex)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"Failed to copy file '{file}': {ex.Message}");
+                        }
+                    }
+                }
 
                 // Register Startup tasks pointing to the target
                 RegisterStartupTask(targetExe);

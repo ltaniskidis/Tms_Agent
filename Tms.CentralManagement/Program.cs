@@ -1413,6 +1413,115 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.34"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.34",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση σφάλματος κλειδώματος αρχείων και αυτόματης επανεκκίνησης κατά την αναβάθμιση του Agent.",
+            BinaryFileUrl = "/packages/app_1.5.34.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αυτόματος τερματισμός της υπηρεσίας TmsAgent κατά την αναβάθμιση από το GUI για αποφυγή locks." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αυτόματη επανεκκίνηση της υπηρεσίας TmsAgent και του GUI μετά την ολοκλήρωση της αναβάθμισης." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αποτροπή UAC hangs στην υπηρεσία TmsAgent στο Session 0." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.35"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.35",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Προτεραιότητα αναβάθμισης του Agent έναντι των ενημερώσεων εφαρμογών.",
+            BinaryFileUrl = "/packages/app_1.5.35.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Απόκρυψη/απενεργοποίηση διαθεσιμότητας ενημερώσεων εφαρμογών στο UI όσο εκκρεμεί αναβάθμιση του Agent." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Εμφάνιση κατάστασης 'Αναμονή αναβάθμισης Agent...' στις εταιρείες όταν εκκρεμεί η αναβάθμιση." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.36"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.36",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διορθώσεις εγκατάστασης, σύνδεσης και συγχρονισμού χρηστών.",
+            BinaryFileUrl = "/packages/app_1.5.36.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διόρθωση σφάλματος NOT NULL constraint κατά την καταχώρηση νέων βάσεων δεδομένων." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αντιγραφή όλων των υποστηρικτικών αρχείων (native DLLs) κατά την εγκατάσταση στο Program Files." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αυτόματος συγχρονισμός και αποθήκευση χρηστών (users.json) κατά την ολοκλήρωση του Setup." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.37"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.37",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση συγχρονισμού επιλογής εκκίνησης με τα Windows.",
+            BinaryFileUrl = "/packages/app_1.5.37.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Άμεση αποστολή της επιλογής 'Εκκίνηση με τα Windows' (force sync) στη βάση δεδομένων κατά την εγκατάσταση." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

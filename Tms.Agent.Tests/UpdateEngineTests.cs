@@ -293,5 +293,42 @@ SELECT 4;
             Assert.NotEmpty(tickets);
             Assert.Contains(tickets, t => t.Subject == subject);
         }
+
+        [Fact]
+        public void GetActualProgramVersion_ReturnsCorrectVersionForExistingExe()
+        {
+            // Arrange
+            var currentExe = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(currentExe))
+            {
+                currentExe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+            }
+            Assert.NotNull(currentExe);
+            
+            var folder = Path.GetDirectoryName(currentExe)!;
+            var exeName = Path.GetFileName(currentExe)!;
+            var engine = new UpdateEngine();
+
+            // Act
+            var version = engine.GetActualProgramVersion(folder, exeName);
+
+            // Assert
+            Assert.NotNull(version);
+            Assert.Matches(@"^\d+\.\d+\.\d+", version);
+        }
+
+        [Fact]
+        public async Task GetActualDatabaseVersionAsync_ReturnsNullOnInvalidConnectionString()
+        {
+            // Arrange
+            var engine = new UpdateEngine();
+            var invalidConnStr = "Server=invalid_server_name;Database=InvalidDb;Integrated Security=True;Connection Timeout=1;";
+
+            // Act
+            var version = await engine.GetActualDatabaseVersionAsync(invalidConnStr);
+
+            // Assert
+            Assert.Null(version);
+        }
     }
 }

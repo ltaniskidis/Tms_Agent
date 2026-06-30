@@ -223,7 +223,8 @@ namespace Tms.CentralManagement.Controllers
                                      dbProfile.DbUser != localProfile.DbUser ||
                                      dbProfile.DbPassword != localProfile.DbPassword ||
                                      dbProfile.DbUseWindowsAuth != localProfile.DbUseWindowsAuth ||
-                                     dbProfile.ConfigFilePath != localProfile.ConfigFilePath;
+                                     dbProfile.ConfigFilePath != localProfile.ConfigFilePath ||
+                                     IsNewerVersion(dbProfile.LastUpdatedProgramVersion, localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion);
 
                     if (needsSync)
                     {
@@ -252,9 +253,18 @@ namespace Tms.CentralManagement.Controllers
                     }
                     else
                     {
-                        dbProfile.LastUpdatedVersion = localProfile.CurrentVersion;
-                        dbProfile.LastUpdatedProgramVersion = localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion;
-                        dbProfile.LastUpdatedDbVersion = localProfile.CurrentDbVersion ?? localProfile.CurrentVersion;
+                        if (IsNewerVersion(localProfile.CurrentVersion, dbProfile.LastUpdatedVersion))
+                        {
+                            dbProfile.LastUpdatedVersion = localProfile.CurrentVersion;
+                        }
+                        if (IsNewerVersion(localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion, dbProfile.LastUpdatedProgramVersion))
+                        {
+                            dbProfile.LastUpdatedProgramVersion = localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion;
+                        }
+                        if (IsNewerVersion(localProfile.CurrentDbVersion ?? localProfile.CurrentVersion, dbProfile.LastUpdatedDbVersion))
+                        {
+                            dbProfile.LastUpdatedDbVersion = localProfile.CurrentDbVersion ?? localProfile.CurrentVersion;
+                        }
                     }
                 }
 
@@ -288,75 +298,130 @@ namespace Tms.CentralManagement.Controllers
                         }
                     }
 
-                    var newerVersions = allActiveVersions
+                    var latestVersionObj = allActiveVersions
                         .Select(v => new { VersionInfo = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
-                        .Where(x => x.Parsed > currentProgVer || (x.VersionInfo.Scripts != null && x.VersionInfo.Scripts.Any() && x.Parsed > currentDbVer))
                         .OrderByDescending(x => x.Parsed)
-                        .ToList();
+                        .FirstOrDefault();
 
-                    if (newerVersions.Any())
+                    var latestProgramVersionObj = allActiveVersions
+                        .Where(v => !string.IsNullOrEmpty(v.BinaryFileUrl))
+                        .Select(v => new { VersionInfo = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
+                        .OrderByDescending(x => x.Parsed)
+                        .FirstOrDefault();
+
+                    if (latestVersionObj != null)
                     {
-                        var latestUpdate = newerVersions.First().VersionInfo;
-                        var latestParsed = newerVersions.First().Parsed;
+                        var latestParsed = latestVersionObj.Parsed;
+                        var latestUpdate = latestVersionObj.VersionInfo;
 
-                        bool isWaitingForDb = false;
-                        if (latestUpdate.Scripts != null && latestUpdate.Scripts.Any() && request.MachineRole == "Client")
+                        var latestProgParsed = latestProgramVersionObj?.Parsed ?? new Version(0, 0, 0);
+                        var latestProgUrl = latestProgramVersionObj?.VersionInfo?.BinaryFileUrl ?? string.Empty;
+
+                        // Check if any script exists in versions newer than currentDbVer up to latestParsed
+                        var pendingScripts = allActiveVersions
+                            .Select(v => new { VersionInfo = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
+                            .Where(x => x.Parsed > currentDbVer && x.Parsed <= latestParsed)
+                            .SelectMany(x => x.VersionInfo.Scripts ?? new List<SqlScript>())
+                            .ToList();
+
+                        // Filter out already executed scripts using script identifier matching
+                        string clientDbVersionStr = localProfile.CurrentDbVersion ?? localProfile.CurrentVersion ?? string.Empty;
+                        pendingScripts = pendingScripts
+                            .Where(s => !IsScriptExecuted(s.ScriptName, s.ScriptContent, clientDbVersionStr))
+                            .ToList();
+
+                        bool hasPendingScripts = pendingScripts.Any();
+                        bool isClient = string.Equals(request.MachineRole, "Client", StringComparison.OrdinalIgnoreCase);
+
+                        bool isAlreadyUpdated = !string.IsNullOrEmpty(dbProfile.LastUpdatedVersion) && 
+                                                !IsNewerVersion(latestVersionObj.VersionInfo.VersionNumber, dbProfile.LastUpdatedVersion);
+
+                        bool needsUpdate = false;
+                        if (isAlreadyUpdated && !dbProfile.IsAuthorizedForUpdate)
                         {
-                            bool isDbUpToDate = false;
-                            if (Version.TryParse(dbProfile.LastUpdatedDbVersion, out var dbVer))
+                            needsUpdate = false;
+                        }
+                        else
+                        {
+                            if (isClient)
                             {
-                                isDbUpToDate = dbVer >= latestParsed;
+                                needsUpdate = latestProgParsed > currentProgVer;
                             }
-                            else if (!string.IsNullOrEmpty(dbProfile.LastUpdatedDbVersion))
+                            else
                             {
-                                // DB version is stored as the last script identifier (e.g. from a bulk .txt script file)
-                                var lastScript = latestUpdate.Scripts.OrderBy(s => s.SequenceOrder).LastOrDefault();
-                                if (lastScript != null)
-                                {
-                                    string lastScriptIdent = lastScript.ScriptName;
-                                    var blocks = ParseBulkScriptFileContent(lastScript.ScriptContent);
-                                    if (blocks.Any())
-                                    {
-                                        lastScriptIdent = blocks.Last().ScriptNumber;
-                                    }
-                                    else
-                                    {
-                                        lastScriptIdent = Path.GetFileNameWithoutExtension(lastScript.ScriptName);
-                                    }
-                                    isDbUpToDate = string.Equals(dbProfile.LastUpdatedDbVersion, lastScriptIdent, StringComparison.OrdinalIgnoreCase);
-                                }
-                            }
-
-                            if (!isDbUpToDate)
-                            {
-                                isWaitingForDb = true;
+                                needsUpdate = latestParsed > currentProgVer || hasPendingScripts;
                             }
                         }
 
-                        response.Updates.Add(new ProfileUpdateDto
+                        if (needsUpdate)
                         {
-                            ProfileId = localProfile.ProfileId,
-                            Afm = localProfile.Afm,
-                            IsAuthorizedByAdmin = dbProfile.IsAuthorizedForUpdate,
-                            IsWaitingForDb = isWaitingForDb,
-                            NewVersion = new VersionDto
+                            bool isWaitingForDb = false;
+                            if (hasPendingScripts && isClient)
                             {
-                                Id = latestUpdate.Id,
-                                VersionNumber = latestUpdate.VersionNumber,
-                                ReleaseDate = latestUpdate.ReleaseDate,
-                                Description = latestUpdate.Description,
-                                BinaryFileUrl = latestUpdate.BinaryFileUrl,
-                                SecurityCode = latestUpdate.SecurityCode,
-                                ReleaseNotes = latestUpdate.ReleaseNotes.Select(rn => rn.NotesContent).ToList(),
-                                Scripts = (latestUpdate.Scripts ?? new List<SqlScript>()).OrderBy(s => s.SequenceOrder).Select(s => new ScriptDto
+                                bool isDbUpToDate = false;
+                                if (Version.TryParse(dbProfile.LastUpdatedDbVersion, out var dbVer))
+                                {
+                                    isDbUpToDate = dbVer >= latestParsed;
+                                }
+                                else if (!string.IsNullOrEmpty(dbProfile.LastUpdatedDbVersion))
+                                {
+                                    // Fallback to script identifier matching
+                                    var lastScript = pendingScripts.OrderBy(s => s.SequenceOrder).LastOrDefault();
+                                    if (lastScript != null)
+                                    {
+                                        string lastScriptIdent = lastScript.ScriptName;
+                                        var blocks = ParseBulkScriptFileContent(lastScript.ScriptContent);
+                                        if (blocks.Any())
+                                        {
+                                            lastScriptIdent = blocks.Last().ScriptNumber;
+                                        }
+                                        else
+                                        {
+                                            lastScriptIdent = Path.GetFileNameWithoutExtension(lastScript.ScriptName);
+                                        }
+                                        isDbUpToDate = string.Equals(dbProfile.LastUpdatedDbVersion, lastScriptIdent, StringComparison.OrdinalIgnoreCase);
+                                    }
+                                }
+                                if (!isDbUpToDate)
+                                {
+                                    isWaitingForDb = true;
+                                }
+                            }
+
+                            // Build the scripts list, including all scripts from versions > currentDbVer up to latestParsed, ordered by version and then sequence order
+                            var sortedScripts = allActiveVersions
+                                .Select(v => new { VersionInfo = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
+                                .Where(x => x.Parsed > currentDbVer && x.Parsed <= latestParsed)
+                                .OrderBy(x => x.Parsed)
+                                .SelectMany(x => x.VersionInfo.Scripts ?? new List<SqlScript>())
+                                .Select(s => new ScriptDto
                                 {
                                     Id = s.Id,
                                     ScriptName = s.ScriptName,
                                     ScriptContent = s.ScriptContent,
                                     SequenceOrder = s.SequenceOrder
-                                }).ToList()
-                            }
-                        });
+                                })
+                                .ToList();
+
+                            response.Updates.Add(new ProfileUpdateDto
+                            {
+                                ProfileId = localProfile.ProfileId,
+                                Afm = localProfile.Afm,
+                                IsAuthorizedByAdmin = dbProfile.IsAuthorizedForUpdate,
+                                IsWaitingForDb = isWaitingForDb,
+                                NewVersion = new VersionDto
+                                {
+                                    Id = latestUpdate.Id,
+                                    VersionNumber = latestUpdate.VersionNumber,
+                                    ReleaseDate = latestUpdate.ReleaseDate,
+                                    Description = latestUpdate.Description,
+                                    BinaryFileUrl = latestProgUrl,
+                                    SecurityCode = latestUpdate.SecurityCode,
+                                    ReleaseNotes = latestUpdate.ReleaseNotes.Select(rn => rn.NotesContent).ToList(),
+                                    Scripts = sortedScripts
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -1015,6 +1080,49 @@ namespace Tms.CentralManagement.Controllers
             }
 
             return sb.ToString();
+        }
+
+        private static bool IsNewerVersion(string? newVerStr, string? oldVerStr)
+        {
+            if (string.IsNullOrEmpty(newVerStr)) return false;
+            if (string.IsNullOrEmpty(oldVerStr)) return true;
+
+            if (Version.TryParse(newVerStr, out var newVer) && Version.TryParse(oldVerStr, out var oldVer))
+            {
+                return newVer > oldVer;
+            }
+
+            return string.Compare(newVerStr, oldVerStr, StringComparison.OrdinalIgnoreCase) > 0;
+        }
+
+        private static bool IsScriptExecuted(string scriptName, string scriptContent, string clientDbVersion)
+        {
+            if (string.IsNullOrEmpty(clientDbVersion)) return false;
+
+            string scriptIdent = scriptName;
+            var blocks = ParseBulkScriptFileContent(scriptContent);
+            if (blocks.Any())
+            {
+                scriptIdent = blocks.Last().ScriptNumber;
+            }
+            else
+            {
+                scriptIdent = Path.GetFileNameWithoutExtension(scriptName);
+            }
+
+            if (string.Equals(scriptIdent, clientDbVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            // If both are numeric, we can compare them
+            if (int.TryParse(scriptIdent, out var scriptNum) && int.TryParse(clientDbVersion, out var clientDbNum))
+            {
+                return scriptNum <= clientDbNum;
+            }
+
+            // Fallback: alphabetical comparison if they follow a pattern
+            return string.Compare(scriptIdent, clientDbVersion, StringComparison.OrdinalIgnoreCase) <= 0;
         }
 
         private static bool HasSqlStatements(string content)

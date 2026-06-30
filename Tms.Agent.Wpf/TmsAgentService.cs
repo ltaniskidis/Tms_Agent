@@ -76,7 +76,7 @@ namespace Tms.Agent.Wpf
                             clientId,
                             machineName,
                             settings.MachineRole,
-                            "1.5.40", // Bumped version
+                            "1.5.46", // Bumped version
                             settings.ApiKey,
                             profiles,
                             settings.StartWithWindows,
@@ -86,7 +86,7 @@ namespace Tms.Agent.Wpf
                         if (response != null)
                         {
                             // Check for Agent self-upgrade
-                            if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != "1.5.40" && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
+                            if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != "1.5.46" && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
                             {
                                 System.Diagnostics.Debug.WriteLine($"Service triggers self upgrade to version {response.CurrentSystemVersion}...");
                                 await updateEngine.RunAgentSelfUpgradeAsync(settings.ServerUrl, response.SystemBinaryUrl, true, msg => System.Diagnostics.Debug.WriteLine(msg));
@@ -104,7 +104,7 @@ namespace Tms.Agent.Wpf
                                         var existing = profiles.FirstOrDefault(p => p.ProfileId == cmd.ProfileId);
                                         if (existing == null)
                                         {
-                                            profiles.Add(new LocalProfile
+                                            var newProfile = new LocalProfile
                                             {
                                                 ProfileId = cmd.ProfileId,
                                                 ProfileName = cmd.ProfileName,
@@ -124,7 +124,20 @@ namespace Tms.Agent.Wpf
                                                 CurrentDbVersion = cmd.CurrentDbVersion,
                                                 SerialNumber = cmd.SerialNumber,
                                                 ActiveUsersCount = cmd.ActiveUsersCount
-                                            });
+                                            };
+
+                                            // Save local version file from server sync
+                                            if (!string.IsNullOrEmpty(newProfile.TargetFolder) && Directory.Exists(newProfile.TargetFolder))
+                                            {
+                                                try
+                                                {
+                                                    var versionFilePath = Path.Combine(newProfile.TargetFolder, "tms_version.txt");
+                                                    File.WriteAllText(versionFilePath, newProfile.CurrentProgramVersion);
+                                                }
+                                                catch { }
+                                            }
+
+                                            profiles.Add(newProfile);
                                             profilesChanged = true;
                                         }
                                         else
@@ -146,6 +159,18 @@ namespace Tms.Agent.Wpf
                                             existing.CurrentDbVersion = cmd.CurrentDbVersion;
                                             existing.SerialNumber = cmd.SerialNumber;
                                             existing.ActiveUsersCount = cmd.ActiveUsersCount;
+
+                                            // Save local version file from server sync
+                                            if (!string.IsNullOrEmpty(existing.TargetFolder) && Directory.Exists(existing.TargetFolder))
+                                            {
+                                                try
+                                                {
+                                                    var versionFilePath = Path.Combine(existing.TargetFolder, "tms_version.txt");
+                                                    File.WriteAllText(versionFilePath, existing.CurrentProgramVersion);
+                                                }
+                                                catch { }
+                                            }
+
                                             profilesChanged = true;
                                         }
                                     }

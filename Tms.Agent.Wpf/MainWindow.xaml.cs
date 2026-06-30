@@ -194,7 +194,25 @@ namespace Tms.Agent.Wpf
                 _notifyIcon.Visible = false;
                 _notifyIcon.Dispose();
             }
-            Close();
+        }
+
+        public void ShowTrayBalloon(string title, string message, System.Windows.Forms.ToolTipIcon icon = System.Windows.Forms.ToolTipIcon.Info)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                _notifyIcon?.ShowBalloonTip(3000, title, message, icon);
+            });
+        }
+
+        public void UpdateTrayTooltip(string text)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                if (_notifyIcon != null)
+                {
+                    _notifyIcon.Text = text.Length > 63 ? text.Substring(0, 63) : text;
+                }
+            });
         }
 
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -203,11 +221,10 @@ namespace Tms.Agent.Wpf
             {
                 e.Cancel = true;
                 Hide();
-                System.Windows.MessageBox.Show(
-                    "Η εφαρμογή TMS Agent Panel θα συνεχίσει να εκτελείται στη γραμμή εργασιών (System Tray) για αυτόματη λήψη ενημερώσεων.",
+                ShowTrayBalloon(
                     "TMS Agent",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Information
+                    "Η εφαρμογή TMS Agent Panel θα συνεχίσει να εκτελείται στη γραμμή εργασιών (System Tray) για αυτόματη λήψη ενημερώσεων.",
+                    System.Windows.Forms.ToolTipIcon.Info
                 );
             }
             else

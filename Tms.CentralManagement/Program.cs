@@ -1522,6 +1522,166 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.41"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.41",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διορθώσεις αναβαθμίσεων, φιλτράρισμα βάσει ρόλου (Client) και αποτροπή υποβάθμισης έκδοσης στη βάση.",
+            BinaryFileUrl = "/packages/app_1.5.41.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Δυναμικός έλεγχος πραγματικής έκδοσης βάσης (SQL_HISTORY_UPDATE_SCRIPTS) και αρχείου εκτέλεσης." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Ενημέρωση έκδοσης προγράμματος κατά την ολοκλήρωση της αναβάθμισης, ακόμη και σε database-only πακέτα." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Περιορισμός ειδοποιήσεων αναβάθμισης για σταθμούς εργασίας (Clients) μόνο όταν υπάρχουν νέα αρχεία προγράμματος." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Συσσώρευση όλων των ενδιάμεσων SQL scripts σε μια ενιαία, σειριακή λίστα εκτέλεσης." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Αποτροπή υποβάθμισης (downgrade) της έκδοσης της βάσης δεδομένων στα προφίλ του Server κατά τον έλεγχο από Clients με παλαιότερο configuration." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.42"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.42",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Αντικατάσταση του MessageBox κατά το κλείσιμο με ειδοποίηση στο System Tray (Balloon Tip) για καλύτερη εμπειρία χρήστη.",
+            BinaryFileUrl = "/packages/app_1.5.42.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αντικατάσταση του MessageBox με Balloon Tip Pop-up κατά το κλείσιμο." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.43"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.43",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Διόρθωση σφάλματος NOT NULL constraint κατά την καταχώρηση νέων εταιρειών (profiles) από την κονσόλα.",
+            BinaryFileUrl = "/packages/app_1.5.43.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Προσθήκη default τιμών στις ιδιότητες ProfileName, Afm, TargetFolder, ConnectionString, SerialNumber, LastUpdatedVersion και LastUpdateStatus του ClientProfile για την αποτροπή σφαλμάτων NOT NULL constraint στην SQLite." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.44"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.44",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διασφάλιση σωστής μετονομασίας custom εκτελέσιμων (π.χ. TIMOLOGISI1.exe) κατά την εξαγωγή ZIP.",
+            BinaryFileUrl = "/packages/app_1.5.44.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Βελτίωση της λογικής αναγνώρισης του κύριου εκτελέσιμου αρχείου (EXE) μέσα στο ZIP ώστε να υποστηρίζονται custom ονόματα (π.χ. TIMOLOGISI1.exe)." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.45"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.45",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Επίλυση του βρόχου (loop) συνεχών ειδοποιήσεων αναβάθμισης όταν η βάση έχει ήδη ενημερωθεί.",
+            BinaryFileUrl = "/packages/app_1.5.45.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Φιλτράρισμα των SQL scripts που έχουν ήδη εκτελεστεί και παράκαμψη της ειδοποίησης αν η έκδοση έχει ήδη εγκατασταθεί επιτυχώς." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.46"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.46",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Υποστήριξη τοπικής αποθήκευσης έκδοσης προγράμματος (tms_version.txt) για την αποφυγή εσφαλμένης ανίχνευσης από un-bumped EXE.",
+            BinaryFileUrl = "/packages/app_1.5.46.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Αποθήκευση και ανάγνωση της έκδοσης από το αρχείο tms_version.txt και αυτόματη ενημέρωσή του κατά τον συγχρονισμό ρυθμίσεων." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.40";
+        public string AppVersion => "1.5.46";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         // Connection Settings
@@ -1145,6 +1145,53 @@ namespace Tms.Agent.Wpf.ViewModels
                 p.Status = "Έλεγχος...";
             }
 
+            // Auto-detect actual versions from DB and disk
+            bool anyProfileChanged = false;
+            foreach (var p in Profiles)
+            {
+                try
+                {
+                    var resolvedConnStr = p.Profile.GetResolvedConnectionString();
+                    var actualDbVer = await _updateEngine.GetActualDatabaseVersionAsync(resolvedConnStr);
+                    if (!string.IsNullOrEmpty(actualDbVer) && p.Profile.CurrentDbVersion != actualDbVer)
+                    {
+                        p.Profile.CurrentDbVersion = actualDbVer;
+                        anyProfileChanged = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to auto-detect DB version for {p.ProfileName}: {ex.Message}");
+                }
+
+                try
+                {
+                    var actualProgVer = _updateEngine.GetActualProgramVersion(p.Profile.TargetFolder, p.Profile.TargetExeName);
+                    if (!string.IsNullOrEmpty(actualProgVer) && p.Profile.CurrentProgramVersion != actualProgVer)
+                    {
+                        p.Profile.CurrentProgramVersion = actualProgVer;
+                        p.Profile.CurrentVersion = actualProgVer;
+                        anyProfileChanged = true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to auto-detect program version for {p.ProfileName}: {ex.Message}");
+                }
+            }
+
+            if (anyProfileChanged)
+            {
+                _profileManager.SaveProfiles(Profiles.Select(p => p.Profile).ToList());
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    foreach (var p in Profiles)
+                    {
+                        p.RefreshProperties();
+                    }
+                });
+            }
+
             var localProfilesList = Profiles.Select(p => p.Profile).ToList();
             var response = await _updateEngine.CheckForUpdatesAsync(
                 ServerUrl, 
@@ -1245,6 +1292,18 @@ namespace Tms.Agent.Wpf.ViewModels
                                 SerialNumber = cmd.SerialNumber,
                                 ActiveUsersCount = cmd.ActiveUsersCount
                             };
+
+                            // Save local version file from server sync
+                            if (!string.IsNullOrEmpty(newProfile.TargetFolder) && Directory.Exists(newProfile.TargetFolder))
+                            {
+                                try
+                                {
+                                    var versionFilePath = Path.Combine(newProfile.TargetFolder, "tms_version.txt");
+                                    File.WriteAllText(versionFilePath, newProfile.CurrentProgramVersion);
+                                }
+                                catch { }
+                            }
+
                             currentProfiles.Add(newProfile);
                             profilesChanged = true;
                         }
@@ -1267,6 +1326,18 @@ namespace Tms.Agent.Wpf.ViewModels
                             existing.CurrentDbVersion = cmd.CurrentDbVersion;
                             existing.SerialNumber = cmd.SerialNumber;
                             existing.ActiveUsersCount = cmd.ActiveUsersCount;
+
+                            // Save local version file from server sync
+                            if (!string.IsNullOrEmpty(existing.TargetFolder) && Directory.Exists(existing.TargetFolder))
+                            {
+                                try
+                                {
+                                    var versionFilePath = Path.Combine(existing.TargetFolder, "tms_version.txt");
+                                    File.WriteAllText(versionFilePath, existing.CurrentProgramVersion);
+                                }
+                                catch { }
+                            }
+
                             profilesChanged = true;
                         }
                     }
@@ -1514,6 +1585,14 @@ namespace Tms.Agent.Wpf.ViewModels
             if (_isSelfUpgrading) return;
             _isSelfUpgrading = true;
 
+            // Determine if the main window is minimized to tray
+            bool isMinimizedToTray = false;
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                var mainWin = System.Windows.Application.Current.MainWindow;
+                isMinimizedToTray = mainWin == null || !mainWin.IsVisible || mainWin.WindowState == WindowState.Minimized;
+            });
+
             // Show mandatory popup to force update
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
@@ -1534,6 +1613,16 @@ namespace Tms.Agent.Wpf.ViewModels
                 WizardProgress = 0;
                 WizardStatus = "Έναρξη λήψης αρχείων αναβάθμισης...";
                 IsWizardOpen = true;
+
+                if (isMinimizedToTray)
+                {
+                    var progressWindow = new UpgradeProgressWindow();
+                    progressWindow.DataContext = this;
+                    progressWindow.Show();
+
+                    var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                    mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", $"Έναρξη λήψης αρχείων αναβάθμισης (v{targetVersion})...");
+                }
             });
 
             bool success = await Task.Run(async () =>
@@ -1555,6 +1644,15 @@ namespace Tms.Agent.Wpf.ViewModels
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
                             WizardProgress = progress;
+                            if (isMinimizedToTray)
+                            {
+                                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                                mainWin?.UpdateTrayTooltip($"TMS Agent - Λήψη Αναβάθμισης: {progress}%");
+                                if (progress > 0 && progress < 100 && progress % 25 == 0)
+                                {
+                                    mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", $"Λήψη αναβάθμισης: {progress}%");
+                                }
+                            }
                         });
                     }
                 );
@@ -1564,6 +1662,17 @@ namespace Tms.Agent.Wpf.ViewModels
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
+                    if (isMinimizedToTray)
+                    {
+                        var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                        mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", "Η αναβάθμιση ολοκληρώθηκε επιτυχώς! Γίνεται επανεκκίνηση...");
+                        mainWin?.UpdateTrayTooltip("TMS Agent - Ολοκληρώθηκε");
+                    }
+                    System.Windows.MessageBox.Show(
+                        "Η αναβάθμιση του Agent ολοκληρώθηκε με επιτυχία! Η εφαρμογή θα επανεκκινήσει τώρα.",
+                        "TMS Agent - Επιτυχία",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Information);
                     System.Windows.Application.Current.Shutdown();
                 });
                 Environment.Exit(0);
@@ -1577,6 +1686,18 @@ namespace Tms.Agent.Wpf.ViewModels
                     WizardStage = 3;
                     WizardSuccess = false;
                     WizardErrorMessage = "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης.";
+
+                    if (isMinimizedToTray)
+                    {
+                        var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                        mainWin?.ShowTrayBalloon("TMS Agent - Σφάλμα", "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.", System.Windows.Forms.ToolTipIcon.Error);
+                        mainWin?.UpdateTrayTooltip("TMS Agent Panel - Σφάλμα Αναβάθμισης");
+                        System.Windows.MessageBox.Show(
+                            "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.",
+                            "TMS Agent - Σφάλμα",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+                    }
                 });
             }
         }

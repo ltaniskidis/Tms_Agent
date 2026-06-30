@@ -128,11 +128,11 @@ namespace Tms.CentralManagement.Data
         public int Id { get; set; }
         public int ClientMachineId { get; set; }
         public string ProfileId { get; set; } = string.Empty; // Local profile identifier on agent
-        public string? ProfileName { get; set; }
-        public string? Afm { get; set; }
-        public string? TargetFolder { get; set; }
-        public string? TargetExeName { get; set; }
-        public string? ConnectionString { get; set; }
+        public string? ProfileName { get; set; } = string.Empty;
+        public string? Afm { get; set; } = string.Empty;
+        public string? TargetFolder { get; set; } = string.Empty;
+        public string? TargetExeName { get; set; } = "TIMOLOGISI.exe";
+        public string? ConnectionString { get; set; } = string.Empty;
         public string? ConnectionStringType { get; set; }
         public string? DbServer { get; set; }
         public string? DbName { get; set; }
@@ -140,12 +140,12 @@ namespace Tms.CentralManagement.Data
         public string? DbPassword { get; set; }
         public bool DbUseWindowsAuth { get; set; } = false;
         public string? ConfigFilePath { get; set; }
-        public string? SerialNumber { get; set; }
+        public string? SerialNumber { get; set; } = string.Empty;
         public int ActiveUsersCount { get; set; } = 0;
-        public string? LastUpdatedVersion { get; set; }
+        public string? LastUpdatedVersion { get; set; } = "0.0.0";
         public string? LastUpdatedProgramVersion { get; set; }
         public string? LastUpdatedDbVersion { get; set; }
-        public string? LastUpdateStatus { get; set; }
+        public string? LastUpdateStatus { get; set; } = "Unknown";
         public DateTime? LastUpdatedTime { get; set; }
         
         public bool IsPendingDelete { get; set; } = false;
@@ -159,12 +159,12 @@ namespace Tms.CentralManagement.Data
     {
         public int Id { get; set; }
         public int ClientMachineId { get; set; }
-        public string? InstanceName { get; set; }
-        public string? DatabaseName { get; set; }
-        public string? ConnectionString { get; set; }
+        public string? InstanceName { get; set; } = string.Empty;
+        public string? DatabaseName { get; set; } = string.Empty;
+        public string? ConnectionString { get; set; } = string.Empty;
         public bool IsMonitored { get; set; } = false;
-        public string? LastUpdatedVersion { get; set; }
-        public string? LastUpdateStatus { get; set; }
+        public string? LastUpdatedVersion { get; set; } = "0.0.0";
+        public string? LastUpdateStatus { get; set; } = "Unknown";
         public DateTime? LastUpdatedTime { get; set; }
     }
 

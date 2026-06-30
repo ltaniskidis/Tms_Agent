@@ -478,7 +478,19 @@ namespace Tms.Agent.Core.Services
                                         string targetFilePath;
                                         
                                         // If this is the main EXE inside the zip, rename it to activeExeName when extracting
-                                        if (string.Equals(entry.Name, profile.TargetExeName, StringComparison.OrdinalIgnoreCase))
+                                        string zipEntryName = entry.Name;
+                                        string defaultBaseName = "TIMOLOGISI";
+                                        string configBaseName = Path.GetFileNameWithoutExtension(profile.TargetExeName ?? "TIMOLOGISI.exe");
+                                        string cleanConfigBaseName = System.Text.RegularExpressions.Regex.Replace(configBaseName, @"\d+$", "");
+                                        string cleanZipEntryBaseName = System.Text.RegularExpressions.Regex.Replace(Path.GetFileNameWithoutExtension(zipEntryName), @"\d+$", "");
+
+                                        bool isMainExe = string.Equals(zipEntryName, profile.TargetExeName, StringComparison.OrdinalIgnoreCase) ||
+                                                         (Path.GetExtension(zipEntryName).Equals(".exe", StringComparison.OrdinalIgnoreCase) && 
+                                                          (string.Equals(zipEntryName, "TIMOLOGISI.exe", StringComparison.OrdinalIgnoreCase) ||
+                                                           string.Equals(cleanZipEntryBaseName, cleanConfigBaseName, StringComparison.OrdinalIgnoreCase) ||
+                                                           string.Equals(cleanZipEntryBaseName, defaultBaseName, StringComparison.OrdinalIgnoreCase)));
+
+                                        if (isMainExe)
                                         {
                                             targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, activeExeName));
                                             Log($"Εξαγωγή νέου εκτελέσιμου αρχείου ως {activeExeName} (από {entry.Name} στο ZIP)...");
@@ -566,11 +578,24 @@ namespace Tms.Agent.Core.Services
                             profile.CurrentDbVersion = newVersion.VersionNumber;
                         }
                     }
-                    if (!string.IsNullOrEmpty(newVersion.BinaryFileUrl))
-                    {
-                        profile.CurrentProgramVersion = newVersion.VersionNumber;
-                    }
+                    profile.CurrentProgramVersion = newVersion.VersionNumber;
                     profile.CurrentVersion = newVersion.VersionNumber;
+
+                    // Save version file to target folder to survive resets and bypass bad assembly metadata
+                    if (!string.IsNullOrEmpty(targetFolder) && Directory.Exists(targetFolder))
+                    {
+                        try
+                        {
+                            var versionFilePath = Path.Combine(targetFolder, "tms_version.txt");
+                            File.WriteAllText(versionFilePath, newVersion.VersionNumber);
+                            Log($"Αποθήκευση τοπικής έκδοσης: {versionFilePath} -> {newVersion.VersionNumber}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Log($"Αδυναμία αποθήκευσης τοπικού αρχείου έκδοσης tms_version.txt: {ex.Message}");
+                        }
+                    }
+
                     Log($"Η αναβάθμιση ολοκληρώθηκε επιτυχώς στην έκδοση {newVersion.VersionNumber}!");
                 }
             }
@@ -1135,8 +1160,12 @@ namespace Tms.Agent.Core.Services
                     var buffer = new byte[81920];
                     var bytesRead = 0L;
                     int read;
-                    while ((read = await stream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    while (true)
                     {
+                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                        read = await stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                        if (read <= 0) break;
+
                         await fileStream.WriteAsync(buffer, 0, read);
                         bytesRead += read;
                         var percentage = (double)bytesRead / totalBytes * 100.0;
@@ -1145,7 +1174,8 @@ namespace Tms.Agent.Core.Services
                 }
                 else
                 {
-                    await stream.CopyToAsync(fileStream);
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
+                    await stream.CopyToAsync(fileStream, cts.Token);
                 }
             }
             catch (Exception ex)
@@ -1342,6 +1372,12 @@ namespace Tms.Agent.Core.Services
                 batchContent.AppendLine("if %errorlevel% equ 0 (");
                 batchContent.AppendLine("    set wasServiceRunning=1");
                 batchContent.AppendLine("    sc stop TmsAgent > nul");
+                batchContent.AppendLine("    :wait_service_stop");
+                batchContent.AppendLine("    sc query TmsAgent 2>nul | findstr /I \"RUNNING STOP_PENDING\" > nul");
+                batchContent.AppendLine("    if %errorlevel% equ 0 (");
+                batchContent.AppendLine("        timeout /t 1 /nobreak > nul");
+                batchContent.AppendLine("        goto wait_service_stop");
+                batchContent.AppendLine("    )");
                 batchContent.AppendLine(")");
 
                 // Loop and check if the executable is locked. Wait until type is successful (meaning process terminated and lock released)
@@ -1352,7 +1388,15 @@ namespace Tms.Agent.Core.Services
                 batchContent.AppendLine("    goto wait_unlock");
                 batchContent.AppendLine(")");
 
-                batchContent.AppendLine($"xcopy /y /s /e \"{extractDir}\\*\" \"{currentFolder}\\\" > nul");
+                // Copy files with a retry loop in case other files (DLLs) are locked temporarily
+                var logFolder = PathHelper.GetAgentDataFolder();
+                var logFilePath = Path.Combine(logFolder, "agent_upgrade.log");
+                batchContent.AppendLine(":do_copy");
+                batchContent.AppendLine($"xcopy /y /s /e \"{extractDir}\\*\" \"{currentFolder}\\\" > \"{logFilePath}\" 2>&1");
+                batchContent.AppendLine("if errorlevel 1 (");
+                batchContent.AppendLine("    timeout /t 1 /nobreak > nul");
+                batchContent.AppendLine("    goto do_copy");
+                batchContent.AppendLine(")");
 
                 if (isService)
                 {
@@ -1549,6 +1593,86 @@ namespace Tms.Agent.Core.Services
             void GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string ppszFileName);
         }
 
+        public async Task<string?> GetActualDatabaseVersionAsync(string connectionString)
+        {
+            if (string.IsNullOrEmpty(connectionString)) return null;
+            try
+            {
+                using var connection = new SqlConnection(connectionString);
+                await connection.OpenAsync();
+                
+                // Check if SQL_HISTORY_UPDATE_SCRIPTS table exists
+                bool tableExists = false;
+                using (var checkCmd = new SqlCommand(
+                    "SELECT CASE WHEN OBJECT_ID(N'[dbo].[SQL_HISTORY_UPDATE_SCRIPTS]', N'U') IS NOT NULL THEN 1 ELSE 0 END", 
+                    connection))
+                {
+                    var result = await checkCmd.ExecuteScalarAsync();
+                    tableExists = result != null && Convert.ToInt32(result) == 1;
+                }
+
+                if (!tableExists) return null;
+
+                using var getCmd = new SqlCommand(
+                    "SELECT TOP 1 LAST_SCRIPT_NUMBER FROM [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] ORDER BY ID DESC", 
+                    connection);
+                var versionResult = await getCmd.ExecuteScalarAsync();
+                return versionResult == null || versionResult == DBNull.Value ? null : versionResult.ToString();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        public string? GetActualProgramVersion(string targetFolder, string targetExeName)
+        {
+            if (string.IsNullOrEmpty(targetFolder) || string.IsNullOrEmpty(targetExeName)) return null;
+            try
+            {
+                // 1. Try reading tms_version.txt first
+                var versionFilePath = Path.Combine(targetFolder, "tms_version.txt");
+                if (File.Exists(versionFilePath))
+                {
+                    try
+                    {
+                        var fileContent = File.ReadAllText(versionFilePath).Trim();
+                        if (!string.IsNullOrEmpty(fileContent) && Regex.IsMatch(fileContent, @"^\d+(\.\d+)*$"))
+                        {
+                            return fileContent;
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore and fallback
+                    }
+                }
+
+                // 2. Fallback: Find the active executable (resolving shortcuts, etc.)
+                string activeExeName = FindActiveProductiveExe(targetFolder, targetExeName, _ => { });
+                string exePath = Path.Combine(targetFolder, activeExeName);
+                if (!File.Exists(exePath)) return null;
+
+                var versionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(exePath);
+                var versionStr = versionInfo.ProductVersion ?? versionInfo.FileVersion;
+                if (!string.IsNullOrEmpty(versionStr))
+                {
+                    // Clean it to be 3-level (e.g., 1.5.0)
+                    var match = Regex.Match(versionStr, @"^(\d+\.\d+\.\d+)");
+                    if (match.Success)
+                    {
+                        return match.Groups[1].Value;
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
+            return null;
+        }
+
         #endregion
     }
 }
+

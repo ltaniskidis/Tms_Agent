@@ -148,6 +148,54 @@ CREATE VIEW ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS AS";
         }
 
         [Fact]
+        public void InspectFlessasPC()
+        {
+            var dbPath = @"C:\Users\Administrator\OneDrive - CLEVER DATA\sources\repos\Tms_Agent\Tms.CentralManagement\central.db";
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}"))
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, MachineName, Alias, ApiKey, MachineRole, AgentVersion FROM Clients WHERE Id = 9";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            Console.WriteLine($"[CLIENT] Id: {reader.GetInt32(0)} | Name: {reader.GetString(1)} | Alias: {(reader.IsDBNull(2) ? "null" : reader.GetString(2))} | ApiKey: {reader.GetString(3)} | Role: {reader.GetString(4)} | AgentVer: {reader.GetString(5)}");
+                        }
+                    }
+                    
+                    cmd.CommandText = "SELECT Id, ClientMachineId, DatabaseName, IsMonitored FROM ClientDatabases";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            Console.WriteLine($"[DB] Id: {reader.GetInt32(0)} | MachineId: {reader.GetInt32(1)} | DbName: {reader.GetString(2)} | IsMonitored: {reader.GetInt32(3)}");
+                        }
+                    }
+
+                    cmd.CommandText = "SELECT Id, ClientMachineId, ProfileName, DbName FROM ClientProfiles";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            Console.WriteLine($"[PROFILE] Id: {reader.GetInt32(0)} | MachineId: {reader.GetInt32(1)} | Profile: {reader.GetString(2)} | DbName: {(reader.IsDBNull(3) ? "null" : reader.GetString(3))}");
+                        }
+                    }
+
+                    cmd.CommandText = "SELECT Id, ClientMachineId, Username, Password, Role FROM AgentUsers WHERE ClientMachineId = 9";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            Console.WriteLine($"[USER] Id: {reader.GetInt32(0)} | MachineId: {reader.GetInt32(1)} | User: {reader.GetString(2)} | Pass: {reader.GetString(3)} | Role: {reader.GetString(4)}");
+                        }
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void SplitSqlScript_SplitsCorrectlyByGo()
         {
             // Arrange

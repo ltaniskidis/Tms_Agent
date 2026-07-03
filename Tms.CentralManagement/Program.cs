@@ -2153,6 +2153,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.61"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.61",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Παράκαμψη ελέγχου monitored databases για Client-role τερματικά, ώστε να μην εμφανίζονται ως 'Δεν παρακολουθείται'.",
+            BinaryFileUrl = "/packages/app_1.5.61.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διόρθωση ελέγχου monitored databases για σταθμούς εργασίας (Client role), επιτρέποντας την κανονική λήψη αναβαθμίσεων της εφαρμογής." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

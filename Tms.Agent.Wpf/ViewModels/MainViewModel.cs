@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.60";
+        public string AppVersion => "1.5.61";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         private Window? _currentProgressWindow;
@@ -1393,8 +1393,9 @@ namespace Tms.Agent.Wpf.ViewModels
                 {
                     var dbName = UpdateEngine.GetDatabaseNameFromConnectionString(p.Profile.ConnectionString);
                     
-                    // If it has a connection string but the database is not monitored on the server, skip it!
-                    if (!string.IsNullOrEmpty(p.Profile.ConnectionString) && 
+                    // If it has a connection string but the database is not monitored on the server, skip it! (only for non-Client role machines)
+                    if (!string.Equals(MachineRole, "Client", StringComparison.OrdinalIgnoreCase) &&
+                        !string.IsNullOrEmpty(p.Profile.ConnectionString) && 
                         !monitoredDbs.Contains(dbName, StringComparer.OrdinalIgnoreCase))
                     {
                         p.Status = "Δεν παρακολουθείται";

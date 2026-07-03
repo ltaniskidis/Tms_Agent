@@ -79,6 +79,11 @@ namespace Tms.CentralManagement.Pages
                     {
                         CanOperatorViewLogs = true,
                         CanOperatorRunUpdates = false
+                    },
+                    LocalUsers = new List<AgentUser>
+                    {
+                        new AgentUser { Username = "admin", Password = "admin123", Role = "Admin" },
+                        new AgentUser { Username = "tmsuser", Password = "tmsusr", Role = "Operator" }
                     }
                 };
 
@@ -239,6 +244,11 @@ namespace Tms.CentralManagement.Pages
                     {
                         CanOperatorViewLogs = true,
                         CanOperatorRunUpdates = false
+                    },
+                    LocalUsers = new List<AgentUser>
+                    {
+                        new AgentUser { Username = "admin", Password = "admin123", Role = "Admin" },
+                        new AgentUser { Username = "tmsuser", Password = "tmsusr", Role = "Operator" }
                     }
                 };
 

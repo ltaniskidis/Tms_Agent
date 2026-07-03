@@ -64,7 +64,7 @@ public partial class App : System.Windows.Application
                         "temp-install-id",
                         Environment.MachineName,
                         role,
-                        "1.5.58",
+                        "1.5.60",
                         key,
                         new List<LocalProfile>(),
                         startWithWindows,

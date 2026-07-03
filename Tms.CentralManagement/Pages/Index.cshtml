@@ -6,6 +6,121 @@
     var currentSystemVer = DbContext.Versions.Where(v => v.TargetType == "System" && v.IsCurrent).Select(v => v.VersionNumber).FirstOrDefault() ?? "1.5.0";
 }
 
+<style>
+    /* Tree view structure */
+    .tree-container {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-top: 10px;
+    }
+
+    .tree-node {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        overflow: hidden;
+        transition: border-color 0.2s;
+    }
+
+    .tree-node:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .tree-node-header {
+        padding: 14px 18px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        user-select: none;
+        background-color: rgba(255, 255, 255, 0.01);
+        transition: background-color 0.2s;
+    }
+
+    .tree-node-header:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    .customer-header-node {
+        border-left: 4px solid var(--accent);
+    }
+
+    .machine-header-node {
+        border-left: 4px solid #3B82F6;
+        margin-left: 20px;
+        background-color: rgba(0, 0, 0, 0.15);
+    }
+
+    .tree-arrow {
+        display: inline-block;
+        transition: transform 0.2s ease;
+        color: var(--text-secondary);
+        font-size: 10px;
+        width: 12px;
+    }
+
+    .tree-node.collapsed .tree-arrow {
+        transform: rotate(0deg);
+    }
+
+    .tree-node:not(.collapsed) > .tree-node-header .tree-arrow {
+        transform: rotate(90deg);
+    }
+
+    .tree-node-content {
+        padding: 15px 20px;
+        border-top: 1px solid var(--border-color);
+        display: block;
+    }
+
+    .tree-node.collapsed > .tree-node-content {
+        display: none;
+    }
+
+    .tree-icon {
+        font-size: 16px;
+    }
+
+    .tree-label {
+        font-size: 14px;
+        color: var(--text-primary);
+        flex: 1;
+    }
+
+    .tree-help {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+
+    .tree-empty-message {
+        padding: 10px 0;
+        font-style: italic;
+        color: var(--text-secondary);
+        font-size: 13px;
+    }
+
+    .tree-profiles-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    .tree-profiles-table th {
+        text-align: left;
+        color: var(--text-secondary);
+        font-weight: 600;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .tree-profiles-table td {
+        padding: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+    }
+</style>
+
 <header>
     <div>
         <h1>📊 Dashboard Πελατών</h1>
@@ -19,8 +134,12 @@
 </header>
 
 <div class="card">
-    <div class="card-title">
-        <span>Ενεργές Εγκαταστάσεις / Μηχανήματα (@Model.Clients.Count)</span>
+    <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <span>📂 Δομή Εγκαταστάσεων ανά Πελάτη</span>
+        <div class="tree-controls" style="display: flex; gap: 8px; margin: 0;">
+            <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; font-weight: 600;" onclick="expandAll()">展开全部 / Expand All</button>
+            <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; font-weight: 600;" onclick="collapseAll()">折叠全部 / Collapse All</button>
+        </div>
     </div>
 
     @if (!Model.Clients.Any())
@@ -31,247 +150,353 @@
     }
     else
     {
-        <table>
-            <thead>
-                <tr>
-                    <th>Μηχάνημα</th>
-                    <th>Ημ. Εγγραφής</th>
-                    <th>Ρόλος</th>
-                    <th>Προφίλ / Εταιρείες (ΑΦΜ)</th>
-                    <th>Σειριακός / Χρήστες</th>
-                    <th>Έκδοση &amp; Ημ. Ενημ.</th>
-                    <th>Κατάσταση Update</th>
-                    <th>Εγκρίσεις / Ενέργειες</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var client in Model.Clients)
-                {
-                    var profilesList = client.Profiles;
-                    var profileCount = profilesList.Count;
-                    var totalRowsForClient = Math.Max(1, profileCount) + 1;
-
-                    <tr>
-                        <td rowspan="@totalRowsForClient" style="vertical-align: top; border-bottom: 2px solid var(--border-color);">
-                            <strong>@client.MachineName</strong>
-                            @if (client.StartWithWindows)
-                            {
-                                <span class="badge" style="font-size: 9px; padding: 2px 4px; background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 4px; vertical-align: middle;">🚀 Boot</span>
-                            }
-                            <br />
-                            <span style="font-size: 11px; color: var(--text-secondary); font-weight: 500;">🤖 Agent: v@(string.IsNullOrEmpty(client.AgentVersion) ? "1.0.0" : client.AgentVersion)</span>
-                            <br />
-                            <span style="font-size: 11px; color: var(--text-secondary);">ID: @client.ClientGuid.Substring(0, Math.Min(client.ClientGuid.Length, 8))...</span>
-                        </td>
-                        <td rowspan="@totalRowsForClient" style="vertical-align: top; border-bottom: 2px solid var(--border-color);">
-                            @client.RegistrationDate.ToString("dd/MM/yyyy HH:mm")
-                        </td>
-                        <td rowspan="@totalRowsForClient" style="vertical-align: top; border-bottom: 2px solid var(--border-color);">
-                            @if (client.MachineRole == "SqlServer")
-                            {
-                                <span class="badge badge-danger">🗄️ Sql Server</span>
-                            }
-                            else if (client.MachineRole == "Client")
-                            {
-                                <span class="badge badge-info">🖥️ Client</span>
-                            }
-                            else
-                            {
-                                <span class="badge badge-success">🔌 Και τα 2</span>
-                            }
-                        </td>
-                        
-                        @if (profileCount == 0)
+        <div class="tree-container" style="padding: 10px 0;">
+            @foreach (var customer in Model.Customers)
+            {
+                <!-- Customer Node -->
+                <div class="tree-node customer-node collapsed" data-id="cust_@customer.Id">
+                    <div class="tree-node-header customer-header-node" onclick="toggleTreeNode(this)">
+                        <span class="tree-arrow">▶</span>
+                        <span class="tree-icon">🏢</span>
+                        <div class="tree-label">
+                            <strong>@customer.Name</strong> 
+                            <span style="color: var(--text-secondary); font-size: 12px; margin-left: 8px;">(@customer.Machines.Count Μηχανήματα)</span>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(customer.Notes))
                         {
-                            <td colspan="5" style="color: var(--text-secondary); font-style: italic; border-bottom: 1px solid var(--border-color);">Δεν έχουν ρυθμιστεί εταιρείες σε αυτόν τον Agent.</td>
+                            <span class="tree-help" style="font-size: 11px;">@customer.Notes</span>
+                        }
+                    </div>
+                    <div class="tree-node-content customer-content-node">
+                        @if (!customer.Machines.Any())
+                        {
+                            <div class="tree-empty-message">Δεν υπάρχουν εγκατεστημένοι Agents για αυτόν τον πελάτη.</div>
                         }
                         else
                         {
-                            var firstProfile = profilesList[0];
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                <strong>@firstProfile.ProfileName</strong>
-                                @if (firstProfile.IsPendingDelete)
-                                {
-                                    <span class="badge badge-danger" style="font-size: 9px; padding: 2px 4px; margin-left: 4px;">Προς Διαγραφή</span>
-                                }
-                                <br />
-                                <span style="font-size: 11px; color: var(--text-secondary);">ΑΦΜ: @firstProfile.Afm</span>
-                            </td>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                <span style="font-size: 12px; font-family: monospace;">@(!string.IsNullOrEmpty(firstProfile.SerialNumber) ? firstProfile.SerialNumber : "-")</span>
-                                <br />
-                                <span style="font-size: 11px; color: var(--text-secondary);">Χρήστες: @firstProfile.ActiveUsersCount</span>
-                            </td>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                <span class="badge badge-secondary">v @firstProfile.LastUpdatedVersion</span>
-                                <br />
-                                <span style="font-size: 10px; color: var(--text-secondary);">@(firstProfile.LastUpdatedTime?.ToString("dd/MM/yyyy HH:mm") ?? "-")</span>
-                            </td>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                @if (firstProfile.LastUpdateStatus == "Success")
-                                {
-                                    <span class="badge badge-success">✓ Επιτυχές</span>
-                                }
-                                else if (firstProfile.LastUpdateStatus == "Failed")
-                                {
-                                    <span class="badge badge-danger">✗ Αποτυχία</span>
-                                }
-                                else if (firstProfile.LastUpdateStatus == "Updating...")
-                                {
-                                    <span class="badge badge-warning">⏳ Ενημέρωση...</span>
-                                }
-                                else
-                                {
-                                    <span class="badge badge-info">@firstProfile.LastUpdateStatus</span>
-                                }
-                            </td>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                <div style="display: flex; gap: 4px; align-items: center;">
-                                    <form method="post" asp-page-handler="AuthorizeUpdate" asp-route-profileId="@firstProfile.Id" style="margin: 0;">
-                                        <button class="btn @(firstProfile.IsAuthorizedForUpdate ? "btn-danger" : "btn-success")" style="padding: 3px 6px; font-size: 11px; min-width: 100px;" type="submit">
-                                            @(firstProfile.IsAuthorizedForUpdate ? "Ακύρωση Έγκρ." : "Έγκριση Admin")
-                                        </button>
-                                    </form>
-                                    <button class="btn btn-outline edit-btn" style="padding: 3px 6px; font-size: 11px;" type="button"
-                                            data-id="@firstProfile.Id"
-                                            data-name="@firstProfile.ProfileName"
-                                            data-afm="@firstProfile.Afm"
-                                            data-serial="@firstProfile.SerialNumber"
-                                            data-users="@firstProfile.ActiveUsersCount"
-                                            data-conn="@firstProfile.ConnectionString"
-                                            data-folder="@firstProfile.TargetFolder"
-                                            data-exe="@firstProfile.TargetExeName">
-                                        ✏️
-                                    </button>
-                                    @if (!firstProfile.IsPendingDelete)
-                                    {
-                                        <form method="post" asp-page-handler="DeleteProfile" asp-route-profileId="@firstProfile.Id" style="margin: 0;" onsubmit="return confirm('Ζήτηση διαγραφής της εταιρείας από τον Agent;');">
-                                            <button class="btn btn-danger" style="padding: 3px 6px; font-size: 11px;" type="submit">🗑️</button>
-                                        </form>
-                                    }
-                                </div>
-                            </td>
-                        }
-                    </tr>
-
-                    @for (int idx = 1; idx < profileCount; idx++)
-                    {
-                        var profile = profilesList[idx];
-                        <tr>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                <strong>@profile.ProfileName</strong>
-                                @if (profile.IsPendingDelete)
-                                {
-                                    <span class="badge badge-danger" style="font-size: 9px; padding: 2px 4px; margin-left: 4px;">Προς Διαγραφή</span>
-                                }
-                                <br />
-                                <span style="font-size: 11px; color: var(--text-secondary);">ΑΦΜ: @profile.Afm</span>
-                            </td>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                <span style="font-size: 12px; font-family: monospace;">@(!string.IsNullOrEmpty(profile.SerialNumber) ? profile.SerialNumber : "-")</span>
-                                <br />
-                                <span style="font-size: 11px; color: var(--text-secondary);">Χρήστες: @profile.ActiveUsersCount</span>
-                            </td>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                <span class="badge badge-secondary">v @profile.LastUpdatedVersion</span>
-                                <br />
-                                <span style="font-size: 10px; color: var(--text-secondary);">@(profile.LastUpdatedTime?.ToString("dd/MM/yyyy HH:mm") ?? "-")</span>
-                            </td>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                @if (profile.LastUpdateStatus == "Success")
-                                {
-                                    <span class="badge badge-success">✓ Επιτυχές</span>
-                                }
-                                else if (profile.LastUpdateStatus == "Failed")
-                                {
-                                    <span class="badge badge-danger">✗ Αποτυχία</span>
-                                }
-                                else if (profile.LastUpdateStatus == "Updating...")
-                                {
-                                    <span class="badge badge-warning">⏳ Ενημέρωση...</span>
-                                }
-                                else
-                                {
-                                    <span class="badge badge-info">@profile.LastUpdateStatus</span>
-                                }
-                            </td>
-                            <td style="border-bottom: 1px solid var(--border-color);">
-                                <div style="display: flex; gap: 4px; align-items: center;">
-                                    <form method="post" asp-page-handler="AuthorizeUpdate" asp-route-profileId="@profile.Id" style="margin: 0;">
-                                        <button class="btn @(profile.IsAuthorizedForUpdate ? "btn-danger" : "btn-success")" style="padding: 3px 6px; font-size: 11px; min-width: 100px;" type="submit">
-                                            @(profile.IsAuthorizedForUpdate ? "Ακύρωση Έγκρ." : "Έγκριση Admin")
-                                        </button>
-                                    </form>
-                                    <button class="btn btn-outline edit-btn" style="padding: 3px 6px; font-size: 11px;" type="button"
-                                            data-id="@profile.Id"
-                                            data-name="@profile.ProfileName"
-                                            data-afm="@profile.Afm"
-                                            data-serial="@profile.SerialNumber"
-                                            data-users="@profile.ActiveUsersCount"
-                                            data-conn="@profile.ConnectionString"
-                                            data-folder="@profile.TargetFolder"
-                                            data-exe="@profile.TargetExeName">
-                                        ✏️
-                                    </button>
-                                    @if (!profile.IsPendingDelete)
-                                    {
-                                        <form method="post" asp-page-handler="DeleteProfile" asp-route-profileId="@profile.Id" style="margin: 0;" onsubmit="return confirm('Ζήτηση διαγραφής της εταιρείας από τον Agent;');">
-                                            <button class="btn btn-danger" style="padding: 3px 6px; font-size: 11px;" type="submit">🗑️</button>
-                                        </form>
-                                    }
-                                </div>
-                            </td>
-                        </tr>
-                    }
-
-                    <!-- Databases Row -->
-                    <tr style="background-color: #0e0e16;">
-                        <td colspan="5" style="padding: 12px 15px; border-bottom: 2px solid var(--border-color);">
-                            <div style="font-size: 13px; font-weight: bold; color: var(--success); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-                                <span>🗄️ Ανιχνευμένες Βάσεις SQL Server:</span>
-                                <span style="font-size: 11px; color: var(--text-secondary); font-weight: normal;">(Σύνολο: @client.Databases.Count)</span>
-                            </div>
-                            @if (!client.Databases.Any())
+                            @foreach (var client in customer.Machines)
                             {
-                                <div style="font-size: 12px; color: var(--text-secondary); font-style: italic; padding: 5px 0;">
-                                    Δεν έχουν ανιχνευθεί βάσεις δεδομένων ακόμα.
-                                </div>
-                            }
-                            else
-                            {
-                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
-                                    @foreach (var db in client.Databases)
-                                    {
-                                        <div style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
-                                            <div>
-                                                <span style="font-size: 13px; font-weight: bold; color: var(--text-primary);">@db.DatabaseName</span>
-                                                <br />
-                                                <span style="font-size: 10px; color: var(--text-secondary);">Instance: @db.InstanceName</span>
-                                            </div>
-                                            <div style="display: flex; align-items: center; gap: 8px;">
-                                                @if (db.IsMonitored)
-                                                {
-                                                    <span class="badge badge-success" style="font-size: 10px; padding: 3px 6px;">✓ Monitored</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge badge-secondary" style="font-size: 10px; padding: 3px 6px;">✗ Ignored</span>
-                                                }
-                                                <form method="post" asp-page-handler="ToggleDb" asp-route-dbId="@db.Id" style="margin: 0;">
-                                                    <button class="btn @(db.IsMonitored ? "btn-outline" : "")" style="padding: 2px 6px; font-size: 10px; min-width: 90px;" type="submit">
-                                                        @(db.IsMonitored ? "Παράλειψη" : "Παρακολούθηση")
-                                                    </button>
-                                                </form>
-                                            </div>
+                                <!-- Machine Node -->
+                                <div class="tree-node machine-node collapsed" style="margin-bottom: 12px;" data-id="mach_@client.Id">
+                                    <div class="tree-node-header machine-header-node" onclick="toggleTreeNode(this)">
+                                        <span class="tree-arrow">▶</span>
+                                        <span class="tree-icon">🖥️</span>
+                                        <div class="tree-label">
+                                            <strong>@(string.IsNullOrEmpty(client.Alias) ? client.MachineName : client.Alias)</strong>
+                                            <span style="color: var(--text-secondary); font-size: 11px; margin-left: 5px;">(@client.MachineName)</span>
+                                            <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;">v@(client.AgentVersion)</span>
+                                            <span class="badge badge-mini" style="background-color: rgba(255,255,255,0.05); color: var(--text-secondary);">@client.MachineRole</span>
                                         </div>
-                                    }
+                                    </div>
+                                    <div class="tree-node-content machine-content-node">
+                                        <!-- Profiles Section -->
+                                        <div style="margin-bottom: 15px;">
+                                            <strong style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 8px;">🏢 Συνδεδεμένες Εταιρείες:</strong>
+                                            @if (!client.Profiles.Any())
+                                            {
+                                                <div class="tree-empty-message">Δεν έχουν ρυθμιστεί εταιρείες σε αυτόν τον Agent.</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="table-responsive">
+                                                    <table class="tree-profiles-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Εταιρεία (ΑΦΜ)</th>
+                                                                <th>Σειριακός / Χρήστες</th>
+                                                                <th>Έκδοση ERP</th>
+                                                                <th>Κατάσταση Update</th>
+                                                                <th>Ενέργειες</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var profile in client.Profiles)
+                                                            {
+                                                                <tr>
+                                                                    <td>
+                                                                        <strong>@profile.ProfileName</strong>
+                                                                        @if (profile.IsPendingDelete)
+                                                                        {
+                                                                            <span class="badge badge-danger">Προς Διαγραφή</span>
+                                                                        }
+                                                                        <br />
+                                                                        <span style="font-size: 11px; color: var(--text-secondary);">ΑΦΜ: @profile.Afm</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span style="font-family: monospace;">@(!string.IsNullOrEmpty(profile.SerialNumber) ? profile.SerialNumber : "-")</span>
+                                                                        <br />
+                                                                        <span style="font-size: 11px; color: var(--text-secondary);">Χρήστες: @profile.ActiveUsersCount</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        <span class="badge badge-secondary">v @profile.LastUpdatedVersion</span>
+                                                                        <br />
+                                                                        <span style="font-size: 10px; color: var(--text-secondary);">@(profile.LastUpdatedTime?.ToString("dd/MM/yyyy HH:mm") ?? "-")</span>
+                                                                    </td>
+                                                                    <td>
+                                                                        @if (profile.LastUpdateStatus == "Success")
+                                                                        {
+                                                                            <span class="badge badge-success">✓ Επιτυχές</span>
+                                                                        }
+                                                                        else if (profile.LastUpdateStatus == "Failed")
+                                                                        {
+                                                                            <span class="badge badge-danger">✗ Αποτυχία</span>
+                                                                        }
+                                                                        else if (profile.LastUpdateStatus == "Updating...")
+                                                                        {
+                                                                            <span class="badge badge-warning">⏳ Ενημέρωση...</span>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <span class="badge badge-info">@profile.LastUpdateStatus</span>
+                                                                        }
+                                                                    </td>
+                                                                    <td>
+                                                                        <div style="display: flex; gap: 4px; align-items: center;">
+                                                                            <form method="post" asp-page-handler="AuthorizeUpdate" asp-route-profileId="@profile.Id" style="margin: 0;">
+                                                                                <button class="btn @(profile.IsAuthorizedForUpdate ? "btn-danger" : "btn-success")" style="padding: 3px 6px; font-size: 11px; min-width: 100px;" type="submit">
+                                                                                    @(profile.IsAuthorizedForUpdate ? "Ακύρωση Έγκρ." : "Έγκριση Admin")
+                                                                                </button>
+                                                                            </form>
+                                                                            <button class="btn btn-outline edit-btn" style="padding: 3px 6px; font-size: 11px;" type="button"
+                                                                                    data-id="@profile.Id"
+                                                                                    data-name="@profile.ProfileName"
+                                                                                    data-afm="@profile.Afm"
+                                                                                    data-serial="@profile.SerialNumber"
+                                                                                    data-users="@profile.ActiveUsersCount"
+                                                                                    data-conn="@profile.ConnectionString"
+                                                                                    data-folder="@profile.TargetFolder"
+                                                                                    data-exe="@profile.TargetExeName">
+                                                                                ✏️
+                                                                            </button>
+                                                                            @if (!profile.IsPendingDelete)
+                                                                            {
+                                                                                <form method="post" asp-page-handler="DeleteProfile" asp-route-profileId="@profile.Id" style="margin: 0;" onsubmit="return confirm('Ζήτηση διαγραφής της εταιρείας από τον Agent;');">
+                                                                                    <button class="btn btn-danger" style="padding: 3px 6px; font-size: 11px;" type="submit">🗑️</button>
+                                                                                </form>
+                                                                            }
+                                                                        </div>
+                                                                    </td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <!-- Databases Section -->
+                                        <div style="margin-top: 15px; border-top: 1px dashed var(--border-color); padding-top: 15px;">
+                                            <strong style="font-size: 12px; color: var(--success); display: block; margin-bottom: 8px;">🗄️ Ανιχνευμένες Βάσεις SQL Server:</strong>
+                                            @if (!client.Databases.Any())
+                                            {
+                                                <div class="tree-empty-message">Δεν έχουν ανιχνευθεί βάσεις δεδομένων ακόμα.</div>
+                                            }
+                                            else
+                                            {
+                                                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
+                                                    @foreach (var db in client.Databases)
+                                                    {
+                                                        <div style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+                                                            <div>
+                                                                <span style="font-size: 13px; font-weight: bold; color: var(--text-primary);">@db.DatabaseName</span>
+                                                                <br />
+                                                                <span style="font-size: 10px; color: var(--text-secondary);">Instance: @db.InstanceName</span>
+                                                            </div>
+                                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                                @if (db.IsMonitored)
+                                                                {
+                                                                    <span class="badge badge-success" style="font-size: 10px; padding: 3px 6px;">✓ Monitored</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="badge badge-secondary" style="font-size: 10px; padding: 3px 6px;">✗ Ignored</span>
+                                                                }
+                                                                <form method="post" asp-page-handler="ToggleDb" asp-route-dbId="@db.Id" style="margin: 0;">
+                                                                    <button class="btn @(db.IsMonitored ? "btn-outline" : "")" style="padding: 2px 6px; font-size: 10px; min-width: 90px;" type="submit">
+                                                                        @(db.IsMonitored ? "Παράλειψη" : "Παρακολούθηση")
+                                                                    </button>
+                                                                </form>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
                                 </div>
                             }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (Model.UnassignedClients.Any())
+            {
+                <!-- Unassigned Node -->
+                <div class="tree-node customer-node collapsed" data-id="cust_unassigned">
+                    <div class="tree-node-header customer-header-node" style="border-left-color: var(--danger);" onclick="toggleTreeNode(this)">
+                        <span class="tree-arrow">▶</span>
+                        <span class="tree-icon">❓</span>
+                        <div class="tree-label">
+                            <strong>Μη Κατηγοριοποιημένα Μηχανήματα</strong>
+                            <span style="color: var(--text-secondary); font-size: 12px; margin-left: 8px;">(@Model.UnassignedClients.Count Μηχανήματα)</span>
+                        </div>
+                    </div>
+                    <div class="tree-node-content customer-content-node">
+                        @foreach (var client in Model.UnassignedClients)
+                        {
+                            <!-- Machine Node -->
+                            <div class="tree-node machine-node collapsed" style="margin-bottom: 12px;" data-id="mach_@client.Id">
+                                <div class="tree-node-header machine-header-node" onclick="toggleTreeNode(this)">
+                                    <span class="tree-arrow">▶</span>
+                                    <span class="tree-icon">🖥️</span>
+                                    <div class="tree-label">
+                                        <strong>@client.MachineName</strong>
+                                        <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;">v@(client.AgentVersion)</span>
+                                        <span class="badge badge-mini" style="background-color: rgba(255,255,255,0.05); color: var(--text-secondary);">@client.MachineRole</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node-content machine-content-node">
+                                    <!-- Profiles Section -->
+                                    <div style="margin-bottom: 15px;">
+                                        <strong style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 8px;">🏢 Συνδεδεμένες Εταιρείες:</strong>
+                                        @if (!client.Profiles.Any())
+                                        {
+                                            <div class="tree-empty-message">Δεν έχουν ρυθμιστεί εταιρείες σε αυτόν τον Agent.</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-responsive">
+                                                <table class="tree-profiles-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Εταιρεία (ΑΦΜ)</th>
+                                                            <th>Σειριακός / Χρήστες</th>
+                                                            <th>Έκδοση ERP</th>
+                                                            <th>Κατάσταση Update</th>
+                                                            <th>Ενέργειες</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var profile in client.Profiles)
+                                                        {
+                                                            <tr>
+                                                                <td>
+                                                                    <strong>@profile.ProfileName</strong>
+                                                                    @if (profile.IsPendingDelete)
+                                                                    {
+                                                                        <span class="badge badge-danger">Προς Διαγραφή</span>
+                                                                    }
+                                                                    <br />
+                                                                    <span style="font-size: 11px; color: var(--text-secondary);">ΑΦΜ: @profile.Afm</span>
+                                                                </td>
+                                                                <td>
+                                                                    <span style="font-family: monospace;">@(!string.IsNullOrEmpty(profile.SerialNumber) ? profile.SerialNumber : "-")</span>
+                                                                    <br />
+                                                                    <span style="font-size: 11px; color: var(--text-secondary);">Χρήστες: @profile.ActiveUsersCount</span>
+                                                                </td>
+                                                                <td>
+                                                                    <span class="badge badge-secondary">v @profile.LastUpdatedVersion</span>
+                                                                    <br />
+                                                                    <span style="font-size: 10px; color: var(--text-secondary);">@(profile.LastUpdatedTime?.ToString("dd/MM/yyyy HH:mm") ?? "-")</span>
+                                                                </td>
+                                                                <td>
+                                                                    @if (profile.LastUpdateStatus == "Success")
+                                                                    {
+                                                                        <span class="badge badge-success">✓ Επιτυχές</span>
+                                                                    }
+                                                                    else if (profile.LastUpdateStatus == "Failed")
+                                                                    {
+                                                                        <span class="badge badge-danger">✗ Αποτυχία</span>
+                                                                    }
+                                                                    else if (profile.LastUpdateStatus == "Updating...")
+                                                                    {
+                                                                        <span class="badge badge-warning">⏳ Ενημέρωση...</span>
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <span class="badge badge-info">@profile.LastUpdateStatus</span>
+                                                                    }
+                                                                </td>
+                                                                <td>
+                                                                    <div style="display: flex; gap: 4px; align-items: center;">
+                                                                        <form method="post" asp-page-handler="AuthorizeUpdate" asp-route-profileId="@profile.Id" style="margin: 0;">
+                                                                            <button class="btn @(profile.IsAuthorizedForUpdate ? "btn-danger" : "btn-success")" style="padding: 3px 6px; font-size: 11px; min-width: 100px;" type="submit">
+                                                                                @(profile.IsAuthorizedForUpdate ? "Ακύρωση Έγκρ." : "Έγκριση Admin")
+                                                                            </button>
+                                                                        </form>
+                                                                        <button class="btn btn-outline edit-btn" style="padding: 3px 6px; font-size: 11px;" type="button"
+                                                                                data-id="@profile.Id"
+                                                                                data-name="@profile.ProfileName"
+                                                                                data-afm="@profile.Afm"
+                                                                                data-serial="@profile.SerialNumber"
+                                                                                data-users="@profile.ActiveUsersCount"
+                                                                                data-conn="@profile.ConnectionString"
+                                                                                data-folder="@profile.TargetFolder"
+                                                                                data-exe="@profile.TargetExeName">
+                                                                            ✏️
+                                                                        </button>
+                                                                        @if (!profile.IsPendingDelete)
+                                                                        {
+                                                                            <form method="post" asp-page-handler="DeleteProfile" asp-route-profileId="@profile.Id" style="margin: 0;" onsubmit="return confirm('Ζήτηση διαγραφής της εταιρείας από τον Agent;');">
+                                                                                <button class="btn btn-danger" style="padding: 3px 6px; font-size: 11px;" type="submit">🗑️</button>
+                                                                            </form>
+                                                                        }
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- Databases Section -->
+                                    <div style="margin-top: 15px; border-top: 1px dashed var(--border-color); padding-top: 15px;">
+                                        <strong style="font-size: 12px; color: var(--success); display: block; margin-bottom: 8px;">🗄️ Ανιχνευμένες Βάσεις SQL Server:</strong>
+                                        @if (!client.Databases.Any())
+                                        {
+                                            <div class="tree-empty-message">Δεν έχουν ανιχνευθεί βάσεις δεδομένων ακόμα.</div>
+                                        }
+                                        else
+                                        {
+                                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px;">
+                                                @foreach (var db in client.Databases)
+                                                {
+                                                    <div style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 6px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
+                                                        <div>
+                                                            <span style="font-size: 13px; font-weight: bold; color: var(--text-primary);">@db.DatabaseName</span>
+                                                            <br />
+                                                            <span style="font-size: 10px; color: var(--text-secondary);">Instance: @db.InstanceName</span>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 8px;">
+                                                            @if (db.IsMonitored)
+                                                            {
+                                                                <span class="badge badge-success" style="font-size: 10px; padding: 3px 6px;">✓ Monitored</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="badge badge-secondary" style="font-size: 10px; padding: 3px 6px;">✗ Ignored</span>
+                                                            }
+                                                            <form method="post" asp-page-handler="ToggleDb" asp-route-dbId="@db.Id" style="margin: 0;">
+                                                                <button class="btn @(db.IsMonitored ? "btn-outline" : "")" style="padding: 2px 6px; font-size: 10px; min-width: 90px;" type="submit">
+                                                                    @(db.IsMonitored ? "Παράλειψη" : "Παρακολούθηση")
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
     }
 </div>
 
@@ -328,6 +553,28 @@
 
 @section Scripts {
 <script>
+    // Collapsible tree view logic
+    function toggleTreeNode(header) {
+        var node = header.parentElement;
+        if (node.classList.contains('collapsed')) {
+            node.classList.remove('collapsed');
+        } else {
+            node.classList.add('collapsed');
+        }
+    }
+
+    function expandAll() {
+        document.querySelectorAll('.tree-node').forEach(node => {
+            node.classList.remove('collapsed');
+        });
+    }
+
+    function collapseAll() {
+        document.querySelectorAll('.tree-node').forEach(node => {
+            node.classList.add('collapsed');
+        });
+    }
+
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.getElementById('modalProfileId').value = this.getAttribute('data-id');

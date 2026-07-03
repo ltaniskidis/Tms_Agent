@@ -23,15 +23,15 @@
     }
 
     // Calculate statistics
-    var totalMachines = Model.Clients.Count;
-    var totalCompanies = Model.Clients
-        .SelectMany(c => c.Profiles.Where(p => !p.IsPendingDelete))
-        .Select(p => string.IsNullOrWhiteSpace(p.Afm) ? p.ProfileName.ToLower().Trim() : p.Afm.Trim())
+    var totalMachines = Model.Clients?.Count ?? 0;
+    var totalCompanies = Model.Clients == null ? 0 : Model.Clients
+        .SelectMany(c => c.Profiles?.Where(p => !p.IsPendingDelete) ?? Enumerable.Empty<ClientProfile>())
+        .Select(p => string.IsNullOrWhiteSpace(p.Afm) ? (p.ProfileName?.ToLower().Trim() ?? "") : p.Afm.Trim())
         .Where(x => !string.IsNullOrEmpty(x))
         .Distinct()
         .Count();
-    var totalAppUsers = Model.Clients.SelectMany(c => c.Profiles.Where(p => !p.IsPendingDelete)).Sum(p => p.ActiveUsersCount);
-    var totalAgentUsers = Model.Clients.SelectMany(c => c.LocalUsers).Count();
+    var totalAppUsers = Model.Clients == null ? 0 : Model.Clients.SelectMany(c => c.Profiles?.Where(p => !p.IsPendingDelete) ?? Enumerable.Empty<ClientProfile>()).Sum(p => p.ActiveUsersCount);
+    var totalAgentUsers = Model.Clients == null ? 0 : Model.Clients.SelectMany(c => c.LocalUsers ?? Enumerable.Empty<AgentUser>()).Count();
 }
 
 <div class="clients-container">
@@ -87,32 +87,205 @@
         </div>
     }
 
-    <!-- Create Client Section -->
-    <div class="card create-card">
-        <div class="card-title">➕ Προσθήκη Νέου Μηχανήματος (Client Machine)</div>
-        <form method="post" asp-page-handler="CreateClient" class="create-form">
-            <div class="form-group flex-1">
-                <label>Όνομα Μηχανήματος</label>
-                <input type="text" name="machineName" class="form-control" placeholder="π.χ. DESKTOP-OFFICE1" required />
-            </div>
-            <div class="form-group">
-                <label>Ρόλος Μηχανήματος</label>
-                <select name="machineRole" class="form-control select-control">
-                    <option value="Both">Both (SqlServer & Client)</option>
-                    <option value="SqlServer">SqlServer Only</option>
-                    <option value="Client">Client Only</option>
-                </select>
-            </div>
-            <button type="submit" class="btn btn-add">
-                <span>⚡</span> Δημιουργία Πελάτη
-            </button>
-        </form>
+    <!-- Main Tab Navigation -->
+    <div class="main-tabs">
+        <button class="tab-btn active" onclick="switchPageTab('pageTabCustomers')">👥 Πελάτες &amp; Μηχανήματα</button>
+        <button class="tab-btn" onclick="switchPageTab('pageTabAllMachines')">🖥️ Όλα τα Μηχανήματα</button>
     </div>
 
-    <!-- Filters & Table Grid -->
-    <div class="card grid-card">
+    <!-- TAB 1: Customers Centric View -->
+    <div id="pageTabCustomers" class="page-tab-content">
+        <!-- Create Customer Section -->
+        <div class="card create-card" style="margin-bottom: 25px;">
+            <div class="card-title">➕ Δημιουργία Νέου Πελάτη</div>
+            <form method="post" asp-page-handler="CreateCustomer" class="create-form" style="display: flex; gap: 15px; align-items: flex-end;">
+                <div class="form-group flex-1" style="margin-bottom: 0;">
+                    <label>Όνομα Πελάτη</label>
+                    <input type="text" name="name" class="form-control" placeholder="π.χ. ΦΛΕΣΣΑΣ" required />
+                </div>
+                <div class="form-group flex-1" style="margin-bottom: 0;">
+                    <label>Σημειώσεις / Περιγραφή</label>
+                    <input type="text" name="notes" class="form-control" placeholder="π.χ. Κεντρικά γραφεία και υποκαταστήματα" />
+                </div>
+                <button type="submit" class="btn btn-add" style="margin-bottom: 0; padding: 10px 20px; height: 38px; display: flex; align-items: center; justify-content: center;">
+                    <span>⚡</span> Δημιουργία
+                </button>
+            </form>
+        </div>
+
+        <!-- Customers Grid -->
+        <div class="customer-grid">
+            @if (Model.Customers == null || !Model.Customers.Any())
+            {
+                <div class="card" style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--text-secondary);">
+                    Δεν υπάρχουν καταχωρημένοι πελάτες. Δημιουργήστε έναν παραπάνω.
+                </div>
+            }
+            else
+            {
+                @foreach (var customer in Model.Customers ?? new List<Customer>())
+                {
+                    <div class="customer-card">
+                        <div class="customer-header">
+                            <div class="customer-title">
+                                🏢 @customer.Name
+                            </div>
+                            <div style="display: flex; gap: 6px; align-items: center;">
+                                <button type="button" class="btn btn-mini" style="background: none; border: none; color: var(--accent); padding: 4px; font-size: 14px; cursor: pointer;" 
+                                        data-id="@customer.Id"
+                                        data-name="@customer.Name"
+                                        data-notes="@customer.Notes"
+                                        onclick="openEditCustomerModal(this)" title="Επεξεργασία Πελάτη">
+                                    ✏️
+                                </button>
+                                <form method="post" asp-page-handler="DeleteCustomer" onsubmit="return confirm('ΠΡΟΣΟΧΗ: Διαγράφοντας τον πελάτη, όλα τα μηχανήματά του θα αποσυνδεθούν. Είστε σίγουροι ότι θέλετε να συνεχίσετε;');" style="margin: 0;">
+                                    <input type="hidden" name="id" value="@customer.Id" />
+                                    <button type="submit" class="btn-icon-danger" title="Διαγραφή Πελάτη">🗑️</button>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        @if (!string.IsNullOrWhiteSpace(customer.Notes))
+                        {
+                            <div class="customer-notes">@customer.Notes</div>
+                        }
+
+                        <!-- Machines List under Customer -->
+                        <div>
+                            <strong style="font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 8px;">🖥️ Εγκατεστημένοι Agents (@customer.Machines.Count)</strong>
+                            @if (!customer.Machines.Any())
+                            {
+                                <div style="font-size: 12px; color: var(--text-secondary); font-style: italic; padding: 10px 0;">
+                                    Δεν υπάρχουν συνδεδεμένα μηχανήματα. Προσθέστε ένα παρακάτω.
+                                </div>
+                            }
+                            else
+                            {
+                                <table class="customer-machines-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Θέση (Alias)</th>
+                                            <th>Μηχάνημα</th>
+                                            <th>API Key</th>
+                                            <th>Έκδοση</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var client in customer.Machines)
+                                        {
+                                            <tr>
+                                                <td><strong>@(string.IsNullOrEmpty(client.Alias) ? client.MachineName : client.Alias)</strong></td>
+                                                <td>
+                                                    <span style="color: var(--text-secondary);">@client.MachineName</span>
+                                                    <span class="badge" style="font-size: 9px; padding: 2px 4px; background-color: rgba(255,255,255,0.05);">@client.MachineRole</span>
+                                                </td>
+                                                <td>
+                                                    <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-family: monospace; font-size: 11px;">@client.ApiKey</code>
+                                                    <button type="button" onclick="navigator.clipboard.writeText('@client.ApiKey'); alert('Το API Key αντιγράφηκε!');" class="btn btn-mini" style="padding: 1px 4px; font-size: 10px; margin-left: 4px;" title="Αντιγραφή">📋</button>
+                                                </td>
+                                                 <td>v@(client.AgentVersion)</td>
+                                                <td style="white-space: nowrap;">
+                                                    <button type="button" class="btn btn-mini btn-action" 
+                                                            data-id="@client.Id"
+                                                            data-name="@client.MachineName"
+                                                            data-role="@client.MachineRole"
+                                                            data-guid="@client.ClientGuid"
+                                                            data-apikey="@client.ApiKey"
+                                                            data-upgrade="@(client.IsUpgradeEnabled ? "true" : "false")"
+                                                            data-startwithwindows="@(client.StartWithWindows ? "true" : "false")"
+                                                            data-viewlogs="@(client.Permissions?.CanOperatorViewLogs == true ? "true" : "false")"
+                                                            data-runupdates="@(client.Permissions?.CanOperatorRunUpdates == true ? "true" : "false")"
+                                                            data-users="@System.Text.Json.JsonSerializer.Serialize(client.LocalUsers)"
+                                                            data-profiles="@System.Text.Json.JsonSerializer.Serialize(client.Profiles)"
+                                                            data-alias="@client.Alias"
+                                                            data-customerid="@client.CustomerId"
+                                                            onclick="openModalFromBtn(this)">
+                                                        ⚙️
+                                                    </button>
+                                                    <form method="post" asp-page-handler="DeleteClient" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το μηχάνημα;');" style="display: inline-block; margin: 0; margin-left: 4px;">
+                                                        <input type="hidden" name="id" value="@client.Id" />
+                                                        <button type="submit" class="btn btn-mini btn-danger-action" title="Διαγραφή">🗑️</button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </div>
+
+                        <!-- Add Machine Form Toggle -->
+                        <div style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 12px;">
+                            <button type="button" onclick="toggleAddMachineForm(@customer.Id)" class="btn btn-mini" style="background-color: rgba(59, 130, 246, 0.1); color: #3B82F6; border: 1px solid rgba(59, 130, 246, 0.2); font-weight: 600;">
+                                ➕ Προσθήκη Μηχανήματος (Νέο API Key)
+                            </button>
+                            
+                            <div id="addMachineForm_@customer.Id" style="display: none; margin-top: 12px; background-color: rgba(0,0,0,0.15); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px;">
+                                <form method="post" asp-page-handler="AddMachineToCustomer" style="display: flex; flex-direction: column; gap: 10px; margin: 0;">
+                                    <input type="hidden" name="customerId" value="@customer.Id" />
+                                    
+                                    <div style="display: flex; gap: 10px;">
+                                        <div style="flex: 1;">
+                                            <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Όνομα Μηχανήματος (PC Name)</label>
+                                            <input type="text" name="machineName" class="form-control form-control-sm" placeholder="π.χ. FLESSAS-PC4" required />
+                                        </div>
+                                        <div style="flex: 1;">
+                                            <label style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Alias / Θέση (π.χ. Λογιστήριο)</label>
+                                            <input type="text" name="alias" class="form-control form-control-sm" placeholder="π.χ. PC Λογιστή 3" required />
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                                        <div>
+                                            <label style="font-size: 11px; color: var(--text-secondary); margin-right: 5px;">Ρόλος:</label>
+                                            <select name="machineRole" class="form-control form-control-sm select-control" style="display: inline-block; width: auto; padding: 2px 6px;">
+                                                <option value="Both">Both</option>
+                                                <option value="Client" selected>Client</option>
+                                                <option value="SqlServer">SqlServer</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-mini" style="background-color: var(--success); color: white; border: none; font-weight: bold; padding: 4px 12px;">
+                                            ⚡ Δημιουργία Key
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- TAB 2: Flat All Machines View -->
+    <div id="pageTabAllMachines" class="page-tab-content" style="display: none;">
+        <!-- Create Client Section -->
+        <div class="card create-card">
+            <div class="card-title">➕ Προσθήκη Νέου Μηχανήματος (Client Machine - Flat)</div>
+            <form method="post" asp-page-handler="CreateClient" class="create-form">
+                <div class="form-group flex-1">
+                    <label>Όνομα Μηχανήματος</label>
+                    <input type="text" name="machineName" class="form-control" placeholder="π.χ. DESKTOP-OFFICE1" required />
+                </div>
+                <div class="form-group">
+                    <label>Ρόλος Μηχανήματος</label>
+                    <select name="machineRole" class="form-control select-control">
+                        <option value="Both">Both (SqlServer & Client)</option>
+                        <option value="SqlServer">SqlServer Only</option>
+                        <option value="Client">Client Only</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-add">
+                    <span>⚡</span> Δημιουργία
+                </button>
+            </form>
+        </div>
+
+        <!-- Filters & Table Grid -->
+        <div class="card grid-card">
         <div class="grid-header-actions">
-            <div class="card-title">🖥️ Ενεργά Μηχανήματα Πελατών (@Model.Clients.Count)</div>
+            <div class="card-title">🖥️ Ενεργά Μηχανήματα Πελατών (@(Model.Clients?.Count ?? 0))</div>
             
             <!-- Filters Bar -->
             <div class="filters-bar">
@@ -165,10 +338,10 @@
                     {
                         @foreach (var client in Model.Clients)
                         {
-                            var activeClientProfiles = client.Profiles.Where(p => !p.IsPendingDelete).ToList();
-                            var profileNames = string.Join(" ", activeClientProfiles.Select(p => p.ProfileName.ToLower()));
-                            var profileAfms = string.Join(" ", activeClientProfiles.Select(p => p.Afm));
-                            var profileSerials = string.Join(" ", activeClientProfiles.Select(p => p.SerialNumber));
+                            var activeClientProfiles = (client.Profiles ?? new List<ClientProfile>()).Where(p => !p.IsPendingDelete).ToList();
+                            var profileNames = string.Join(" ", activeClientProfiles.Select(p => (p.ProfileName ?? "").ToLower()));
+                            var profileAfms = string.Join(" ", activeClientProfiles.Select(p => p.Afm ?? ""));
+                            var profileSerials = string.Join(" ", activeClientProfiles.Select(p => p.SerialNumber ?? ""));
                             var appUsersSum = activeClientProfiles.Sum(p => p.ActiveUsersCount);
                             
                             <tr class="client-row" 
@@ -291,6 +464,8 @@
                                             data-runupdates="@(client.Permissions?.CanOperatorRunUpdates == true ? "true" : "false")"
                                             data-users="@System.Text.Json.JsonSerializer.Serialize(client.LocalUsers)"
                                             data-profiles="@System.Text.Json.JsonSerializer.Serialize(client.Profiles)"
+                                            data-alias="@client.Alias"
+                                            data-customerid="@client.CustomerId"
                                             onclick="openModalFromBtn(this)">
                                         ⚙️ Διαχείριση
                                     </button>
@@ -307,6 +482,7 @@
             </table>
         </div>
     </div>
+</div>
 </div>
 
 <!-- Modal Overlay for Management -->
@@ -364,8 +540,24 @@
                     <input type="hidden" name="id" id="modalSettingsId" value="" />
                     
                     <div class="form-group">
-                        <label>Όνομα Μηχανήματος</label>
+                        <label>Όνομα Μηχανήματος (PC Name)</label>
                         <input type="text" name="machineName" id="modalMachineName" class="form-control" placeholder="π.χ. DESKTOP-OFFICE1" required />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Alias / Θέση Εργασίας</label>
+                        <input type="text" name="alias" id="modalAlias" class="form-control" placeholder="π.χ. PC Λογιστή 3" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Αντιστοίχιση σε Πελάτη</label>
+                        <select name="customerId" id="modalCustomerId" class="form-control select-control">
+                            <option value="">-- Χωρίς Πελάτη --</option>
+                            @foreach (var cust in Model.Customers ?? new List<Customer>())
+                            {
+                                <option value="@cust.Id">@cust.Name</option>
+                            }
+                        </select>
                     </div>
 
                     <div class="form-group">
@@ -585,6 +777,30 @@
                     </form>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Customer Modal -->
+<div id="editCustomerModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3>✏️ Επεξεργασία Στοιχείων Πελάτη</h3>
+            <span class="close-btn" onclick="closeCustomerModal()">×</span>
+        </div>
+        <div class="modal-body">
+            <form method="post" asp-page-handler="UpdateCustomer" class="modal-form">
+                <input type="hidden" name="id" id="editCustomerId" />
+                <div class="form-group">
+                    <label>Όνομα Πελάτη</label>
+                    <input type="text" name="name" id="editCustomerName" class="form-control" placeholder="π.χ. ΦΛΕΣΣΑΣ Α.Ε." required />
+                </div>
+                <div class="form-group">
+                    <label>Σημειώσεις / Περιγραφή</label>
+                    <textarea name="notes" id="editCustomerNotes" class="form-control" rows="3" placeholder="π.χ. Κεντρικά γραφεία και υποκαταστήματα"></textarea>
+                </div>
+                <button type="submit" class="btn btn-login">💾 Αποθήκευση</button>
+            </form>
         </div>
     </div>
 </div>
@@ -1392,9 +1608,178 @@
         border-radius: 8px;
         border: 1px solid var(--border-color);
     }
+
+    /* Main Tabs styling */
+    .main-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 25px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 5px;
+    }
+    
+    .tab-btn {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 14px;
+        font-weight: 600;
+        padding: 10px 20px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-bottom: 3px solid transparent;
+        border-radius: 6px 6px 0 0;
+    }
+    
+    .tab-btn:hover {
+        color: var(--text-primary);
+        background-color: rgba(255, 255, 255, 0.03);
+    }
+    
+    .tab-btn.active {
+        color: var(--accent);
+        border-bottom: 3px solid var(--accent);
+    }
+
+    /* Customer Grid styling */
+    .customer-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(540px, 1fr));
+        gap: 25px;
+        margin-top: 20px;
+    }
+
+    .customer-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .customer-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 12px -1px rgba(0, 0, 0, 0.2);
+    }
+
+    .customer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 12px;
+    }
+
+    .customer-title {
+        font-size: 18px;
+        font-weight: bold;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .customer-notes {
+        font-size: 13px;
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+
+    .customer-machines-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 12px;
+    }
+
+    .customer-machines-table th {
+        text-align: left;
+        color: var(--text-secondary);
+        font-weight: 600;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .customer-machines-table td {
+        padding: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        color: var(--text-primary);
+    }
+
+    .btn-icon-danger {
+        background: none;
+        border: none;
+        color: var(--danger);
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+    }
+    .btn-icon-danger:hover {
+        background-color: rgba(239, 68, 68, 0.15);
+    }
 </style>
 
 <script>
+    // Customer Modal Operations
+    function openEditCustomerModal(btn) {
+        var id = btn.getAttribute("data-id");
+        var name = btn.getAttribute("data-name");
+        var notes = btn.getAttribute("data-notes");
+
+        document.getElementById("editCustomerId").value = id;
+        document.getElementById("editCustomerName").value = name;
+        document.getElementById("editCustomerNotes").value = notes;
+
+        document.getElementById("editCustomerModal").style.display = "flex";
+    }
+
+    function closeCustomerModal() {
+        document.getElementById("editCustomerModal").style.display = "none";
+    }
+
+    // Tab switching for page tabs
+    function switchPageTab(tabId) {
+        document.querySelectorAll('.page-tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        
+        var targetContent = document.getElementById(tabId);
+        if (targetContent) {
+            targetContent.style.display = 'block';
+        }
+        
+        // Find tab button that matches tabId
+        var btn = document.querySelector(`button[onclick*="${tabId}"]`);
+        if (btn) {
+            btn.classList.add('active');
+        }
+        
+        sessionStorage.setItem('activeClientsPageTab', tabId);
+    }
+
+    // Toggle showing add machine form under Customer card
+    function toggleAddMachineForm(customerId) {
+        var formDiv = document.getElementById('addMachineForm_' + customerId);
+        if (formDiv) {
+            if (formDiv.style.display === 'none') {
+                formDiv.style.display = 'block';
+            } else {
+                formDiv.style.display = 'none';
+            }
+        }
+    }
+
+    // Restore page tab on load
+    document.addEventListener('DOMContentLoaded', function() {
+        var activeTab = sessionStorage.getItem('activeClientsPageTab') || 'pageTabCustomers';
+        switchPageTab(activeTab);
+    });
+
     // Copy Text to Clipboard Helper
     function copyText(text, btnElement) {
         navigator.clipboard.writeText(text).then(function() {
@@ -1460,13 +1845,15 @@
         var startWithWindows = btn.getAttribute("data-startwithwindows") === "true";
         var usersJsonString = btn.getAttribute("data-users");
         var profilesJsonString = btn.getAttribute("data-profiles");
+        var alias = btn.getAttribute("data-alias") || "";
+        var customerId = btn.getAttribute("data-customerid") || "";
         
-        openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString);
+        openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString, alias, customerId);
     }
 
     // Modal Operations
-    function openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString) {
-        document.getElementById("modalTitle").innerText = "⚙️ Διαχείριση Πελάτη: " + name;
+    function openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString, alias, customerId) {
+        document.getElementById("modalTitle").innerText = "⚙️ Διαχείριση Μηχανήματος: " + name;
         document.getElementById("modalGuid").innerText = guid;
         document.getElementById("modalApiKey").innerText = apiKey;
 
@@ -1477,6 +1864,8 @@
 
         // Populate Settings values
         document.getElementById("modalMachineName").value = name;
+        document.getElementById("modalAlias").value = alias;
+        document.getElementById("modalCustomerId").value = customerId;
         document.getElementById("modalMachineRole").value = role;
         document.getElementById("modalIsUpgradeEnabled").checked = isUpgradeEnabled;
         document.getElementById("modalCanOperatorViewLogs").checked = canViewLogs;

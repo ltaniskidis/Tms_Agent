@@ -14,6 +14,7 @@ namespace Tms.CentralManagement.Data
         public DbSet<SqlScript> SqlScripts { get; set; } = null!;
         public DbSet<ReleaseNote> ReleaseNotes { get; set; } = null!;
         public DbSet<ClientMachine> Clients { get; set; } = null!;
+        public DbSet<Customer> Customers { get; set; } = null!;
         public DbSet<ClientProfile> ClientProfiles { get; set; } = null!;
         public DbSet<UpdateLog> UpdateLogs { get; set; } = null!;
         public DbSet<ClientDatabase> ClientDatabases { get; set; } = null!;
@@ -27,6 +28,12 @@ namespace Tms.CentralManagement.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<Customer>()
+                .HasMany(c => c.Machines)
+                .WithOne(m => m.Customer)
+                .HasForeignKey(m => m.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<VersionInfo>()
                 .HasMany(v => v.Scripts)
@@ -116,6 +123,10 @@ namespace Tms.CentralManagement.Data
         public string ApiKey { get; set; } = string.Empty;
         public bool IsUpgradeEnabled { get; set; } = true;
         public bool StartWithWindows { get; set; } = false;
+
+        public int? CustomerId { get; set; }
+        public Customer? Customer { get; set; }
+        public string? Alias { get; set; }
 
         public List<ClientProfile> Profiles { get; set; } = new();
         public List<ClientDatabase> Databases { get; set; } = new();
@@ -241,5 +252,14 @@ namespace Tms.CentralManagement.Data
         public string Password { get; set; } = string.Empty;
         public bool EnableSsl { get; set; } = true;
         public string Sender { get; set; } = string.Empty;
+    }
+
+    public class Customer
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Notes { get; set; }
+        public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+        public List<ClientMachine> Machines { get; set; } = new();
     }
 }

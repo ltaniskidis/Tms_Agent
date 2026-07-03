@@ -336,11 +336,118 @@ using (var scope = app.Services.CreateScope())
                     }
                 }
             }
+
+            // 6. Check if Customers table exists and create it if missing
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name='Customers';";
+                var tableExists = command.ExecuteScalar() != null;
+                if (!tableExists)
+                {
+                    using (var createTableCommand = connection.CreateCommand())
+                    {
+                        createTableCommand.CommandText = @"
+                            CREATE TABLE Customers (
+                                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                Name TEXT NOT NULL,
+                                Notes TEXT NULL,
+                                CreatedDate TEXT NOT NULL
+                            );";
+                        createTableCommand.ExecuteNonQuery();
+                    }
+                }
+            }
+
+            // 7. Check if CustomerId column exists in Clients table and add it
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "PRAGMA table_info(Clients);";
+                var columns = new List<string>();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        columns.Add(reader["name"].ToString() ?? "");
+                    }
+                }
+
+                if (!columns.Contains("CustomerId", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN CustomerId INTEGER NULL REFERENCES Customers(Id) ON DELETE SET NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
+
+                if (!columns.Contains("Alias", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN Alias TEXT NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
+            }
         }
     }
     catch (Exception ex)
     {
         Console.WriteLine($"Error checking/adding SQLite columns: {ex.Message}");
+    }
+
+    // Auto-match existing clients to customers
+    try
+    {
+        var clientsWithoutCustomer = context.Clients.Where(c => c.CustomerId == null).ToList();
+        if (clientsWithoutCustomer.Any())
+        {
+            foreach (var client in clientsWithoutCustomer)
+            {
+                // Determine customer name from machine name
+                string customerName = "DEFAULT";
+                var parts = client.MachineName.Split(new[] { '-', '_' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 0)
+                {
+                    customerName = parts[0].Trim().ToUpper();
+                }
+                else
+                {
+                    customerName = client.MachineName.Trim().ToUpper();
+                }
+
+                // Clean common generic names
+                if (customerName == "DESKTOP" || customerName == "LAPTOP" || customerName == "WORKSTATION" || string.IsNullOrWhiteSpace(customerName))
+                {
+                    customerName = "OTHER";
+                }
+
+                // Find or create customer
+                var customer = context.Customers.FirstOrDefault(c => c.Name.ToUpper() == customerName);
+                if (customer == null)
+                {
+                    customer = new Tms.CentralManagement.Data.Customer
+                    {
+                        Name = customerName,
+                        Notes = "Αυτόματη δημιουργία κατά τη μετάβαση συστήματος",
+                        CreatedDate = DateTime.UtcNow
+                    };
+                    context.Customers.Add(customer);
+                    context.SaveChanges();
+                }
+
+                client.CustomerId = customer.Id;
+                if (string.IsNullOrEmpty(client.Alias))
+                {
+                    client.Alias = client.MachineName;
+                }
+            }
+            context.SaveChanges();
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Error auto-matching clients to customers: {ex.Message}");
     }
 
             // Update existing version target types to System if they belong to Console/Agent
@@ -1989,6 +2096,58 @@ GO
             TargetType = "System"
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διορθώθηκε κρίσιμο συντακτικό σφάλμα της cmd.exe (nested label/goto loop) κατά τον αυτόματο τερματισμό και επανεκκίνηση της υπηρεσίας TmsAgent στο batch script της αναβάθμισης." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.59"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.59",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Οργάνωση μηχανημάτων ανά πελάτη (Customer Grouping), διαχείριση API Keys/Aliases, collapsible Tree-View Dashboard και επεξεργασία στοιχείων πελάτη.",
+            BinaryFileUrl = "/packages/app_1.5.59.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη οργάνωσης μηχανημάτων ανά Πελάτη, υποστήριξη Alias θέσης εργασίας, collapsible Tree-View στην κονσόλα με Expand/Collapse All, και δυνατότητα επεξεργασίας στοιχείων πελάτη." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.60"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.60",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Βελτίωση της αξιοπιστίας και αποφυγή deadlocks κατά την αυτόματη αναβάθμιση του Agent.",
+            BinaryFileUrl = "/packages/app_1.5.60.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη ορίου αναμονής (timeout) για τον τερματισμό της υπηρεσίας, αυτόματο Force Kill αν κολλήσει σε STOP_PENDING και μέγιστο όριο 10 επαναλήψεων αντιγραφής για αποφυγή ατέρμονων βρόχων." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

@@ -18,6 +18,8 @@ namespace Tms.CentralManagement.Pages
         }
 
         public IList<ClientMachine> Clients { get;set; } = default!;
+        public IList<Customer> Customers { get; set; } = new List<Customer>();
+        public IList<ClientMachine> UnassignedClients { get; set; } = new List<ClientMachine>();
 
         [BindProperty]
         public int EditProfileId { get; set; }
@@ -38,6 +40,22 @@ namespace Tms.CentralManagement.Pages
 
         public async Task OnGetAsync()
         {
+            Customers = await _context.Customers
+                .Include(c => c.Machines)
+                    .ThenInclude(m => m.Profiles)
+                        .ThenInclude(p => p.UpdateLogs)
+                .Include(c => c.Machines)
+                    .ThenInclude(m => m.Databases)
+                .OrderBy(c => c.Name)
+                .ToListAsync();
+
+            UnassignedClients = await _context.Clients
+                .Where(c => c.CustomerId == null)
+                .Include(c => c.Profiles)
+                    .ThenInclude(p => p.UpdateLogs)
+                .Include(c => c.Databases)
+                .ToListAsync();
+
             Clients = await _context.Clients
                 .Include(c => c.Profiles)
                     .ThenInclude(p => p.UpdateLogs)

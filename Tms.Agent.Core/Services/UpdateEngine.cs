@@ -1386,10 +1386,15 @@ namespace Tms.Agent.Core.Services
                 batchContent.AppendLine("if %wasServiceRunning% equ 1 goto wait_service_stop");
                 batchContent.AppendLine("goto service_stopped");
                 batchContent.AppendLine(":wait_service_stop");
+                batchContent.AppendLine("set stopRetry=0");
+                batchContent.AppendLine(":wait_service_stop_loop");
                 batchContent.AppendLine("sc query TmsAgent 2>nul | findstr /I \"RUNNING STOP_PENDING\" > nul");
                 batchContent.AppendLine("if %errorlevel% equ 0 (");
-                batchContent.AppendLine("    timeout /t 1 /nobreak > nul");
-                batchContent.AppendLine("    goto wait_service_stop");
+                batchContent.AppendLine("    set /a stopRetry+=1");
+                batchContent.AppendLine("    if %stopRetry% lss 10 (");
+                batchContent.AppendLine("        timeout /t 1 /nobreak > nul");
+                batchContent.AppendLine("        goto wait_service_stop_loop");
+                batchContent.AppendLine("    )");
                 batchContent.AppendLine(")");
                 batchContent.AppendLine(":service_stopped");
                 
@@ -1399,21 +1404,32 @@ namespace Tms.Agent.Core.Services
                 batchContent.AppendLine($"taskkill /f /im \"{Path.GetFileName(currentExe)}\" 2>nul");
 
                 // Loop and check if the executable is locked. Wait until type is successful (meaning process terminated and lock released)
+                batchContent.AppendLine("set unlockRetry=0");
                 batchContent.AppendLine(":wait_unlock");
                 batchContent.AppendLine($"type nul >> \"{currentExe}\" 2>nul");
                 batchContent.AppendLine("if errorlevel 1 (");
-                batchContent.AppendLine("    timeout /t 1 /nobreak > nul");
-                batchContent.AppendLine("    goto wait_unlock");
+                batchContent.AppendLine("    set /a unlockRetry+=1");
+                batchContent.AppendLine("    if %unlockRetry% lss 10 (");
+                batchContent.AppendLine("        timeout /t 1 /nobreak > nul");
+                batchContent.AppendLine("        goto wait_unlock");
+                batchContent.AppendLine("    )");
                 batchContent.AppendLine(")");
 
                 // Copy files with a retry loop in case other files (DLLs) are locked temporarily
                 var logFolder = PathHelper.GetAgentDataFolder();
                 var logFilePath = Path.Combine(logFolder, "agent_upgrade.log");
+                batchContent.AppendLine("set copyRetry=0");
                 batchContent.AppendLine(":do_copy");
                 batchContent.AppendLine($"xcopy /y /s /e \"{extractDir}\\*\" \"{currentFolder}\" > \"{logFilePath}\" 2>&1");
                 batchContent.AppendLine("if errorlevel 1 (");
-                batchContent.AppendLine("    timeout /t 1 /nobreak > nul");
-                batchContent.AppendLine("    goto do_copy");
+                batchContent.AppendLine("    set /a copyRetry+=1");
+                batchContent.AppendLine("    if %copyRetry% lss 10 (");
+                batchContent.AppendLine("        taskkill /f /im TmsAgentService.exe 2>nul");
+                batchContent.AppendLine("        taskkill /f /im Tms.Agent.Wpf.exe 2>nul");
+                batchContent.AppendLine($"        taskkill /f /im \"{Path.GetFileName(currentExe)}\" 2>nul");
+                batchContent.AppendLine("        timeout /t 2 /nobreak > nul");
+                batchContent.AppendLine("        goto do_copy");
+                batchContent.AppendLine("    )");
                 batchContent.AppendLine(")");
 
                 if (isService)

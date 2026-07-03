@@ -19,6 +19,7 @@ namespace Tms.CentralManagement.Pages
         }
 
         public List<ClientMachine> Clients { get; set; } = new();
+        public List<Customer> Customers { get; set; } = new();
 
         public string CurrentSystemVersion { get; set; } = "1.5.0";
 
@@ -31,10 +32,23 @@ namespace Tms.CentralManagement.Pages
         public async Task OnGetAsync()
         {
             Clients = await _context.Clients
+                .Include(c => c.Customer)
                 .Include(c => c.Profiles)
                 .Include(c => c.LocalUsers)
                 .Include(c => c.Permissions)
                 .Include(c => c.Databases)
+                .ToListAsync();
+
+            Customers = await _context.Customers
+                .Include(c => c.Machines)
+                    .ThenInclude(m => m.Profiles)
+                .Include(c => c.Machines)
+                    .ThenInclude(m => m.LocalUsers)
+                .Include(c => c.Machines)
+                    .ThenInclude(m => m.Permissions)
+                .Include(c => c.Machines)
+                    .ThenInclude(m => m.Databases)
+                .OrderBy(c => c.Name)
                 .ToListAsync();
 
             var currentSystemVersionObj = await _context.Versions
@@ -94,6 +108,60 @@ namespace Tms.CentralManagement.Pages
                 {
                     _context.Clients.Remove(client);
                     await _context.SaveChangesAsync();
+                    SuccessMessage = "Το μηχάνημα διαγράφηκε επιτυχώς.";
+                }
+                else
+                {
+                    ErrorMessage = "Το μηχάνημα δεν βρέθηκε.";
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in OnPostDeleteClientAsync: {ex}");
+                ErrorMessage = $"Σφάλμα κατά τη διαγραφή μηχανήματος: {ex.Message}";
+            }
+
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnPostCreateCustomerAsync(string name, string notes)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                ErrorMessage = "Το όνομα πελάτη είναι υποχρεωτικό.";
+                return RedirectToPage();
+            }
+
+            try
+            {
+                var newCustomer = new Customer
+                {
+                    Name = name.Trim(),
+                    Notes = notes?.Trim(),
+                    CreatedDate = DateTime.UtcNow
+                };
+
+                _context.Customers.Add(newCustomer);
+                await _context.SaveChangesAsync();
+                SuccessMessage = $"Ο πελάτης '{name}' δημιουργήθηκε επιτυχώς.";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Σφάλμα κατά τη δημιουργία πελάτη: {ex.Message}";
+            }
+
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnPostDeleteCustomerAsync(int id)
+        {
+            try
+            {
+                var customer = await _context.Customers.FindAsync(id);
+                if (customer != null)
+                {
+                    _context.Customers.Remove(customer);
+                    await _context.SaveChangesAsync();
                     SuccessMessage = "Ο πελάτης διαγράφηκε επιτυχώς.";
                 }
                 else
@@ -103,14 +171,90 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostDeleteClientAsync: {ex}");
                 ErrorMessage = $"Σφάλμα κατά τη διαγραφή πελάτη: {ex.Message}";
             }
 
             return RedirectToPage();
         }
 
-        public async Task<IActionResult> OnPostUpdateClientSettingsAsync(int id, string machineName, string machineRole, bool isUpgradeEnabled, bool canOperatorViewLogs, bool canOperatorRunUpdates, bool startWithWindows)
+        public async Task<IActionResult> OnPostUpdateCustomerAsync(int id, string name, string notes)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                ErrorMessage = "Το όνομα πελάτη είναι υποχρεωτικό.";
+                return RedirectToPage();
+            }
+
+            try
+            {
+                var customer = await _context.Customers.FindAsync(id);
+                if (customer != null)
+                {
+                    customer.Name = name.Trim();
+                    customer.Notes = notes?.Trim();
+                    await _context.SaveChangesAsync();
+                    SuccessMessage = $"Τα στοιχεία του πελάτη '{name}' ενημερώθηκαν επιτυχώς.";
+                }
+                else
+                {
+                    ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                }
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Σφάλμα κατά την ενημέρωση του πελάτη: {ex.Message}";
+            }
+
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnPostAddMachineToCustomerAsync(int customerId, string machineName, string machineRole, string alias)
+        {
+            if (string.IsNullOrWhiteSpace(machineName))
+            {
+                ErrorMessage = "Το όνομα μηχανήματος είναι υποχρεωτικό.";
+                return RedirectToPage();
+            }
+
+            try
+            {
+                var customer = await _context.Customers.FindAsync(customerId);
+                if (customer == null)
+                {
+                    ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                    return RedirectToPage();
+                }
+
+                var newClient = new ClientMachine
+                {
+                    ClientGuid = Guid.NewGuid().ToString().ToUpper(),
+                    MachineName = machineName.Trim(),
+                    MachineRole = machineRole ?? "Both",
+                    ApiKey = GenerateRandomApiKey(),
+                    IsUpgradeEnabled = true,
+                    RegistrationDate = DateTime.UtcNow,
+                    CustomerId = customerId,
+                    Alias = string.IsNullOrWhiteSpace(alias) ? machineName.Trim() : alias.Trim(),
+                    Permissions = new AgentPermissions
+                    {
+                        CanOperatorViewLogs = true,
+                        CanOperatorRunUpdates = false
+                    }
+                };
+
+                _context.Clients.Add(newClient);
+                await _context.SaveChangesAsync();
+                SuccessMessage = $"Το μηχάνημα '{machineName}' προστέθηκε επιτυχώς στον πελάτη '{customer.Name}' με API Key: {newClient.ApiKey}";
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = $"Σφάλμα κατά την προσθήκη μηχανήματος: {ex.Message}";
+            }
+
+            return RedirectToPage();
+        }
+
+        public async Task<IActionResult> OnPostUpdateClientSettingsAsync(int id, string machineName, string machineRole, bool isUpgradeEnabled, bool canOperatorViewLogs, bool canOperatorRunUpdates, bool startWithWindows, string alias, int? customerId)
         {
             try
             {
@@ -120,7 +264,7 @@ namespace Tms.CentralManagement.Pages
 
                 if (client == null)
                 {
-                    ErrorMessage = "Ο πελάτης δεν βρέθηκε.";
+                    ErrorMessage = "Το μηχάνημα δεν βρέθηκε.";
                     return RedirectToPage();
                 }
 
@@ -133,6 +277,8 @@ namespace Tms.CentralManagement.Pages
                     client.MachineRole = machineRole;
                 }
 
+                client.Alias = alias?.Trim();
+                client.CustomerId = customerId;
                 client.IsUpgradeEnabled = isUpgradeEnabled;
                 client.StartWithWindows = startWithWindows;
 
@@ -144,7 +290,7 @@ namespace Tms.CentralManagement.Pages
                 client.Permissions.CanOperatorRunUpdates = canOperatorRunUpdates;
 
                 await _context.SaveChangesAsync();
-                SuccessMessage = "Οι ρυθμίσεις του πελάτη ενημερώθηκαν επιτυχώς.";
+                SuccessMessage = "Οι ρυθμίσεις του μηχανήματος ενημερώθηκαν επιτυχώς.";
             }
             catch (Exception ex)
             {

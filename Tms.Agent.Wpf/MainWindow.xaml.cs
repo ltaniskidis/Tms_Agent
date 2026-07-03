@@ -13,11 +13,21 @@ namespace Tms.Agent.Wpf
         private bool _isExiting = false;
         private string _balloonTargetView = string.Empty;
 
+        private readonly System.Collections.Generic.HashSet<int> _dismissedBroadcastIds = new();
+        private readonly System.Collections.Generic.HashSet<int> _activeBroadcastIds = new();
+
         public MainWindow()
         {
             InitializeComponent();
             var vm = new MainViewModel();
             DataContext = vm;
+
+            // Check if launched with --startup (silent mode on Windows boot/restart)
+            string[] args = Environment.GetCommandLineArgs();
+            if (args != null && args.Any(a => string.Equals(a, "--startup", StringComparison.OrdinalIgnoreCase)))
+            {
+                vm.IsSilentMode = true;
+            }
 
             if (!string.IsNullOrEmpty(App.LoggedInUser))
             {
@@ -29,29 +39,52 @@ namespace Tms.Agent.Wpf
                 _balloonTargetView = "Dashboard";
                 _notifyIcon?.ShowBalloonTip(3000, "TMS Agent - Νέα Έκδοση", $"Διαθέσιμη νέα έκδοση ({versionNumber}) για την εταιρεία: {companyName}", System.Windows.Forms.ToolTipIcon.Info);
 
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                if (!vm.IsSilentMode)
                 {
-                    System.Windows.MessageBox.Show(
-                        $"Ανιχνεύθηκε νέα έκδοση ({versionNumber}) για την εταιρεία '{companyName}'!",
-                        "Διαθέσιμη Ενημέρωση",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Information);
-                });
+                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    {
+                        System.Windows.MessageBox.Show(
+                            $"Ανιχνεύθηκε νέα έκδοση ({versionNumber}) για την εταιρεία '{companyName}'!",
+                            "Διαθέσιμη Ενημέρωση",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Information);
+                    });
+                }
             };
 
-            vm.BroadcastDetected += (title, content) =>
+            vm.BroadcastDetected += (id, title, content) =>
             {
+                if (_dismissedBroadcastIds.Contains(id) || _activeBroadcastIds.Contains(id))
+                {
+                    return;
+                }
+
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
+                    bool clickedView = false;
                     var notificationWin = new NotificationWindow(title, content, () =>
                     {
+                        clickedView = true;
                         ShowWindow();
                         if (DataContext is MainViewModel mainVm)
                         {
+                            mainVm.MarkBroadcastAsRead(id);
                             mainVm.CurrentView = "Broadcasts";
-                            mainVm.MarkBroadcastsAsRead();
                         }
                     });
+
+                    _activeBroadcastIds.Add(id);
+
+                    notificationWin.Closed += (s, ev) =>
+                    {
+                        _activeBroadcastIds.Remove(id);
+                        _dismissedBroadcastIds.Add(id);
+                        if (DataContext is MainViewModel mainVm)
+                        {
+                            mainVm.MarkBroadcastAsRead(id);
+                        }
+                    };
+
                     notificationWin.Show();
                 });
             };
@@ -78,6 +111,12 @@ namespace Tms.Agent.Wpf
                 }
             };
             timer.Start();
+
+            // Run check immediately on startup
+            if (vm.CheckUpdatesCommand.CanExecute(null))
+            {
+                vm.CheckUpdatesCommand.Execute(null);
+            }
 
             InitializeTrayIcon();
         }

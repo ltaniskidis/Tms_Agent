@@ -76,7 +76,7 @@ namespace Tms.Agent.Wpf
                             clientId,
                             machineName,
                             settings.MachineRole,
-                            "1.5.46", // Bumped version
+                            "1.5.58", // Bumped version
                             settings.ApiKey,
                             profiles,
                             settings.StartWithWindows,
@@ -86,7 +86,7 @@ namespace Tms.Agent.Wpf
                         if (response != null)
                         {
                             // Check for Agent self-upgrade
-                            if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != "1.5.46" && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
+                            if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != "1.5.58" && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
                             {
                                 System.Diagnostics.Debug.WriteLine($"Service triggers self upgrade to version {response.CurrentSystemVersion}...");
                                 await updateEngine.RunAgentSelfUpgradeAsync(settings.ServerUrl, response.SystemBinaryUrl, true, msg => System.Diagnostics.Debug.WriteLine(msg));
@@ -104,38 +104,27 @@ namespace Tms.Agent.Wpf
                                         var existing = profiles.FirstOrDefault(p => p.ProfileId == cmd.ProfileId);
                                         if (existing == null)
                                         {
-                                            var newProfile = new LocalProfile
-                                            {
-                                                ProfileId = cmd.ProfileId,
-                                                ProfileName = cmd.ProfileName,
-                                                Afm = cmd.Afm,
-                                                TargetFolder = cmd.TargetFolder,
-                                                TargetExeName = cmd.TargetExeName,
-                                                ConnectionString = cmd.ConnectionString,
-                                                ConnectionStringType = cmd.ConnectionStringType,
-                                                DbServer = cmd.DbServer,
-                                                DbName = cmd.DbName,
-                                                DbUser = cmd.DbUser,
-                                                DbPassword = cmd.DbPassword,
-                                                DbUseWindowsAuth = cmd.DbUseWindowsAuth,
-                                                ConfigFilePath = cmd.ConfigFilePath,
-                                                CurrentVersion = cmd.CurrentVersion,
-                                                CurrentProgramVersion = cmd.CurrentProgramVersion,
-                                                CurrentDbVersion = cmd.CurrentDbVersion,
-                                                SerialNumber = cmd.SerialNumber,
-                                                ActiveUsersCount = cmd.ActiveUsersCount
-                                            };
-
-                                            // Save local version file from server sync
-                                            if (!string.IsNullOrEmpty(newProfile.TargetFolder) && Directory.Exists(newProfile.TargetFolder))
-                                            {
-                                                try
-                                                {
-                                                    var versionFilePath = Path.Combine(newProfile.TargetFolder, "tms_version.txt");
-                                                    File.WriteAllText(versionFilePath, newProfile.CurrentProgramVersion);
-                                                }
-                                                catch { }
-                                            }
+                                             var newProfile = new LocalProfile
+                                             {
+                                                 ProfileId = cmd.ProfileId,
+                                                 ProfileName = cmd.ProfileName,
+                                                 Afm = cmd.Afm,
+                                                 TargetFolder = cmd.TargetFolder,
+                                                 TargetExeName = cmd.TargetExeName,
+                                                 ConnectionString = cmd.ConnectionString,
+                                                 ConnectionStringType = cmd.ConnectionStringType,
+                                                 DbServer = cmd.DbServer,
+                                                 DbName = cmd.DbName,
+                                                 DbUser = cmd.DbUser,
+                                                 DbPassword = cmd.DbPassword,
+                                                 DbUseWindowsAuth = cmd.DbUseWindowsAuth,
+                                                 ConfigFilePath = cmd.ConfigFilePath,
+                                                 CurrentVersion = string.Equals(settings.MachineRole, "Client", StringComparison.OrdinalIgnoreCase) ? (cmd.CurrentProgramVersion ?? cmd.CurrentVersion ?? "0.0.0") : "0.0.0",
+                                                 CurrentProgramVersion = string.Equals(settings.MachineRole, "Client", StringComparison.OrdinalIgnoreCase) ? (cmd.CurrentProgramVersion ?? cmd.CurrentVersion ?? "0.0.0") : "0.0.0",
+                                                 CurrentDbVersion = string.Equals(settings.MachineRole, "Client", StringComparison.OrdinalIgnoreCase) ? (cmd.CurrentDbVersion ?? "0") : "0",
+                                                 SerialNumber = cmd.SerialNumber,
+                                                 ActiveUsersCount = cmd.ActiveUsersCount
+                                             };
 
                                             profiles.Add(newProfile);
                                             profilesChanged = true;
@@ -154,21 +143,15 @@ namespace Tms.Agent.Wpf
                                             existing.DbPassword = cmd.DbPassword;
                                             existing.DbUseWindowsAuth = cmd.DbUseWindowsAuth;
                                             existing.ConfigFilePath = cmd.ConfigFilePath;
-                                            existing.CurrentVersion = cmd.CurrentVersion;
-                                            existing.CurrentProgramVersion = cmd.CurrentProgramVersion;
-                                            existing.CurrentDbVersion = cmd.CurrentDbVersion;
+                                            
                                             existing.SerialNumber = cmd.SerialNumber;
                                             existing.ActiveUsersCount = cmd.ActiveUsersCount;
 
-                                            // Save local version file from server sync
-                                            if (!string.IsNullOrEmpty(existing.TargetFolder) && Directory.Exists(existing.TargetFolder))
+                                            if (string.Equals(settings.MachineRole, "Client", StringComparison.OrdinalIgnoreCase))
                                             {
-                                                try
-                                                {
-                                                    var versionFilePath = Path.Combine(existing.TargetFolder, "tms_version.txt");
-                                                    File.WriteAllText(versionFilePath, existing.CurrentProgramVersion);
-                                                }
-                                                catch { }
+                                                existing.CurrentVersion = cmd.CurrentProgramVersion ?? cmd.CurrentVersion ?? existing.CurrentVersion;
+                                                existing.CurrentProgramVersion = cmd.CurrentProgramVersion ?? cmd.CurrentVersion ?? existing.CurrentProgramVersion;
+                                                existing.CurrentDbVersion = cmd.CurrentDbVersion ?? existing.CurrentDbVersion;
                                             }
 
                                             profilesChanged = true;

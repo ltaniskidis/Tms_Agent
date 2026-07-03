@@ -1157,25 +1157,23 @@ namespace Tms.Agent.Core.Services
                 
                 if (progressCallback != null && totalBytes > 0)
                 {
-                    var buffer = new byte[81920];
-                    var bytesRead = 0L;
-                    int read;
-                    while (true)
-                    {
-                        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
-                        read = await stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
-                        if (read <= 0) break;
+                     var buffer = new byte[81920];
+                     var bytesRead = 0L;
+                     int read;
+                     while (true)
+                     {
+                         read = await stream.ReadAsync(buffer, 0, buffer.Length);
+                         if (read <= 0) break;
 
-                        await fileStream.WriteAsync(buffer, 0, read);
-                        bytesRead += read;
-                        var percentage = (double)bytesRead / totalBytes * 100.0;
-                        progressCallback.Invoke(percentage);
-                    }
+                         await fileStream.WriteAsync(buffer, 0, read);
+                         bytesRead += read;
+                         var percentage = (double)bytesRead / totalBytes * 100.0;
+                         progressCallback.Invoke(percentage);
+                     }
                 }
                 else
                 {
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(120));
-                    await stream.CopyToAsync(fileStream, cts.Token);
+                     await stream.CopyToAsync(fileStream);
                 }
             }
             catch (Exception ex)
@@ -1325,6 +1323,18 @@ namespace Tms.Agent.Core.Services
 
         public async Task<bool> RunAgentSelfUpgradeAsync(string serverUrl, string systemBinaryUrl, bool isService, Action<string>? logCallback, Action<double>? progressCallback = null)
         {
+            void Log(string msg)
+            {
+                logCallback?.Invoke(msg);
+                try
+                {
+                    var logFolder = PathHelper.GetAgentDataFolder();
+                    var logFile = Path.Combine(logFolder, "agent.log");
+                    File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [SelfUpgrade] {msg}{Environment.NewLine}");
+                }
+                catch { }
+            }
+
             try
             {
                 var downloadUrl = systemBinaryUrl;
@@ -1339,10 +1349,10 @@ namespace Tms.Agent.Core.Services
                 var extractDir = Path.Combine(tempDir, "extracted");
                 Directory.CreateDirectory(extractDir);
 
-                logCallback?.Invoke($"Λήψη αναβάθμισης Agent από {downloadUrl}...");
+                Log($"Έναρξη αυτόματης αναβάθμισης Agent. Λήψη πακέτου από {downloadUrl}...");
                 await DownloadFileAsync(downloadUrl, tempZipPath, logCallback, progressCallback);
 
-                logCallback?.Invoke("Αποσυμπίεση αρχείων αναβάθμισης...");
+                Log("Αποσυμπίεση αρχείων αναβάθμισης...");
                 ZipFile.ExtractToDirectory(tempZipPath, extractDir);
 
                 var currentExe = Environment.ProcessPath;
@@ -1372,13 +1382,21 @@ namespace Tms.Agent.Core.Services
                 batchContent.AppendLine("if %errorlevel% equ 0 (");
                 batchContent.AppendLine("    set wasServiceRunning=1");
                 batchContent.AppendLine("    sc stop TmsAgent > nul");
-                batchContent.AppendLine("    :wait_service_stop");
-                batchContent.AppendLine("    sc query TmsAgent 2>nul | findstr /I \"RUNNING STOP_PENDING\" > nul");
-                batchContent.AppendLine("    if %errorlevel% equ 0 (");
-                batchContent.AppendLine("        timeout /t 1 /nobreak > nul");
-                batchContent.AppendLine("        goto wait_service_stop");
-                batchContent.AppendLine("    )");
                 batchContent.AppendLine(")");
+                batchContent.AppendLine("if %wasServiceRunning% equ 1 goto wait_service_stop");
+                batchContent.AppendLine("goto service_stopped");
+                batchContent.AppendLine(":wait_service_stop");
+                batchContent.AppendLine("sc query TmsAgent 2>nul | findstr /I \"RUNNING STOP_PENDING\" > nul");
+                batchContent.AppendLine("if %errorlevel% equ 0 (");
+                batchContent.AppendLine("    timeout /t 1 /nobreak > nul");
+                batchContent.AppendLine("    goto wait_service_stop");
+                batchContent.AppendLine(")");
+                batchContent.AppendLine(":service_stopped");
+                
+                // Force kill remaining processes to release locks on files/DLLs
+                batchContent.AppendLine("taskkill /f /im TmsAgentService.exe 2>nul");
+                batchContent.AppendLine("taskkill /f /im Tms.Agent.Wpf.exe 2>nul");
+                batchContent.AppendLine($"taskkill /f /im \"{Path.GetFileName(currentExe)}\" 2>nul");
 
                 // Loop and check if the executable is locked. Wait until type is successful (meaning process terminated and lock released)
                 batchContent.AppendLine(":wait_unlock");
@@ -1392,7 +1410,7 @@ namespace Tms.Agent.Core.Services
                 var logFolder = PathHelper.GetAgentDataFolder();
                 var logFilePath = Path.Combine(logFolder, "agent_upgrade.log");
                 batchContent.AppendLine(":do_copy");
-                batchContent.AppendLine($"xcopy /y /s /e \"{extractDir}\\*\" \"{currentFolder}\\\" > \"{logFilePath}\" 2>&1");
+                batchContent.AppendLine($"xcopy /y /s /e \"{extractDir}\\*\" \"{currentFolder}\" > \"{logFilePath}\" 2>&1");
                 batchContent.AppendLine("if errorlevel 1 (");
                 batchContent.AppendLine("    timeout /t 1 /nobreak > nul");
                 batchContent.AppendLine("    goto do_copy");
@@ -1430,13 +1448,13 @@ namespace Tms.Agent.Core.Services
                     psi.Verb = "runas"; // Request administrator elevation (UAC prompt) to allow writing to protected folders like Program Files
                 }
 
-                logCallback?.Invoke("Εκκίνηση διαδικασίας εγκατάστασης και επανεκκίνηση του Agent...");
+                Log("Εκκίνηση διαδικασίας εγκατάστασης και επανεκκίνηση του Agent...");
                 System.Diagnostics.Process.Start(psi);
                 return true;
             }
             catch (Exception ex)
             {
-                logCallback?.Invoke($"Σφάλμα κατά την αυτόματη αναβάθμιση του Agent: {ex.Message}");
+                Log($"Σφάλμα κατά την αυτόματη αναβάθμιση του Agent: {ex.Message}");
                 return false;
             }
         }

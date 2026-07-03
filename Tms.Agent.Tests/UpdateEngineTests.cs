@@ -10,6 +10,50 @@ namespace Tms.Agent.Tests
     public class UpdateEngineTests
     {
         [Fact]
+        public void InspectFlessasClients()
+        {
+            var dbPath = @"C:\Users\Administrator\OneDrive - CLEVER DATA\sources\repos\Tms_Agent\Tms.CentralManagement\central.db";
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}"))
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, ApiKey, MachineName, AgentVersion, MachineRole, ClientGuid, RegistrationDate FROM Clients WHERE ApiKey = 'TMS-KEY-5078EAC505274E73'";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var info = $"Id: {reader.GetValue(0)} | ApiKey: {reader.GetValue(1)} | Name: {reader.GetValue(2)} | Ver: {reader.GetValue(3)} | Role: {reader.GetValue(4)} | Guid: {reader.GetValue(5)} | Date: {reader.GetValue(6)}";
+                            Console.WriteLine($"[FLESSAS_CLIENT_INSPECT] {info}");
+                        }
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void InspectUpdateLogs()
+        {
+            var dbPath = @"C:\Users\Administrator\OneDrive - CLEVER DATA\sources\repos\Tms_Agent\Tms.CentralManagement\central.db";
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}"))
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT ClientProfileId, VersionNumber, ProgramVersion, DbVersion, Success, ErrorMessage, ExecutionTime FROM UpdateLogs ORDER BY ExecutionTime DESC LIMIT 20";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var info = $"ProfileId: {reader.GetValue(0)} | Ver: {reader.GetValue(1)} | ProgVer: {reader.GetValue(2)} | DbVer: {reader.GetValue(3)} | Success: {reader.GetValue(4)} | Err: {reader.GetValue(5)} | Time: {reader.GetValue(6)}";
+                            Console.WriteLine($"[LOG_INSPECT] {info}");
+                        }
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void SplitSqlScript_SplitsCorrectlyByGo()
         {
             // Arrange

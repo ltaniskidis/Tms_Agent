@@ -55,6 +55,8 @@ namespace Tms.CentralManagement.Controllers
             client.MachineRole = request.MachineRole;
             client.AgentVersion = request.AgentVersion ?? "1.0.0";
 
+            bool isClient = string.Equals(request.MachineRole, "Client", StringComparison.OrdinalIgnoreCase);
+
             if (request.ForceSyncStartWithWindows)
             {
                 client.StartWithWindows = request.StartWithWindows;
@@ -210,6 +212,10 @@ namespace Tms.CentralManagement.Controllers
                     }
 
                     // Check if server config is different. If so, push to client.
+                    bool versionNeedsSync = isClient
+                        ? IsNewerVersion(dbProfile.LastUpdatedDbVersion, localProfile.CurrentDbVersion ?? localProfile.CurrentVersion)
+                        : IsNewerVersion(dbProfile.LastUpdatedProgramVersion, localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion);
+
                     bool needsSync = dbProfile.ProfileName != localProfile.ProfileName ||
                                      dbProfile.Afm != localProfile.Afm ||
                                      dbProfile.SerialNumber != localProfile.SerialNumber ||
@@ -224,7 +230,7 @@ namespace Tms.CentralManagement.Controllers
                                      dbProfile.DbPassword != localProfile.DbPassword ||
                                      dbProfile.DbUseWindowsAuth != localProfile.DbUseWindowsAuth ||
                                      dbProfile.ConfigFilePath != localProfile.ConfigFilePath ||
-                                     IsNewerVersion(dbProfile.LastUpdatedProgramVersion, localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion);
+                                     versionNeedsSync;
 
                     if (needsSync)
                     {
@@ -244,8 +250,8 @@ namespace Tms.CentralManagement.Controllers
                             DbPassword = dbProfile.DbPassword,
                             DbUseWindowsAuth = dbProfile.DbUseWindowsAuth,
                             ConfigFilePath = dbProfile.ConfigFilePath,
-                            CurrentVersion = dbProfile.LastUpdatedVersion,
-                            CurrentProgramVersion = dbProfile.LastUpdatedProgramVersion,
+                            CurrentVersion = isClient ? (localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion) : dbProfile.LastUpdatedVersion,
+                            CurrentProgramVersion = isClient ? (localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion) : dbProfile.LastUpdatedProgramVersion,
                             CurrentDbVersion = dbProfile.LastUpdatedDbVersion,
                             SerialNumber = dbProfile.SerialNumber,
                             ActiveUsersCount = dbProfile.ActiveUsersCount
@@ -331,21 +337,59 @@ namespace Tms.CentralManagement.Controllers
                             .ToList();
 
                         bool hasPendingScripts = pendingScripts.Any();
-                        bool isClient = string.Equals(request.MachineRole, "Client", StringComparison.OrdinalIgnoreCase);
-
-                        bool isAlreadyUpdated = !string.IsNullOrEmpty(dbProfile.LastUpdatedVersion) && 
-                                                !IsNewerVersion(latestVersionObj.VersionInfo.VersionNumber, dbProfile.LastUpdatedVersion);
 
                         bool needsUpdate = false;
-                        if (isAlreadyUpdated && !dbProfile.IsAuthorizedForUpdate)
+                        bool isDbUpToDate = false;
+
+                        if (isClient)
                         {
-                            needsUpdate = false;
+                            // Check if database is already upgraded to allow operators to pull updated EXE
+                            if (Version.TryParse(dbProfile.LastUpdatedDbVersion, out var dbVer))
+                            {
+                                isDbUpToDate = dbVer >= latestParsed;
+                            }
+                            else if (!string.IsNullOrEmpty(dbProfile.LastUpdatedDbVersion))
+                            {
+                                var lastScript = pendingScripts.OrderBy(s => s.SequenceOrder).LastOrDefault();
+                                if (lastScript != null)
+                                {
+                                    string lastScriptIdent = lastScript.ScriptName;
+                                    var blocks = ParseBulkScriptFileContent(lastScript.ScriptContent);
+                                    if (blocks.Any())
+                                    {
+                                        lastScriptIdent = blocks.Last().ScriptNumber;
+                                    }
+                                    else
+                                    {
+                                        lastScriptIdent = Path.GetFileNameWithoutExtension(lastScript.ScriptName);
+                                    }
+                                    isDbUpToDate = string.Equals(dbProfile.LastUpdatedDbVersion, lastScriptIdent, StringComparison.OrdinalIgnoreCase);
+                                }
+                                else
+                                {
+                                    isDbUpToDate = true;
+                                }
+                            }
+                            else
+                            {
+                                isDbUpToDate = !pendingScripts.Any();
+                            }
+
+                            needsUpdate = latestProgParsed > currentProgVer;
+
+                            if (needsUpdate && !dbProfile.IsAuthorizedForUpdate && !isDbUpToDate)
+                            {
+                                needsUpdate = false;
+                            }
                         }
                         else
                         {
-                            if (isClient)
+                            bool isAlreadyUpdated = !string.IsNullOrEmpty(dbProfile.LastUpdatedVersion) && 
+                                                    !IsNewerVersion(latestVersionObj.VersionInfo.VersionNumber, dbProfile.LastUpdatedVersion);
+
+                            if (isAlreadyUpdated && !dbProfile.IsAuthorizedForUpdate)
                             {
-                                needsUpdate = latestProgParsed > currentProgVer;
+                                needsUpdate = false;
                             }
                             else
                             {
@@ -358,30 +402,6 @@ namespace Tms.CentralManagement.Controllers
                             bool isWaitingForDb = false;
                             if (hasPendingScripts && isClient)
                             {
-                                bool isDbUpToDate = false;
-                                if (Version.TryParse(dbProfile.LastUpdatedDbVersion, out var dbVer))
-                                {
-                                    isDbUpToDate = dbVer >= latestParsed;
-                                }
-                                else if (!string.IsNullOrEmpty(dbProfile.LastUpdatedDbVersion))
-                                {
-                                    // Fallback to script identifier matching
-                                    var lastScript = pendingScripts.OrderBy(s => s.SequenceOrder).LastOrDefault();
-                                    if (lastScript != null)
-                                    {
-                                        string lastScriptIdent = lastScript.ScriptName;
-                                        var blocks = ParseBulkScriptFileContent(lastScript.ScriptContent);
-                                        if (blocks.Any())
-                                        {
-                                            lastScriptIdent = blocks.Last().ScriptNumber;
-                                        }
-                                        else
-                                        {
-                                            lastScriptIdent = Path.GetFileNameWithoutExtension(lastScript.ScriptName);
-                                        }
-                                        isDbUpToDate = string.Equals(dbProfile.LastUpdatedDbVersion, lastScriptIdent, StringComparison.OrdinalIgnoreCase);
-                                    }
-                                }
                                 if (!isDbUpToDate)
                                 {
                                     isWaitingForDb = true;
@@ -407,7 +427,7 @@ namespace Tms.CentralManagement.Controllers
                             {
                                 ProfileId = localProfile.ProfileId,
                                 Afm = localProfile.Afm,
-                                IsAuthorizedByAdmin = dbProfile.IsAuthorizedForUpdate,
+                                IsAuthorizedByAdmin = isClient ? (dbProfile.IsAuthorizedForUpdate || isDbUpToDate) : dbProfile.IsAuthorizedForUpdate,
                                 IsWaitingForDb = isWaitingForDb,
                                 NewVersion = new VersionDto
                                 {

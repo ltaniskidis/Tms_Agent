@@ -261,11 +261,11 @@
                                  <td>
                                      @if (client.AgentVersion == Model.CurrentSystemVersion)
                                      {
-                                         <span class="agent-ver-text" style="color: var(--success); font-weight: bold;" title="Ο Agent είναι συγχρονισμένος με την τρέχουσα έκδοση συστήματος (v@Model.CurrentSystemVersion)">🤖 v@(client.AgentVersion)</span>
+                                         <span class="agent-ver-text" style="color: var(--success); font-weight: bold;" title="Ο Agent είναι συγχρονισμένος με την τρέχουσα έκδοση συστήματος (v@(Model.CurrentSystemVersion))">🤖 v@(client.AgentVersion)</span>
                                      }
                                      else
                                      {
-                                         <span class="agent-ver-text" style="color: var(--warning); font-weight: bold; background-color: rgba(245, 158, 11, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.3);" title="⚠️ Διαφορά έκδοσης! Η τρέχουσα έκδοση συστήματος είναι v@Model.CurrentSystemVersion">⚠️ v@(client.AgentVersion)</span>
+                                         <span class="agent-ver-text" style="color: var(--warning); font-weight: bold; background-color: rgba(245, 158, 11, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.3);" title="⚠️ Διαφορά έκδοσης! Η τρέχουσα έκδοση συστήματος είναι v@(Model.CurrentSystemVersion)">⚠️ v@(client.AgentVersion)</span>
                                      }
                                  </td>
                                 <td>

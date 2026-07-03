@@ -23,6 +23,7 @@ namespace Tms.Agent.Core.Services
         public UpdateEngine()
         {
             _httpClient = new HttpClient();
+            _httpClient.Timeout = TimeSpan.FromMinutes(10);
         }
 
         public UpdateEngine(HttpClient httpClient)
@@ -1155,25 +1156,31 @@ namespace Tms.Agent.Core.Services
                 using var stream = await response.Content.ReadAsStreamAsync();
                 using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 
-                if (progressCallback != null && totalBytes > 0)
+                var buffer = new byte[81920];
+                var bytesRead = 0L;
+                int read;
+                while (true)
                 {
-                     var buffer = new byte[81920];
-                     var bytesRead = 0L;
-                     int read;
-                     while (true)
-                     {
-                         read = await stream.ReadAsync(buffer, 0, buffer.Length);
-                         if (read <= 0) break;
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    try
+                    {
+                        read = await stream.ReadAsync(buffer, 0, buffer.Length, cts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw new TimeoutException("Η λήψη του αρχείου διακόπηκε λόγω αδράνειας του δικτύου (Network Read Timeout).");
+                    }
 
-                         await fileStream.WriteAsync(buffer, 0, read);
-                         bytesRead += read;
-                         var percentage = (double)bytesRead / totalBytes * 100.0;
-                         progressCallback.Invoke(percentage);
-                     }
-                }
-                else
-                {
-                     await stream.CopyToAsync(fileStream);
+                    if (read <= 0) break;
+
+                    await fileStream.WriteAsync(buffer, 0, read);
+                    bytesRead += read;
+                    
+                    if (progressCallback != null && totalBytes > 0)
+                    {
+                        var percentage = (double)bytesRead / totalBytes * 100.0;
+                        progressCallback.Invoke(percentage);
+                    }
                 }
             }
             catch (Exception ex)

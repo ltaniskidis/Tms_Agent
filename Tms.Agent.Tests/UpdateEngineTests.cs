@@ -54,6 +54,100 @@ namespace Tms.Agent.Tests
         }
 
         [Fact]
+        public void PrintFailedScriptError()
+        {
+            var dbPath = @"C:\Users\Administrator\OneDrive - CLEVER DATA\sources\repos\Tms_Agent\Tms.CentralManagement\central.db";
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}"))
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT ErrorMessage FROM UpdateLogs WHERE Success = 0 ORDER BY ExecutionTime DESC LIMIT 1";
+                    var err = cmd.ExecuteScalar()?.ToString();
+                    if (err != null)
+                    {
+                        System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
+                        var bytes = System.Text.Encoding.UTF8.GetBytes(err);
+                        var elEncoding = System.Text.Encoding.GetEncoding(1253);
+                        var decoded = elEncoding.GetString(bytes);
+                        Console.WriteLine($"[FAILED_ERR_RAW] {err}");
+                        Console.WriteLine($"[FAILED_ERR_1253] {decoded}");
+                    }
+
+                    cmd.CommandText = @"
+                        SELECT s.ScriptContent 
+                        FROM SqlScripts s 
+                        JOIN Versions v ON s.VersionInfoId = v.Id 
+                        WHERE v.VersionNumber = '2026.7.2'
+                        ORDER BY s.SequenceOrder LIMIT 1";
+                    var scriptContent = cmd.ExecuteScalar()?.ToString();
+                    if (scriptContent != null)
+                    {
+                        File.WriteAllText(@"C:\Users\Administrator\OneDrive - CLEVER DATA\sources\repos\Tms_Agent\dumped_script.sql", scriptContent);
+                        Console.WriteLine("Successfully wrote script content to dumped_script.sql");
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void FixSqlScriptInDb()
+        {
+            var dbPath = @"C:\Users\Administrator\OneDrive - CLEVER DATA\sources\repos\Tms_Agent\Tms.CentralManagement\central.db";
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}"))
+            {
+                conn.Open();
+                string scriptContent = "";
+                int scriptId = 0;
+                
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, ScriptContent FROM SqlScripts WHERE ScriptContent LIKE '%CREATE VIEW ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS%'";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            scriptId = reader.GetInt32(0);
+                            scriptContent = reader.GetString(1);
+                        }
+                    }
+                }
+
+                if (scriptId > 0 && !string.IsNullOrEmpty(scriptContent))
+                {
+                    Console.WriteLine($"Found script ID {scriptId} containing CREATE VIEW ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS");
+                    
+                    var targetStr = "CREATE VIEW ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS AS";
+                    var replacementStr = @"IF OBJECT_ID('[dbo].[ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS]', 'V') IS NOT NULL
+    DROP VIEW [dbo].[ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS]
+GO
+CREATE VIEW ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS AS";
+
+                    if (scriptContent.Contains(targetStr))
+                    {
+                        var updatedContent = scriptContent.Replace(targetStr, replacementStr);
+                        using (var updateCmd = conn.CreateCommand())
+                        {
+                            updateCmd.CommandText = "UPDATE SqlScripts SET ScriptContent = @content WHERE Id = @id";
+                            updateCmd.Parameters.AddWithValue("@content", updatedContent);
+                            updateCmd.Parameters.AddWithValue("@id", scriptId);
+                            updateCmd.ExecuteNonQuery();
+                            Console.WriteLine("Successfully updated SQL script in central.db!");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("Target string not found in script content.");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("No script found matching the query.");
+                }
+            }
+        }
+
+        [Fact]
         public void SplitSqlScript_SplitsCorrectlyByGo()
         {
             // Arrange

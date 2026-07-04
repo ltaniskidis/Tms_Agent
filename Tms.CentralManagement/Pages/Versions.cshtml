@@ -27,6 +27,14 @@
     <!-- Versions List -->
     <div style="flex: 1.2;">
         <div class="card">
+            <!-- Search Bar -->
+            <div style="margin-bottom: 20px; position: relative; box-sizing: border-box; width: 100%;">
+                <input type="text" id="version-search-input" onkeyup="filterVersions()" placeholder="Αναζήτηση έκδοσης, περιγραφής, σημειώσεων (Release Notes)..." 
+                       style="width: 100%; padding: 10px 15px 10px 38px; background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;" 
+                       onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-color)'" />
+                <span style="position: absolute; left: 14px; top: 12px; color: var(--text-secondary); pointer-events: none; font-size: 14px;">🔍</span>
+            </div>
+
             <!-- Program Versions Container -->
             <div id="program-versions-list">
                 <div class="card-title" style="margin-bottom: 15px;">
@@ -43,7 +51,7 @@
                 {
                     @foreach (var version in programVersions)
                     {
-                        <div style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                        <div class="version-item" style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <div>
                                     <span style="font-size: 16px; font-weight: bold; color: var(--text-primary);">v @version.VersionNumber</span>
@@ -130,7 +138,7 @@
                 {
                     @foreach (var version in systemVersions)
                     {
-                        <div style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                        <div class="version-item" style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <div>
                                     <span style="font-size: 16px; font-weight: bold; color: var(--success);">v @version.VersionNumber</span>
@@ -344,5 +352,24 @@
             if (affectedComponentGroup) affectedComponentGroup.style.display = 'block';
             if (isCurrentGroup) isCurrentGroup.style.display = 'flex';
         }
+    }
+
+    // Real-time versions filtering
+    function filterVersions() {
+        var query = document.getElementById('version-search-input').value.toLowerCase().trim();
+        
+        document.querySelectorAll('.version-item').forEach(item => {
+            if (query === '') {
+                item.style.display = 'block';
+                return;
+            }
+            
+            var text = item.innerText.toLowerCase();
+            if (text.includes(query)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
     }
 </script>

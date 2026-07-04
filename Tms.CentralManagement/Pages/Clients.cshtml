@@ -113,6 +113,14 @@
             </form>
         </div>
 
+        <!-- Search Bar -->
+        <div style="margin-bottom: 20px; position: relative; box-sizing: border-box; width: 100%;">
+            <input type="text" id="customer-search-input" onkeyup="filterCustomers()" placeholder="Αναζήτηση πελάτη, σημειώσεων, μηχανήματος (PC Name, Alias, API Key)..." 
+                   style="width: 100%; padding: 10px 15px 10px 38px; background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;" 
+                   onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-color)'" />
+            <span style="position: absolute; left: 14px; top: 12px; color: var(--text-secondary); pointer-events: none; font-size: 14px;">🔍</span>
+        </div>
+
         <!-- Customers Grid -->
         <div class="customer-grid">
             @if (Model.Customers == null || !Model.Customers.Any())
@@ -1760,6 +1768,48 @@
         }
         
         sessionStorage.setItem('activeClientsPageTab', tabId);
+    }
+
+    // Real-time customer cards filtering
+    function filterCustomers() {
+        var query = document.getElementById('customer-search-input').value.toLowerCase().trim();
+        
+        if (query === '') {
+            document.querySelectorAll('.customer-card').forEach(card => {
+                card.style.display = 'block';
+            });
+            document.querySelectorAll('.customer-machines-table tbody tr').forEach(tr => {
+                tr.style.display = 'table-row';
+            });
+            return;
+        }
+
+        document.querySelectorAll('.customer-card').forEach(card => {
+            var customerHeader = card.querySelector('.customer-header');
+            var customerName = customerHeader.querySelector('.customer-title').innerText.toLowerCase();
+            var customerNotes = card.querySelector('.customer-notes')?.innerText.toLowerCase() || '';
+            
+            var customerMatches = customerName.includes(query) || customerNotes.includes(query);
+            var customerHasMatchingMachines = false;
+
+            var machineRows = card.querySelectorAll('.customer-machines-table tbody tr');
+            machineRows.forEach(tr => {
+                var rowText = tr.innerText.toLowerCase();
+                var rowMatches = rowText.includes(query);
+                if (rowMatches) {
+                    tr.style.display = 'table-row';
+                    customerHasMatchingMachines = true;
+                } else {
+                    tr.style.display = 'none';
+                }
+            });
+
+            if (customerMatches || customerHasMatchingMachines) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
     }
 
     // Toggle showing add machine form under Customer card

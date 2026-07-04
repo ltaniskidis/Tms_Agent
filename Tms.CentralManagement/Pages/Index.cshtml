@@ -137,8 +137,8 @@
     <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <span>📂 Δομή Εγκαταστάσεων ανά Πελάτη</span>
         <div class="tree-controls" style="display: flex; gap: 8px; margin: 0;">
-            <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; font-weight: 600;" onclick="expandAll()">展开全部 / Expand All</button>
-            <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; font-weight: 600;" onclick="collapseAll()">折叠全部 / Collapse All</button>
+            <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; font-weight: 600;" onclick="expandAll()">🔓 Ανάπτυξη Όλων</button>
+            <button type="button" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; font-weight: 600;" onclick="collapseAll()">🔒 Σύμπτυξη Όλων</button>
         </div>
     </div>
 
@@ -150,6 +150,14 @@
     }
     else
     {
+        <!-- Search Bar -->
+        <div style="margin: 5px 0 15px 0; position: relative; box-sizing: border-box; width: 100%;">
+            <input type="text" id="tree-search-input" onkeyup="filterTree()" placeholder="Αναζήτηση πελάτη, μηχανήματος, ΑΦΜ, εταιρείας, έκδοσης..." 
+                   style="width: 100%; padding: 10px 15px 10px 38px; background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;" 
+                   onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-color)'" />
+            <span style="position: absolute; left: 14px; top: 12px; color: var(--text-secondary); pointer-events: none; font-size: 14px;">🔍</span>
+        </div>
+
         <div class="tree-container" style="padding: 10px 0;">
             @foreach (var customer in Model.Customers)
             {
@@ -553,6 +561,70 @@
 
 @section Scripts {
 <script>
+    // Real-time client/machine/profile search filter
+    function filterTree() {
+        var query = document.getElementById('tree-search-input').value.toLowerCase().trim();
+        
+        if (query === '') {
+            document.querySelectorAll('.tree-node').forEach(node => {
+                node.style.display = 'block';
+                node.classList.add('collapsed');
+            });
+            document.querySelectorAll('.tree-profiles-table tbody tr').forEach(tr => {
+                tr.style.display = 'table-row';
+            });
+            return;
+        }
+
+        document.querySelectorAll('.customer-node').forEach(customerNode => {
+            var customerHeader = customerNode.querySelector('.customer-header-node');
+            var customerName = customerHeader.querySelector('.tree-label strong').innerText.toLowerCase();
+            var customerNotes = customerHeader.querySelector('.tree-help')?.innerText.toLowerCase() || '';
+            
+            var customerMatches = customerName.includes(query) || customerNotes.includes(query);
+            var customerHasMatchingChildren = false;
+
+            customerNode.querySelectorAll('.machine-node').forEach(machineNode => {
+                var machineHeader = machineNode.querySelector('.machine-header-node');
+                var machineLabel = machineHeader.querySelector('.tree-label').innerText.toLowerCase();
+                
+                var machineMatches = machineLabel.includes(query);
+                var machineHasMatchingChildren = false;
+
+                var profileRows = machineNode.querySelectorAll('.tree-profiles-table tbody tr');
+                profileRows.forEach(tr => {
+                    var rowText = tr.innerText.toLowerCase();
+                    var rowMatches = rowText.includes(query);
+                    if (rowMatches) {
+                        tr.style.display = 'table-row';
+                        machineHasMatchingChildren = true;
+                    } else {
+                        tr.style.display = 'none';
+                    }
+                });
+
+                if (machineMatches || machineHasMatchingChildren) {
+                    machineNode.style.display = 'block';
+                    if (machineHasMatchingChildren || query.length > 1) {
+                        machineNode.classList.remove('collapsed');
+                    }
+                    customerHasMatchingChildren = true;
+                } else {
+                    machineNode.style.display = 'none';
+                }
+            });
+
+            if (customerMatches || customerHasMatchingChildren) {
+                customerNode.style.display = 'block';
+                if (customerHasMatchingChildren || query.length > 1) {
+                    customerNode.classList.remove('collapsed');
+                }
+            } else {
+                customerNode.style.display = 'none';
+            }
+        });
+    }
+
     // Collapsible tree view logic
     function toggleTreeNode(header) {
         var node = header.parentElement;

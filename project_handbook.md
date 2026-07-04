@@ -174,3 +174,9 @@ dotnet run -c Release --project Tms.CentralManagement --no-build
       * `admin` με κωδικό `admin123` (Ρόλος: Admin)
       * `tmsuser` με κωδικό `tmsusr` (Ρόλος: Operator)
     * Αυτοί συγχρονίζονται αυτόματα στον Agent κατά τον επόμενο έλεγχο ενημερώσεων, αποφεύγοντας τη χειροκίνητη εισαγωγή τους κάθε φορά.
+14. **Real-time Φιλτράρισμα & Αναζήτηση (Real-time Search):**
+    * Σε όλες τις κύριες σελίδες της Web κονσόλας και στο Dashboard του WPF Agent Panel υποστηρίζεται αναζήτηση και φιλτράρισμα σε πραγματικό χρόνο καθώς πληκτρολογεί ο χρήστης:
+      * **Web Dashboard:** Αναζήτηση σε πελάτες, σημειώσεις, μηχανήματα, εταιρείες/προφίλ, ΑΦΜ, serial number, βάσεις δεδομένων. Αν βρεθεί ταύτιση, ο φάκελος του πελάτη αναπτύσσεται αυτόματα (auto-expand).
+      * **Web Clients:** Αναζήτηση κάρτας πελάτη, σημειώσεων, μηχανήματος, alias και API key.
+      * **Web Versions:** Αναζήτηση έκδοσης, περιγραφής, release notes, badges/scope.
+      * **WPF Agent Panel Dashboard:** TextBox φιλτραρίσματος που ενημερώνει δυναμικά το default `CollectionView` της συλλογής `Profiles` (αναζήτηση σε όνομα εταιρείας, ΑΦΜ, βάση, serial number, κατάσταση).

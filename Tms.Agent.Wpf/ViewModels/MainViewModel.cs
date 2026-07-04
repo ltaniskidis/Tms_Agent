@@ -30,8 +30,21 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.61";
+        public string AppVersion => "1.5.62";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
+
+        private string _searchText = string.Empty;
+        public string SearchText
+        {
+            get => _searchText;
+            set
+            {
+                if (SetProperty(ref _searchText, value))
+                {
+                    System.Windows.Data.CollectionViewSource.GetDefaultView(Profiles).Refresh();
+                }
+            }
+        }
 
         private Window? _currentProgressWindow;
         
@@ -745,6 +758,25 @@ namespace Tms.Agent.Wpf.ViewModels
             MarkBroadcastsReadCommand = new RelayCommand(MarkBroadcastsAsRead);
 
             LoadProfiles();
+            
+            // Setup CollectionView filtering for SearchText
+            var view = System.Windows.Data.CollectionViewSource.GetDefaultView(Profiles);
+            view.Filter = obj =>
+            {
+                if (string.IsNullOrWhiteSpace(SearchText))
+                    return true;
+
+                if (obj is ProfileUiWrapper wrapper)
+                {
+                    var q = SearchText.ToLower().Trim();
+                    return (wrapper.ProfileName != null && wrapper.ProfileName.ToLower().Contains(q))
+                        || (wrapper.Afm != null && wrapper.Afm.Contains(q))
+                        || (wrapper.Profile.DbName != null && wrapper.Profile.DbName.ToLower().Contains(q))
+                        || (wrapper.SerialNumber != null && wrapper.SerialNumber.ToLower().Contains(q))
+                        || (wrapper.Status != null && wrapper.Status.ToLower().Contains(q));
+                }
+                return true;
+            };
             
             // Auto check updates on startup to discover databases and sync with server
             _ = CheckForUpdatesAsync();

@@ -2179,6 +2179,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.62"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.62",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Προσθήκη πεδίου αναζήτησης/φιλτραρίσματος στο Dashboard του Agent Panel.",
+            BinaryFileUrl = "/packages/app_1.5.62.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη δυνατότητας αναζήτησης εταιρείας, ΑΦΜ, βάσης δεδομένων και κατάστασης στο Dashboard του Agent." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

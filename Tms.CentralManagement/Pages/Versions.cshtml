@@ -28,11 +28,19 @@
     <div style="flex: 1.2;">
         <div class="card">
             <!-- Search Bar -->
-            <div style="margin-bottom: 20px; position: relative; box-sizing: border-box; width: 100%;">
+            <div style="margin-bottom: 15px; position: relative; box-sizing: border-box; width: 100%;">
                 <input type="text" id="version-search-input" onkeyup="filterVersions()" placeholder="Αναζήτηση έκδοσης, περιγραφής, σημειώσεων (Release Notes)..." 
                        style="width: 100%; padding: 10px 15px 10px 38px; background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;" 
                        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-color)'" />
                 <span style="position: absolute; left: 14px; top: 12px; color: var(--text-secondary); pointer-events: none; font-size: 14px;">🔍</span>
+            </div>
+
+            <!-- Scope Filter Buttons -->
+            <div id="scope-filters-container" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
+                <button type="button" class="btn filter-btn active" onclick="filterByScope('all')" style="padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px; background-color: var(--accent); color: white; border: 1px solid var(--accent); cursor: pointer; transition: all 0.15s;">🔍 Όλα</button>
+                <button type="button" class="btn filter-btn" onclick="filterByScope('db')" style="padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px; background-color: rgba(16, 185, 129, 0.08); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.15); cursor: pointer; transition: all 0.15s;">💾 Βάση (Script)</button>
+                <button type="button" class="btn filter-btn" onclick="filterByScope('app')" style="padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px; background-color: rgba(59, 130, 246, 0.08); color: #3B82F6; border: 1px solid rgba(59, 130, 246, 0.15); cursor: pointer; transition: all 0.15s;">📦 Εφαρμογή</button>
+                <button type="button" class="btn filter-btn" onclick="filterByScope('both')" style="padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px; background-color: rgba(245, 158, 11, 0.08); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.15); cursor: pointer; transition: all 0.15s;">⚡ Βάση &amp; Εφαρμογή</button>
             </div>
 
             <!-- Program Versions Container -->
@@ -51,7 +59,7 @@
                 {
                     @foreach (var version in programVersions)
                     {
-                        <div class="version-item" style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
+                        <div class="version-item" data-scope="@(version.Scripts.Any() && !string.IsNullOrEmpty(version.BinaryFileUrl) ? "both" : (version.Scripts.Any() ? "db" : (!string.IsNullOrEmpty(version.BinaryFileUrl) ? "app" : "unknown")))" style="background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 15px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                                 <div>
                                     <span style="font-size: 16px; font-weight: bold; color: var(--text-primary);">v @version.VersionNumber</span>
@@ -300,6 +308,12 @@
         document.getElementById('program-versions-list').style.display = tabName === 'program' ? 'block' : 'none';
         document.getElementById('system-versions-list').style.display = tabName === 'system' ? 'block' : 'none';
         
+        // Show/hide scope filter buttons
+        const scopeFilters = document.getElementById('scope-filters-container');
+        if (scopeFilters) {
+            scopeFilters.style.display = tabName === 'program' ? 'flex' : 'none';
+        }
+        
         // Update button styles
         const btnProgram = document.getElementById('btn-program');
         const btnSystem = document.getElementById('btn-system');
@@ -354,11 +368,78 @@
         }
     }
 
+    var currentSelectedScope = 'all';
+
+    function filterByScope(scope, btnElement) {
+        currentSelectedScope = scope;
+        
+        // Update active class and styles on filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+            
+            // Restore default outline/translucent style based on button text/content
+            if (btn.innerText.includes('Όλα')) {
+                btn.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                btn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                btn.style.color = 'var(--text-primary)';
+            } else if (btn.innerText.includes('Βάση (Script)')) {
+                btn.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+                btn.style.borderColor = 'rgba(16, 185, 129, 0.15)';
+                btn.style.color = '#10B981';
+            } else if (btn.innerText.includes('Εφαρμογή')) {
+                btn.style.backgroundColor = 'rgba(59, 130, 246, 0.08)';
+                btn.style.borderColor = 'rgba(59, 130, 246, 0.15)';
+                btn.style.color = '#3B82F6';
+            } else if (btn.innerText.includes('Βάση & Εφαρμογή')) {
+                btn.style.backgroundColor = 'rgba(245, 158, 11, 0.08)';
+                btn.style.borderColor = 'rgba(245, 158, 11, 0.15)';
+                btn.style.color = '#F59E0B';
+            }
+        });
+
+        // Set active style for clicked button
+        var activeBtn = btnElement || (window.event ? window.event.currentTarget : null);
+        if (activeBtn) {
+            activeBtn.classList.add('active');
+            if (scope === 'all') {
+                activeBtn.style.backgroundColor = 'var(--accent)';
+                activeBtn.style.borderColor = 'var(--accent)';
+                activeBtn.style.color = 'white';
+            } else if (scope === 'db') {
+                activeBtn.style.backgroundColor = '#10B981';
+                activeBtn.style.borderColor = '#10B981';
+                activeBtn.style.color = '#000';
+            } else if (scope === 'app') {
+                activeBtn.style.backgroundColor = '#3B82F6';
+                activeBtn.style.borderColor = '#3B82F6';
+                activeBtn.style.color = 'white';
+            } else if (scope === 'both') {
+                activeBtn.style.backgroundColor = '#F59E0B';
+                activeBtn.style.borderColor = '#F59E0B';
+                activeBtn.style.color = '#000';
+            }
+        }
+
+        filterVersions();
+    }
+
     // Real-time versions filtering
     function filterVersions() {
         var query = document.getElementById('version-search-input').value.toLowerCase().trim();
         
         document.querySelectorAll('.version-item').forEach(item => {
+            // Check scope filter if it is a program version item
+            var itemScope = item.getAttribute('data-scope');
+            var matchesScope = true;
+            if (itemScope && currentSelectedScope !== 'all') {
+                matchesScope = (itemScope === currentSelectedScope);
+            }
+
+            if (!matchesScope) {
+                item.style.display = 'none';
+                return;
+            }
+
             if (query === '') {
                 item.style.display = 'block';
                 return;

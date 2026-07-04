@@ -174,12 +174,12 @@ CREATE VIEW ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS AS";
                         }
                     }
 
-                    cmd.CommandText = "SELECT Id, ClientMachineId, ProfileName, DbName FROM ClientProfiles";
+                    cmd.CommandText = "SELECT Id, ClientMachineId, ProfileName, DbName, LastUpdatedVersion, LastUpdatedProgramVersion, LastUpdatedDbVersion FROM ClientProfiles";
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            Console.WriteLine($"[PROFILE] Id: {reader.GetInt32(0)} | MachineId: {reader.GetInt32(1)} | Profile: {reader.GetString(2)} | DbName: {(reader.IsDBNull(3) ? "null" : reader.GetString(3))}");
+                            Console.WriteLine($"[PROFILE] Id: {reader.GetInt32(0)} | MachineId: {reader.GetInt32(1)} | Profile: {reader.GetString(2)} | DbName: {(reader.IsDBNull(3) ? "null" : reader.GetString(3))} | Ver: {(reader.IsDBNull(4) ? "null" : reader.GetString(4))} | ProgVer: {(reader.IsDBNull(5) ? "null" : reader.GetString(5))} | DbVer: {(reader.IsDBNull(6) ? "null" : reader.GetString(6))}");
                         }
                     }
 
@@ -189,6 +189,24 @@ CREATE VIEW ISOZYGIO_PAYMENTS_RECEIPTS_ISTOS AS";
                         while (reader.Read())
                         {
                             Console.WriteLine($"[USER] Id: {reader.GetInt32(0)} | MachineId: {reader.GetInt32(1)} | User: {reader.GetString(2)} | Pass: {reader.GetString(3)} | Role: {reader.GetString(4)}");
+                        }
+                    }
+
+                    cmd.CommandText = "SELECT Id, MachineName, IsUpgradeEnabled FROM Clients WHERE Id = 9";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            Console.WriteLine($"[CLIENT_UPGRADE] Id: {reader.GetInt32(0)} | Name: {reader.GetString(1)} | IsUpgradeEnabled: {reader.GetInt32(2)}");
+                        }
+                    }
+
+                    cmd.CommandText = "SELECT VersionNumber, TargetType, IsActive, IsCurrent, BinaryFileUrl FROM Versions";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            Console.WriteLine($"[VERSION] Ver: {reader.GetString(0)} | Type: {reader.GetString(1)} | Active: {reader.GetInt32(2)} | Current: {reader.GetInt32(3)} | Url: {(reader.IsDBNull(4) ? "null" : reader.GetString(4))}");
                         }
                     }
                 }

@@ -190,12 +190,14 @@
 
                                                     @if (client.Profiles != null && client.Profiles.Any())
                                                     {
-                                                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 4px;">
+                                                        <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px;">
                                                             @foreach (var p in client.Profiles)
                                                             {
-                                                                <div style="margin-bottom: 2px;">
-                                                                    🏢 <strong>@p.ProfileName</strong>: 🖥️ v@(p.LastUpdatedProgramVersion) | 💾 DB: @(p.LastUpdatedDbVersion)
-                                                                    <span style="font-size: 9px; opacity: 0.7; margin-left: 4px;">(@(p.LastUpdatedTime?.ToString("dd/MM/yyyy HH:mm") ?? "-"))</span>
+                                                                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; padding: 2px 6px; font-size: 10px; line-height: 1.4; display: inline-flex; align-items: center; gap: 4px;" 
+                                                                     title="Τελευταίος Συγχρονισμός: @(p.LastUpdatedTime?.ToString("dd/MM/yyyy HH:mm") ?? "-")">
+                                                                    <span>🏢 @p.ProfileName</span>
+                                                                    <span style="color: #3B82F6; font-weight: bold; background: rgba(59, 130, 246, 0.1); padding: 0 4px; border-radius: 3px;">v@(p.LastUpdatedProgramVersion)</span>
+                                                                    <span style="color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 0 4px; border-radius: 3px;">DB: @p.LastUpdatedDbVersion</span>
                                                                 </div>
                                                             }
                                                         </div>

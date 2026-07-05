@@ -2387,6 +2387,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.71"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.71",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διόρθωση σφάλματος επαναλαμβανόμενης επανεκκίνησης (restart loop) του WPF Agent Panel.",
+            BinaryFileUrl = "/packages/app_1.5.71.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Διόρθωση σφάλματος επαναλαμβανόμενης επανεκκίνησης (restart loop) του WPF Agent Panel κατά τον έλεγχο εκδόσεων σε ορισμένα περιβάλλοντα." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

@@ -18,6 +18,7 @@ namespace Tms.Agent.Tests
                 conn.Open();
                 using (var cmd = conn.CreateCommand())
                 {
+                    Console.WriteLine($"[TEST_VERSION] {Tms.Agent.Core.AgentVersionInfo.Version}");
                     cmd.CommandText = "SELECT c.MachineName, p.ProfileName, c.AgentVersion, c.IsUpgradeEnabled FROM ClientProfiles p JOIN Clients c ON p.ClientMachineId = c.Id";
                     using (var reader = cmd.ExecuteReader())
                     {

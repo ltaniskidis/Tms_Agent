@@ -1195,7 +1195,7 @@ namespace Tms.Agent.Wpf.ViewModels
                         if (match.Success)
                         {
                             var diskVer = match.Value;
-                            if (diskVer != AppVersion)
+                            if (diskVer != AppVersion && diskVer != "1.0.0" && diskVer != "0.0.0")
                             {
                                 System.Diagnostics.Debug.WriteLine($"[DiskVersionCheck] Running version ({AppVersion}) differs from disk version ({diskVer}). Restarting...");
                                 var currentExe = Environment.ProcessPath;

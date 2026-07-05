@@ -2160,24 +2160,30 @@
         document.getElementById("profileIdFieldGroup").style.display = "block";
         document.getElementById("profileFormProfileId").required = true;
 
+        // Find default profile from current machine to copy settings by default
+        var defaultProfile = null;
+        if (currentMachineProfiles && currentMachineProfiles.length > 0 && currentMachineProfiles[0].ClientMachineId == mId) {
+            defaultProfile = currentMachineProfiles[0];
+        }
+
         // Reset inputs
         document.getElementById("profileFormProfileId").value = "";
         document.getElementById("profileFormProfileName").value = "";
         document.getElementById("profileFormAfm").value = "";
         document.getElementById("profileFormSerial").value = "";
         document.getElementById("profileFormUsers").value = "1";
-        document.getElementById("profileFormExe").value = "TIMOLOGISI.exe";
-        document.getElementById("profileFormFolder").value = "";
-        document.getElementById("profileFormEmails").value = "support@cleverdata.gr,l.taniskdis@cleverdata.gr,e.kordouli@cleverdata.gr";
-        document.getElementById("profileFormConnectionString").value = "";
+        document.getElementById("profileFormExe").value = defaultProfile ? (defaultProfile.TargetExeName || "TIMOLOGISI.exe") : "TIMOLOGISI.exe";
+        document.getElementById("profileFormFolder").value = defaultProfile ? (defaultProfile.TargetFolder || "") : "";
+        document.getElementById("profileFormEmails").value = defaultProfile ? (defaultProfile.Emails || "support@cleverdata.gr,l.taniskdis@cleverdata.gr,e.kordouli@cleverdata.gr") : "support@cleverdata.gr,l.taniskdis@cleverdata.gr,e.kordouli@cleverdata.gr";
+        document.getElementById("profileFormConnectionString").value = defaultProfile ? (defaultProfile.ConnectionString || "") : "";
 
-        document.getElementById("profileFormConnectionStringType").value = "Direct";
-        document.getElementById("profileFormDbServer").value = "";
-        document.getElementById("profileFormDbName").value = "";
-        document.getElementById("profileFormDbWindowsAuth").checked = false;
-        document.getElementById("profileFormDbUser").value = "";
-        document.getElementById("profileFormDbPassword").value = "";
-        document.getElementById("profileFormConfigPath").value = "";
+        document.getElementById("profileFormConnectionStringType").value = defaultProfile ? (defaultProfile.ConnectionStringType || "Direct") : "Direct";
+        document.getElementById("profileFormDbServer").value = defaultProfile ? (defaultProfile.DbServer || "") : "";
+        document.getElementById("profileFormDbName").value = defaultProfile ? (defaultProfile.DbName || "") : "";
+        document.getElementById("profileFormDbWindowsAuth").checked = defaultProfile ? (defaultProfile.DbUseWindowsAuth === true) : false;
+        document.getElementById("profileFormDbUser").value = defaultProfile ? (defaultProfile.DbUser || "") : "";
+        document.getElementById("profileFormDbPassword").value = defaultProfile ? (defaultProfile.DbPassword || "") : "";
+        document.getElementById("profileFormConfigPath").value = defaultProfile ? (defaultProfile.ConfigFilePath || "") : "";
 
         toggleConnectionStringFields();
         toggleWindowsAuthFields();

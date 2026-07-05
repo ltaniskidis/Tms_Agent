@@ -1808,6 +1808,15 @@ namespace Tms.Agent.Wpf.ViewModels
                     wrapper.AvailableVersion,
                     logLine =>
                     {
+                        if (logLine.Contains("Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή"))
+                        {
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                                mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση σε εξέλιξη", "Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή.", System.Windows.Forms.ToolTipIcon.Warning);
+                            });
+                        }
+
                         // Dispatch back to UI thread
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
@@ -2082,6 +2091,15 @@ namespace Tms.Agent.Wpf.ViewModels
                     wrapper.AvailableVersion,
                     logLine =>
                     {
+                        if (logLine.Contains("Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή"))
+                        {
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                                mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση σε εξέλιξη", "Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή.", System.Windows.Forms.ToolTipIcon.Warning);
+                            });
+                        }
+
                         System.Diagnostics.Debug.WriteLine(logLine);
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {

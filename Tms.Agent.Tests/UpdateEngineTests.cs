@@ -18,12 +18,12 @@ namespace Tms.Agent.Tests
                 conn.Open();
                 using (var cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = "SELECT Id, ApiKey, MachineName, AgentVersion, MachineRole, ClientGuid, RegistrationDate FROM Clients WHERE ApiKey = 'TMS-KEY-5078EAC505274E73'";
+                    cmd.CommandText = "SELECT ApiKey, MachineName, AgentVersion, IsUpgradeEnabled FROM Clients";
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            var info = $"Id: {reader.GetValue(0)} | ApiKey: {reader.GetValue(1)} | Name: {reader.GetValue(2)} | Ver: {reader.GetValue(3)} | Role: {reader.GetValue(4)} | Guid: {reader.GetValue(5)} | Date: {reader.GetValue(6)}";
+                            var info = $"Key: {reader.GetValue(0)} | Name: {reader.GetValue(1)} | Ver: {reader.GetValue(2)} | Enabled: {reader.GetValue(3)}";
                             Console.WriteLine($"[FLESSAS_CLIENT_INSPECT] {info}");
                         }
                     }

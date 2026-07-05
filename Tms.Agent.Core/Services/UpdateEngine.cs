@@ -290,6 +290,36 @@ namespace Tms.Agent.Core.Services
 
             string targetFolder = profile.TargetFolder;
 
+            using var cts = new CancellationTokenSource();
+            string exeNameWithoutExt = Path.GetFileNameWithoutExtension(profile.TargetExeName);
+            var guardTask = Task.Run(async () =>
+            {
+                if (string.IsNullOrEmpty(exeNameWithoutExt)) return;
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    try
+                    {
+                        var runningProcesses = System.Diagnostics.Process.GetProcessesByName(exeNameWithoutExt);
+                        foreach (var process in runningProcesses)
+                        {
+                            if (process.Id == System.Diagnostics.Process.GetCurrentProcess().Id) continue;
+                            try
+                            {
+                                process.Kill();
+                                Log("Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή");
+                            }
+                            catch { }
+                        }
+                    }
+                    catch { }
+                    try
+                    {
+                        await Task.Delay(150, cts.Token);
+                    }
+                    catch { }
+                }
+            });
+
             try
             {
                 if (!Directory.Exists(targetFolder))
@@ -395,8 +425,8 @@ namespace Tms.Agent.Core.Services
                             // Terminate running instances of the active desktop application to avoid lock issues
                             try
                             {
-                                var exeNameWithoutExt = Path.GetFileNameWithoutExtension(activeExeName);
-                                var runningProcesses = System.Diagnostics.Process.GetProcessesByName(exeNameWithoutExt);
+                                var innerExeNameWithoutExt = Path.GetFileNameWithoutExtension(activeExeName);
+                                var runningProcesses = System.Diagnostics.Process.GetProcessesByName(innerExeNameWithoutExt);
                                 foreach (var process in runningProcesses)
                                 {
                                     if (process.Id == System.Diagnostics.Process.GetCurrentProcess().Id)
@@ -604,6 +634,15 @@ namespace Tms.Agent.Core.Services
             {
                 errorMessage = ex.Message;
                 Log($"Σφάλμα αναβάθμισης: {ex.Message}");
+            }
+            finally
+            {
+                cts.Cancel();
+                try
+                {
+                    guardTask.Wait(1000);
+                }
+                catch { }
             }
 
             bool finalSuccess = dbSuccess && fileSuccess;

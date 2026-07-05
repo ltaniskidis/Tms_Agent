@@ -30,7 +30,7 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _currentView, value);
         }
 
-        public string AppVersion => "1.5.62";
+        public string AppVersion => "1.5.63";
         public string WindowTitle => $"TMS Agent Panel - Διαχείριση Ενημερώσεων (v{AppVersion})";
 
         private string _searchText = string.Empty;
@@ -1643,19 +1643,6 @@ namespace Tms.Agent.Wpf.ViewModels
                 isMinimizedToTray = mainWin == null || !mainWin.IsVisible || mainWin.WindowState == WindowState.Minimized;
             });
 
-            // Show mandatory popup to force update (only if NOT in silent mode)
-            if (!IsSilentMode)
-            {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                {
-                    System.Windows.MessageBox.Show(
-                        $"Βρέθηκε νέα έκδοση του Agent (v{targetVersion}).\nΗ αναβάθμιση είναι υποχρεωτική για τη σωστή λειτουργία του συστήματος.\n\nΠατήστε 'OK' για αυτόματη λήψη και επανεκκίνηση του Agent.",
-                        "TMS Agent - Απαιτείται Αναβάθμιση",
-                        MessageBoxButton.OK,
-                        MessageBoxImage.Warning);
-                });
-            }
-
             StatusMessage = "Λήψη και εγκατάσταση αναβάθμισης Agent...";
             
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
@@ -1665,20 +1652,10 @@ namespace Tms.Agent.Wpf.ViewModels
                 WizardStage = 2; // Progress stage (hides buttons)
                 WizardProgress = 0;
                 WizardStatus = "Έναρξη λήψης αρχείων αναβάθμισης...";
-                IsWizardOpen = true;
 
-                if (!IsSilentMode)
-                {
-                    _currentProgressWindow = new UpgradeProgressWindow();
-                    _currentProgressWindow.DataContext = this;
-                    _currentProgressWindow.Show();
-                }
-
-                if (isMinimizedToTray || IsSilentMode)
-                {
-                    var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                    mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", $"Έναρξη λήψης αρχείων αναβάθμισης (v{targetVersion})...");
-                }
+                // Show non-intrusive Tray Balloon notification (always show balloon when upgrading system)
+                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", $"Έναρξη λήψης αρχείων αναβάθμισης (v{targetVersion})...");
             });
 
             bool success = await Task.Run(async () =>
@@ -1699,15 +1676,12 @@ namespace Tms.Agent.Wpf.ViewModels
                     {
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            WizardProgress = progress;
-                            if (isMinimizedToTray || IsSilentMode)
+                            WizardProgress = (int)progress;
+                            var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                            mainWin?.UpdateTrayTooltip($"TMS Agent - Λήψη Αναβάθμισης: {progress}%");
+                            if (progress > 0 && progress < 100 && progress % 25 == 0)
                             {
-                                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                                mainWin?.UpdateTrayTooltip($"TMS Agent - Λήψη Αναβάθμισης: {progress}%");
-                                if (progress > 0 && progress < 100 && progress % 25 == 0)
-                                {
-                                    mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", $"Λήψη αναβάθμισης: {progress}%");
-                                }
+                                mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", $"Λήψη αναβάθμισης: {progress}%");
                             }
                         });
                     }
@@ -1719,41 +1693,8 @@ namespace Tms.Agent.Wpf.ViewModels
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
                     var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                    if (IsSilentMode)
-                    {
-                        mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", "Η αναβάθμιση ολοκληρώθηκε επιτυχώς! Γίνεται επανεκκίνηση του Agent...");
-                        System.Threading.Thread.Sleep(2000); // Give time for balloon to show
-                    }
-                    else
-                    {
-                        if (isMinimizedToTray && _currentProgressWindow != null)
-                        {
-                            mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", "Η αναβάθμιση ολοκληρώθηκε επιτυχώς! Γίνεται επανεκκίνηση...");
-                            mainWin?.UpdateTrayTooltip("TMS Agent - Ολοκληρώθηκε");
-
-                            _currentProgressWindow.WindowState = WindowState.Normal;
-                            _currentProgressWindow.Activate();
-                            _currentProgressWindow.Focus();
-
-                            System.Windows.MessageBox.Show(
-                                _currentProgressWindow,
-                                "Η αναβάθμιση του Agent ολοκληρώθηκε με επιτυχία! Η εφαρμογή θα επανεκκινήσει τώρα.",
-                                "TMS Agent - Επιτυχία",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Information);
-
-                            _currentProgressWindow.Close();
-                            _currentProgressWindow = null;
-                        }
-                        else
-                        {
-                            System.Windows.MessageBox.Show(
-                                "Η αναβάθμιση του Agent ολοκληρώθηκε με επιτυχία! Η εφαρμογή θα επανεκκινήσει τώρα.",
-                                "TMS Agent - Επιτυχία",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Information);
-                        }
-                    }
+                    mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση", "Η αναβάθμιση ολοκληρώθηκε επιτυχώς! Γίνεται επανεκκίνηση του Agent...");
+                    System.Threading.Thread.Sleep(2000); // Give time for balloon to show
                     System.Windows.Application.Current.Shutdown();
                 });
                 Environment.Exit(0);
@@ -1765,55 +1706,12 @@ namespace Tms.Agent.Wpf.ViewModels
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
                     var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                    if (IsSilentMode)
-                    {
-                        mainWin?.ShowTrayBalloon("TMS Agent - Σφάλμα", "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.", System.Windows.Forms.ToolTipIcon.Error);
-                    }
-                    else
-                    {
-                        if (isMinimizedToTray && _currentProgressWindow != null)
-                        {
-                            mainWin?.ShowTrayBalloon("TMS Agent - Σφάλμα", "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.", System.Windows.Forms.ToolTipIcon.Error);
-                            mainWin?.UpdateTrayTooltip("TMS Agent Panel - Σφάλμα Αναβάθμισης");
-
-                            _currentProgressWindow.WindowState = WindowState.Normal;
-                            _currentProgressWindow.Activate();
-                            _currentProgressWindow.Focus();
-
-                            System.Windows.MessageBox.Show(
-                                _currentProgressWindow,
-                                "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.",
-                                "TMS Agent - Σφάλμα",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Error);
-
-                            _currentProgressWindow.Close();
-                            _currentProgressWindow = null;
-                        }
-                        else
-                        {
-                            System.Windows.MessageBox.Show(
-                                "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.",
-                                "TMS Agent - Σφάλμα",
-                                MessageBoxButton.OK,
-                                MessageBoxImage.Error);
-                        }
-                    }
+                    mainWin?.ShowTrayBalloon("TMS Agent - Σφάλμα", "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.", System.Windows.Forms.ToolTipIcon.Error);
+                    mainWin?.UpdateTrayTooltip("TMS Agent Panel - Σφάλμα Αναβάθμισης");
 
                     WizardStage = 3;
                     WizardSuccess = false;
                     WizardErrorMessage = "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης.";
-
-                    if (isMinimizedToTray && _currentProgressWindow == null && !IsSilentMode)
-                    {
-                        mainWin?.ShowTrayBalloon("TMS Agent - Σφάλμα", "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.", System.Windows.Forms.ToolTipIcon.Error);
-                        mainWin?.UpdateTrayTooltip("TMS Agent Panel - Σφάλμα Αναβάθμισης");
-                        System.Windows.MessageBox.Show(
-                            "Αποτυχία λήψης ή εγκατάστασης της αναβάθμισης του Agent.",
-                            "TMS Agent - Σφάλμα",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Error);
-                    }
                 });
             }
         }

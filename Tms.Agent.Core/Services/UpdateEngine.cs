@@ -1382,6 +1382,13 @@ namespace Tms.Agent.Core.Services
                 var batchContent = new StringBuilder();
                 batchContent.AppendLine("@echo off");
                 batchContent.AppendLine("chcp 65001 > nul");
+
+                var commandLineArgs = Environment.GetCommandLineArgs();
+                bool wasStartup = false;
+                if (commandLineArgs != null)
+                {
+                    wasStartup = commandLineArgs.Any(arg => string.Equals(arg, "--startup", StringComparison.OrdinalIgnoreCase));
+                }
                 
                 // Track if the service was running so we can restore it
                 batchContent.AppendLine("set wasServiceRunning=0");
@@ -1445,7 +1452,8 @@ namespace Tms.Agent.Core.Services
                 }
                 else
                 {
-                    batchContent.AppendLine($"start \"\" \"{currentExe}\"");
+                    string argsStr = wasStartup ? " --startup" : "";
+                    batchContent.AppendLine($"start \"\" \"{currentExe}\"{argsStr}");
                     batchContent.AppendLine("if %wasServiceRunning% equ 1 (");
                     batchContent.AppendLine("    sc start TmsAgent > nul");
                     batchContent.AppendLine(")");
@@ -1462,7 +1470,7 @@ namespace Tms.Agent.Core.Services
                     FileName = "cmd.exe",
                     Arguments = $"/c \"{batchPath}\"",
                     CreateNoWindow = true,
-                    UseShellExecute = true, // Spawn completely independently
+                    UseShellExecute = !isService, // Use shell execution only for desktop app to support runas elevation (Session 0 does not support shell)
                     WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
                 };
 

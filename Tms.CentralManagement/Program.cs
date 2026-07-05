@@ -2205,6 +2205,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.63"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.63",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Βελτιώσεις αθόρυβης αναβάθμισης Agent και διατήρηση επιχειρημάτων γραμμής εντολών κατά την επανεκκίνηση.",
+            BinaryFileUrl = "/packages/app_1.5.63.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Πλήρης κατάργηση διαλογικών παραθύρων MessageBox κατά την αναβάθμιση του Agent, χρήση Balloon tips, και διατήρηση της παραμέτρου --startup κατά το auto-restart." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

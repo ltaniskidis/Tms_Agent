@@ -687,6 +687,24 @@ namespace Tms.Agent.Core.Services
                             var lastIndex = blocks.FindIndex(b => b.ScriptNumber.Equals(lastScriptNumber, StringComparison.OrdinalIgnoreCase));
                             if (lastIndex == -1)
                             {
+                                int dbVal = 0;
+                                int maxPkgVal = 0;
+                                bool isDbValNumeric = int.TryParse(lastScriptNumber, out dbVal);
+                                foreach (var b in blocks)
+                                {
+                                    if (int.TryParse(b.ScriptNumber, out int v) && v > maxPkgVal)
+                                    {
+                                        maxPkgVal = v;
+                                    }
+                                }
+
+                                if ((isDbValNumeric && dbVal >= maxPkgVal) || 
+                                    string.Equals(lastScriptNumber, blocks.Last().ScriptNumber, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    sb.AppendLine($"  -> Η βάση είναι ήδη ενημερωμένη (Τελευταίο block στη βάση: {lastScriptNumber}, Μέγιστο πακέτου: {maxPkgVal}).");
+                                    continue;
+                                }
+
                                 sb.AppendLine($"  -> Σφάλμα: Το τελευταίο εκτελεσμένο block '{lastScriptNumber}' δεν υπάρχει στο αρχείο.");
                                 continue;
                             }
@@ -801,6 +819,24 @@ namespace Tms.Agent.Core.Services
                             var lastIndex = blocks.FindIndex(b => b.ScriptNumber.Equals(lastScriptNumber, StringComparison.OrdinalIgnoreCase));
                             if (lastIndex == -1)
                             {
+                                int dbVal = 0;
+                                int maxPkgVal = 0;
+                                bool isDbValNumeric = int.TryParse(lastScriptNumber, out dbVal);
+                                foreach (var b in blocks)
+                                {
+                                    if (int.TryParse(b.ScriptNumber, out int v) && v > maxPkgVal)
+                                    {
+                                        maxPkgVal = v;
+                                    }
+                                }
+
+                                if ((isDbValNumeric && dbVal >= maxPkgVal) || 
+                                    string.Equals(lastScriptNumber, blocks.Last().ScriptNumber, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    log($"Η βάση δεδομένων είναι ήδη ενημερωμένη (Τρέχουσα βάσης: {lastScriptNumber}, Μέγιστη πακέτου: {maxPkgVal}). Προχωράμε στην αναβάθμιση του .exe...");
+                                    continue;
+                                }
+
                                 log($"Σφάλμα: Το τελευταίο εκτελεσμένο σενάριο '{lastScriptNumber}' δεν βρέθηκε στο μαζικό αρχείο.");
                                 log("Το τελευταίο script δεν βρέθηκε στο αρχείο. Η αναβάθμιση ακυρώνεται για λόγους ασφαλείας.");
                                 return false;

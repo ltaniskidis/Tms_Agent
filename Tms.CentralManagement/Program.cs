@@ -2309,6 +2309,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.68"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.68",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Connection string ανά μηχάνημα και παράκαμψη SQL Scripts αν η βάση είναι ενημερωμένη.",
+            BinaryFileUrl = "/packages/app_1.5.68.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη Connection String κατά την προσθήκη μηχανήματος και βελτιστοποίηση ελέγχου SQL scripts ώστε να προχωράει η αναβάθμιση αν η βάση είναι ήδη ενημερωμένη." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

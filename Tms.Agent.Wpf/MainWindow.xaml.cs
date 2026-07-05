@@ -15,6 +15,7 @@ namespace Tms.Agent.Wpf
 
         private readonly System.Collections.Generic.HashSet<int> _dismissedBroadcastIds = new();
         private readonly System.Collections.Generic.HashSet<int> _activeBroadcastIds = new();
+        private NotificationWindow? _activeUpdateNotificationWindow;
 
         public MainWindow()
         {
@@ -36,28 +37,57 @@ namespace Tms.Agent.Wpf
 
             vm.UpdateDetected += (companyName, versionNumber) =>
             {
-                _balloonTargetView = "Dashboard";
-                _notifyIcon?.ShowBalloonTip(20000, "TMS Agent - Νέα Έκδοση", $"Διαθέσιμη νέα έκδοση ({versionNumber}) για την εταιρεία: {companyName}", System.Windows.Forms.ToolTipIcon.Info);
-
-                if (!vm.IsSilentMode)
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        System.Windows.MessageBox.Show(
-                            $"Ανιχνεύθηκε νέα έκδοση ({versionNumber}) για την εταιρεία '{companyName}'!",
-                            "Διαθέσιμη Ενημέρωση",
-                            MessageBoxButton.OK,
-                            MessageBoxImage.Information);
-                    });
-                }
+                    try { _activeUpdateNotificationWindow?.Close(); } catch { }
+
+                    var profile = vm.Profiles.FirstOrDefault(p => p.ProfileName == companyName);
+                    _activeUpdateNotificationWindow = new NotificationWindow(
+                        $"Νέα έκδοση ({versionNumber}) για '{companyName}'!",
+                        "Εγκεκριμένη αναβάθμιση. Πατήστε Εκτέλεση για να ξεκινήσει ο οδηγός εγκατάστασης.",
+                        "Εκτέλεση",
+                        "Διαθέσιμη Αναβάθμιση",
+                        "⚙️",
+                        "#10B981",
+                        () =>
+                        {
+                            ShowWindow();
+                            vm.CurrentView = "Dashboard";
+                            if (profile != null && vm.UpdateProfileCommand.CanExecute(profile))
+                            {
+                                vm.UpdateProfileCommand.Execute(profile);
+                            }
+                        }
+                    );
+                    _activeUpdateNotificationWindow.Show();
+                });
             };
 
             vm.OperatorClosePromptDetected += (companyName, versionNumber, duration) =>
             {
-                _balloonTargetView = "Dashboard";
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    _notifyIcon?.ShowBalloonTip(duration, "TMS Agent - Εκκρεμεί Εγκατάσταση", $"Έχει εγκριθεί η αναβάθμιση ({versionNumber}) για την '{companyName}'. Παρακαλώ κλείστε το ERP για να ολοκληρωθεί η εγκατάσταση.", System.Windows.Forms.ToolTipIcon.Warning);
+                    try { _activeUpdateNotificationWindow?.Close(); } catch { }
+
+                    var profile = vm.Profiles.FirstOrDefault(p => p.ProfileName == companyName);
+                    _activeUpdateNotificationWindow = new NotificationWindow(
+                        $"Εκκρεμεί εγκατάσταση (v{versionNumber}) για '{companyName}'!",
+                        "Παρακαλώ κλείστε το ERP (τιμολόγηση) και πατήστε Εκτέλεση για να ολοκληρωθεί η εγκατάσταση.",
+                        "Εκτέλεση",
+                        "Εκκρεμεί Εγκατάσταση",
+                        "⚠️",
+                        "#F59E0B",
+                        () =>
+                        {
+                            ShowWindow();
+                            vm.CurrentView = "Dashboard";
+                            if (profile != null && vm.UpdateProfileCommand.CanExecute(profile))
+                            {
+                                vm.UpdateProfileCommand.Execute(profile);
+                            }
+                        }
+                    );
+                    _activeUpdateNotificationWindow.Show();
                 });
             };
 

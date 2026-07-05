@@ -103,6 +103,17 @@ namespace Tms.CentralManagement.Pages
             return RedirectToPage();
         }
 
+        public async Task<IActionResult> OnPostToggleUpgradeEnabledAsync(int clientId)
+        {
+            var client = await _context.Clients.FindAsync(clientId);
+            if (client != null)
+            {
+                client.IsUpgradeEnabled = !client.IsUpgradeEnabled;
+                await _context.SaveChangesAsync();
+            }
+            return RedirectToPage();
+        }
+
         public async Task<IActionResult> OnPostDeleteProfileAsync(int profileId)
         {
             var profile = await _context.ClientProfiles.FindAsync(profileId);

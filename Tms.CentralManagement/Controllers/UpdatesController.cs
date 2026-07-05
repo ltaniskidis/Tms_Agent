@@ -427,7 +427,7 @@ namespace Tms.CentralManagement.Controllers
                             {
                                 ProfileId = localProfile.ProfileId,
                                 Afm = localProfile.Afm,
-                                IsAuthorizedByAdmin = isClient ? (dbProfile.IsAuthorizedForUpdate || isDbUpToDate) : dbProfile.IsAuthorizedForUpdate,
+                                IsAuthorizedByAdmin = dbProfile.IsAuthorizedForUpdate || isDbUpToDate,
                                 IsWaitingForDb = isWaitingForDb,
                                 NewVersion = new VersionDto
                                 {

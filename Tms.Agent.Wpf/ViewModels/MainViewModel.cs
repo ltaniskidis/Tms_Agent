@@ -48,6 +48,7 @@ namespace Tms.Agent.Wpf.ViewModels
 
         private Window? _currentProgressWindow;
         private readonly Dictionary<string, DateTime> _lastNotificationTimes = new();
+        private readonly Dictionary<string, DateTime> _lastOperatorPromptTimes = new();
         
         private bool _isSilentMode = false;
         public bool IsSilentMode { get => _isSilentMode; set => SetProperty(ref _isSilentMode, value); }
@@ -470,6 +471,7 @@ namespace Tms.Agent.Wpf.ViewModels
 
         // Events
         public event Action<string, string>? UpdateDetected;
+        public event Action<string, string, int>? OperatorClosePromptDetected;
         public event Action<int, string, string>? BroadcastDetected;
 
         // Local User Management
@@ -1505,26 +1507,74 @@ namespace Tms.Agent.Wpf.ViewModels
                 }
             }
 
-            // Operator close program popup logic (only if NOT in silent mode)
-            if (!IsSilentMode && (UserRole == "Operator" || UserRole == "Admin" || UserRole == "Owner"))
+            // Operator / Admin update promotion and auto-execute logic
+            if (!IsSelfUpgradePending)
             {
-                foreach (var p in Profiles)
+                foreach (var p in Profiles.ToList())
                 {
                     if (p.AvailableVersion != null && p.IsAuthorizedByAdmin && !p.IsWaitingForDb)
                     {
-                        var key = $"{p.ProfileId}_{p.AvailableVersion.VersionNumber}";
-                        if (!_promptedUpdates.Contains(key))
+                        string exeName = p.Profile.TargetExeName ?? "TIMOLOGISI.exe";
+                        string exeNameWithoutExt = Path.GetFileNameWithoutExtension(exeName);
+                        bool isProgramRunning = false;
+                        try
                         {
-                            _promptedUpdates.Add(key);
-                            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                            var runningProcesses = System.Diagnostics.Process.GetProcessesByName(exeNameWithoutExt);
+                            isProgramRunning = runningProcesses.Length > 0;
+                        }
+                        catch
+                        {
+                            // Ignored
+                        }
+
+                        if (isProgramRunning)
+                        {
+                            if (UserRole == "Operator")
                             {
-                                System.Windows.MessageBox.Show(
-                                    System.Windows.Application.Current.MainWindow,
-                                    $"Έχει εγκριθεί η νέα αναβάθμιση {p.AvailableVersion.VersionNumber} για το προφίλ '{p.ProfileName}'.\nΠαρακαλώ κλείστε το TMS πρόγραμμα για να πραγματοποιηθεί η λήψη και εγκατάσταση των αρχείων.",
-                                    "TMS Agent - Απαιτείται Κλείσιμο Προγράμματος",
-                                    MessageBoxButton.OK,
-                                    MessageBoxImage.Warning);
-                            }));
+                                bool shouldNotify = false;
+                                if (_lastOperatorPromptTimes.TryGetValue(p.Profile.ProfileId, out var lastTime))
+                                {
+                                    if (DateTime.UtcNow - lastTime >= TimeSpan.FromMinutes(30))
+                                    {
+                                        shouldNotify = true;
+                                    }
+                                }
+                                else
+                                {
+                                    shouldNotify = true;
+                                }
+
+                                if (shouldNotify)
+                                {
+                                    OperatorClosePromptDetected?.Invoke(p.ProfileName, p.AvailableVersion.VersionNumber, 30000);
+                                    _lastOperatorPromptTimes[p.Profile.ProfileId] = DateTime.UtcNow;
+                                }
+                            }
+                            else if (UserRole == "Admin" || UserRole == "Owner")
+                            {
+                                if (!IsSilentMode)
+                                {
+                                    var key = $"{p.ProfileId}_{p.AvailableVersion.VersionNumber}";
+                                    if (!_promptedUpdates.Contains(key))
+                                    {
+                                        _promptedUpdates.Add(key);
+                                        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
+                                        {
+                                            System.Windows.MessageBox.Show(
+                                                System.Windows.Application.Current.MainWindow,
+                                                $"Έχει εγκριθεί η νέα αναβάθμιση {p.AvailableVersion.VersionNumber} για το προφίλ '{p.ProfileName}'.\nΠαρακαλώ κλείστε το TMS πρόγραμμα για να πραγματοποιηθεί η λήψη και εγκατάσταση των αρχείων.",
+                                                "TMS Agent - Απαιτείται Κλείσιμο Προγράμματος",
+                                                MessageBoxButton.OK,
+                                                MessageBoxImage.Warning);
+                                        }));
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Program is closed, run silent update immediately!
+                            _ = RunSilentProfileUpgradeAsync(p);
                         }
                     }
                 }
@@ -1602,11 +1652,7 @@ namespace Tms.Agent.Wpf.ViewModels
                 }
             }
 
-            // Automatically run silent updates for authorized profiles on Windows boot/restart (Silent mode)
-            if (IsSilentMode && !IsSelfUpgradePending)
-            {
-                _ = RunSilentProfileUpgradesSequentiallyAsync();
-            }
+
         }
 
         private async Task AuthorizeUpdateAsync(ProfileUiWrapper wrapper)

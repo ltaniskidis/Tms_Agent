@@ -189,11 +189,18 @@
                                     <div class="tree-node-header machine-header-node" onclick="toggleTreeNode(this)">
                                         <span class="tree-arrow">▶</span>
                                         <span class="tree-icon">🖥️</span>
-                                        <div class="tree-label">
-                                            <strong>@(string.IsNullOrEmpty(client.Alias) ? client.MachineName : client.Alias)</strong>
-                                            <span style="color: var(--text-secondary); font-size: 11px; margin-left: 5px;">(@client.MachineName)</span>
-                                            <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;">v@(client.AgentVersion)</span>
-                                            <span class="badge badge-mini" style="background-color: rgba(255,255,255,0.05); color: var(--text-secondary);">@client.MachineRole</span>
+                                        <div class="tree-label" style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-right: 15px;">
+                                            <div>
+                                                <strong>@(string.IsNullOrEmpty(client.Alias) ? client.MachineName : client.Alias)</strong>
+                                                <span style="color: var(--text-secondary); font-size: 11px; margin-left: 5px;">(@client.MachineName)</span>
+                                                <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;">v@(client.AgentVersion)</span>
+                                                <span class="badge badge-mini" style="background-color: rgba(255,255,255,0.05); color: var(--text-secondary);">@client.MachineRole</span>
+                                            </div>
+                                            <form method="post" asp-page-handler="ToggleUpgradeEnabled" asp-route-clientId="@client.Id" style="margin: 0;" onclick="event.stopPropagation()">
+                                                <button class="btn @(client.IsUpgradeEnabled ? "btn-success" : "btn-danger")" style="padding: 2px 8px; font-size: 10px; font-weight: bold; min-width: 140px; border-radius: 4px;" type="submit">
+                                                    @(client.IsUpgradeEnabled ? "🔓 Επιτρέπονται Updates" : "🔒 Απαγορεύονται Updates")
+                                                </button>
+                                            </form>
                                         </div>
                                     </div>
                                     <div class="tree-node-content machine-content-node">
@@ -261,8 +268,8 @@
                                                                     <td>
                                                                         <div style="display: flex; gap: 4px; align-items: center;">
                                                                             <form method="post" asp-page-handler="AuthorizeUpdate" asp-route-profileId="@profile.Id" style="margin: 0;">
-                                                                                <button class="btn @(profile.IsAuthorizedForUpdate ? "btn-danger" : "btn-success")" style="padding: 3px 6px; font-size: 11px; min-width: 100px;" type="submit">
-                                                                                    @(profile.IsAuthorizedForUpdate ? "Ακύρωση Έγκρ." : "Έγκριση Admin")
+                                                                                <button class="btn @(profile.IsAuthorizedForUpdate ? "btn-danger" : "btn-success")" style="padding: 3px 6px; font-size: 11px; min-width: 150px;" type="submit">
+                                                                                    @(profile.IsAuthorizedForUpdate ? "Ακύρωση Push" : "Push (Άμεση Αναβάθμιση)")
                                                                                 </button>
                                                                             </form>
                                                                             <button class="btn btn-outline edit-btn" style="padding: 3px 6px; font-size: 11px;" type="button"
@@ -358,10 +365,17 @@
                                 <div class="tree-node-header machine-header-node" onclick="toggleTreeNode(this)">
                                     <span class="tree-arrow">▶</span>
                                     <span class="tree-icon">🖥️</span>
-                                    <div class="tree-label">
-                                        <strong>@client.MachineName</strong>
-                                        <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;">v@(client.AgentVersion)</span>
-                                        <span class="badge badge-mini" style="background-color: rgba(255,255,255,0.05); color: var(--text-secondary);">@client.MachineRole</span>
+                                    <div class="tree-label" style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-right: 15px;">
+                                        <div>
+                                            <strong>@client.MachineName</strong>
+                                            <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;">v@(client.AgentVersion)</span>
+                                            <span class="badge badge-mini" style="background-color: rgba(255, 255, 255, 0.05); color: var(--text-secondary);">@client.MachineRole</span>
+                                        </div>
+                                        <form method="post" asp-page-handler="ToggleUpgradeEnabled" asp-route-clientId="@client.Id" style="margin: 0;" onclick="event.stopPropagation()">
+                                            <button class="btn @(client.IsUpgradeEnabled ? "btn-success" : "btn-danger")" style="padding: 2px 8px; font-size: 10px; font-weight: bold; min-width: 140px; border-radius: 4px;" type="submit">
+                                                @(client.IsUpgradeEnabled ? "🔓 Επιτρέπονται Updates" : "🔒 Απαγορεύονται Updates")
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                                 <div class="tree-node-content machine-content-node">
@@ -429,8 +443,8 @@
                                                                 <td>
                                                                     <div style="display: flex; gap: 4px; align-items: center;">
                                                                         <form method="post" asp-page-handler="AuthorizeUpdate" asp-route-profileId="@profile.Id" style="margin: 0;">
-                                                                            <button class="btn @(profile.IsAuthorizedForUpdate ? "btn-danger" : "btn-success")" style="padding: 3px 6px; font-size: 11px; min-width: 100px;" type="submit">
-                                                                                @(profile.IsAuthorizedForUpdate ? "Ακύρωση Έγκρ." : "Έγκριση Admin")
+                                                                            <button class="btn @(profile.IsAuthorizedForUpdate ? "btn-danger" : "btn-success")" style="padding: 3px 6px; font-size: 11px; min-width: 150px;" type="submit">
+                                                                                @(profile.IsAuthorizedForUpdate ? "Ακύρωση Push" : "Push (Άμεση Αναβάθμιση)")
                                                                             </button>
                                                                         </form>
                                                                         <button class="btn btn-outline edit-btn" style="padding: 3px 6px; font-size: 11px;" type="button"

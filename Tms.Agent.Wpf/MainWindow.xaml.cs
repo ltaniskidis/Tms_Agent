@@ -52,6 +52,15 @@ namespace Tms.Agent.Wpf
                 }
             };
 
+            vm.OperatorClosePromptDetected += (companyName, versionNumber, duration) =>
+            {
+                _balloonTargetView = "Dashboard";
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    _notifyIcon?.ShowBalloonTip(duration, "TMS Agent - Εκκρεμεί Εγκατάσταση", $"Έχει εγκριθεί η αναβάθμιση ({versionNumber}) για την '{companyName}'. Παρακαλώ κλείστε το ERP για να ολοκληρωθεί η εγκατάσταση.", System.Windows.Forms.ToolTipIcon.Warning);
+                });
+            };
+
             vm.BroadcastDetected += (id, title, content) =>
             {
                 if (_dismissedBroadcastIds.Contains(id) || _activeBroadcastIds.Contains(id))

@@ -1181,6 +1181,45 @@ namespace Tms.Agent.Wpf.ViewModels
 
         private async Task CheckForUpdatesAsync(bool forceSyncStartWithWindows = false)
         {
+            // Check if disk files have a newer version than our running instance
+            try
+            {
+                var dllPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tms.Agent.Core.dll");
+                if (File.Exists(dllPath))
+                {
+                    var fileVersionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(dllPath);
+                    var productVersion = fileVersionInfo.ProductVersion;
+                    if (!string.IsNullOrEmpty(productVersion))
+                    {
+                        var match = System.Text.RegularExpressions.Regex.Match(productVersion, @"^\d+\.\d+\.\d+");
+                        if (match.Success)
+                        {
+                            var diskVer = match.Value;
+                            if (diskVer != AppVersion)
+                            {
+                                System.Diagnostics.Debug.WriteLine($"[DiskVersionCheck] Running version ({AppVersion}) differs from disk version ({diskVer}). Restarting...");
+                                var currentExe = Environment.ProcessPath;
+                                if (string.IsNullOrEmpty(currentExe))
+                                {
+                                    currentExe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                                }
+                                if (!string.IsNullOrEmpty(currentExe))
+                                {
+                                    System.Diagnostics.Process.Start(currentExe);
+                                    System.Windows.Application.Current.Dispatcher.Invoke(() => System.Windows.Application.Current.Shutdown());
+                                    Environment.Exit(0);
+                                    return;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to auto-restart on disk version mismatch: {ex.Message}");
+            }
+
             StatusMessage = "Έλεγχος για νέες εκδόσεις...";
             foreach (var p in Profiles)
             {

@@ -2361,6 +2361,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.70"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.70",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Αυτόματη ανίχνευση νέας έκδοσης στον δίσκο και επανεκκίνηση (auto-restart) του WPF Agent Panel.",
+            BinaryFileUrl = "/packages/app_1.5.70.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Αυτόματη ανίχνευση νέας έκδοσης στον δίσκο και επανεκκίνηση (auto-restart) του WPF Agent Panel για αποφυγή παραμονής παλαιών εκδόσεων στη μνήμη." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

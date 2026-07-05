@@ -74,8 +74,17 @@ if (Test-Path $zipPath) {
     Remove-Item -Force $zipPath
 }
 
-Write-Host "Creating ZIP archive: $zipName..." -ForegroundColor Yellow
-Compress-Archive -Path "$tempDir\*" -DestinationPath $zipPath -Force
+# Compress outside OneDrive to avoid file locks
+$systemTempDir = "C:\TmsTempUpdate"
+if (Test-Path $systemTempDir) {
+    Remove-Item -Recurse -Force $systemTempDir -ErrorAction SilentlyContinue
+}
+New-Item -ItemType Directory -Path $systemTempDir | Out-Null
+Copy-Item -Path "$tempDir\*" -Destination $systemTempDir -Recurse -Force
+Compress-Archive -Path "$systemTempDir\*" -DestinationPath $zipPath -Force
+if (Test-Path $systemTempDir) {
+    Remove-Item -Recurse -Force $systemTempDir -ErrorAction SilentlyContinue
+}
 
 # Copy to Dev packages directory
 if (Test-Path $serverPackagesDev) {

@@ -37,7 +37,7 @@ namespace Tms.Agent.Wpf
             vm.UpdateDetected += (companyName, versionNumber) =>
             {
                 _balloonTargetView = "Dashboard";
-                _notifyIcon?.ShowBalloonTip(3000, "TMS Agent - Νέα Έκδοση", $"Διαθέσιμη νέα έκδοση ({versionNumber}) για την εταιρεία: {companyName}", System.Windows.Forms.ToolTipIcon.Info);
+                _notifyIcon?.ShowBalloonTip(20000, "TMS Agent - Νέα Έκδοση", $"Διαθέσιμη νέα έκδοση ({versionNumber}) για την εταιρεία: {companyName}", System.Windows.Forms.ToolTipIcon.Info);
 
                 if (!vm.IsSilentMode)
                 {

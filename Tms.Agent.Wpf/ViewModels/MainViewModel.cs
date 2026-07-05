@@ -47,6 +47,7 @@ namespace Tms.Agent.Wpf.ViewModels
         }
 
         private Window? _currentProgressWindow;
+        private readonly Dictionary<string, DateTime> _lastNotificationTimes = new();
         
         private bool _isSilentMode = false;
         public bool IsSilentMode { get => _isSilentMode; set => SetProperty(ref _isSilentMode, value); }
@@ -1457,9 +1458,32 @@ namespace Tms.Agent.Wpf.ViewModels
 
                         hasMonitoredUpdates = true;
 
-                        if (isNewUpdate)
+                        bool isAdminOrOwner = string.Equals(UserRole, "Admin", StringComparison.OrdinalIgnoreCase) ||
+                                               string.Equals(UserRole, "Owner", StringComparison.OrdinalIgnoreCase);
+
+                        if (isAdminOrOwner && !update.IsAuthorizedByAdmin && !update.IsWaitingForDb)
                         {
-                            UpdateDetected?.Invoke(p.ProfileName, update.NewVersion.VersionNumber);
+                            bool shouldNotify = isNewUpdate;
+                            if (!shouldNotify)
+                            {
+                                if (_lastNotificationTimes.TryGetValue(p.Profile.ProfileId, out var lastTime))
+                                {
+                                    if (DateTime.UtcNow - lastTime >= TimeSpan.FromMinutes(30))
+                                    {
+                                        shouldNotify = true;
+                                    }
+                                }
+                                else
+                                {
+                                    shouldNotify = true;
+                                }
+                            }
+
+                            if (shouldNotify)
+                            {
+                                UpdateDetected?.Invoke(p.ProfileName, update.NewVersion.VersionNumber);
+                                _lastNotificationTimes[p.Profile.ProfileId] = DateTime.UtcNow;
+                            }
                         }
                     }
                     else

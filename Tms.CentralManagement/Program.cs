@@ -2231,6 +2231,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.65"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.65",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Περιορισμός και throttling ειδοποιήσεων αναβάθμισης για αποφυγή spam.",
+            BinaryFileUrl = "/packages/app_1.5.65.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Throttling των Balloon Tips ειδοποιήσεων για εκκρεμείς αναβαθμίσεις ανά 30 λεπτά και περιορισμός εμφάνισής τους μόνο σε ρόλους Admin/Owner." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

@@ -1449,6 +1449,7 @@ namespace Tms.Agent.Core.Services
                 if (isService)
                 {
                     batchContent.AppendLine("sc start TmsAgent > nul");
+                    batchContent.AppendLine("schtasks /run /tn \"TmsAgent\" > nul 2>&1");
                 }
                 else
                 {

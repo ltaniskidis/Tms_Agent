@@ -76,7 +76,7 @@ namespace Tms.Agent.Wpf
                             clientId,
                             machineName,
                             settings.MachineRole,
-                            "1.5.63", // Bumped version
+                            Tms.Agent.Core.AgentVersionInfo.Version, // Bumped version
                             settings.ApiKey,
                             profiles,
                             settings.StartWithWindows,
@@ -86,7 +86,7 @@ namespace Tms.Agent.Wpf
                         if (response != null)
                         {
                             // Check for Agent self-upgrade
-                            if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != "1.5.63" && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
+                            if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != Tms.Agent.Core.AgentVersionInfo.Version && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
                             {
                                 System.Diagnostics.Debug.WriteLine($"Service triggers self upgrade to version {response.CurrentSystemVersion}...");
                                 await updateEngine.RunAgentSelfUpgradeAsync(settings.ServerUrl, response.SystemBinaryUrl, true, msg => System.Diagnostics.Debug.WriteLine(msg));

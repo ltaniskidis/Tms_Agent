@@ -53,6 +53,12 @@ namespace Tms.CentralManagement.Controllers
             client.ClientGuid = request.ClientId;
             client.MachineName = request.MachineName;
             client.MachineRole = request.MachineRole;
+            
+            client.LastCommunicationTime = DateTime.UtcNow;
+            if (client.LastAgentUpgradeTime == null || client.AgentVersion != request.AgentVersion)
+            {
+                client.LastAgentUpgradeTime = DateTime.UtcNow;
+            }
             client.AgentVersion = request.AgentVersion ?? "1.0.0";
 
             bool isClient = string.Equals(request.MachineRole, "Client", StringComparison.OrdinalIgnoreCase);

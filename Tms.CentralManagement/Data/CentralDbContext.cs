@@ -128,6 +128,9 @@ namespace Tms.CentralManagement.Data
         public Customer? Customer { get; set; }
         public string? Alias { get; set; }
 
+        public DateTime? LastCommunicationTime { get; set; }
+        public DateTime? LastAgentUpgradeTime { get; set; }
+
         public List<ClientProfile> Profiles { get; set; } = new();
         public List<ClientDatabase> Databases { get; set; } = new();
         public List<AgentUser> LocalUsers { get; set; } = new();

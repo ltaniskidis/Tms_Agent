@@ -158,6 +158,30 @@ namespace Tms.Agent.Wpf
             }
 
             InitializeTrayIcon();
+
+            // Start named event listener to bring this instance to foreground on second launch
+            const string EventName = "TmsAgentEvent_CleverData";
+            System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    using (var eventWaitHandle = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, EventName))
+                    {
+                        while (true)
+                        {
+                            eventWaitHandle.WaitOne();
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                ShowWindow();
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Error in single instance event wait loop: {ex.Message}");
+                }
+            });
         }
 
         private void InitializeTrayIcon()
@@ -299,6 +323,15 @@ namespace Tms.Agent.Wpf
             {
                 e.Cancel = true;
                 Hide();
+
+                // Reset logged in user so next show requires login!
+                App.LoggedInUser = string.Empty;
+                App.UserRole = string.Empty;
+                if (DataContext is MainViewModel vm)
+                {
+                    vm.ApplyUserAuthentication(string.Empty, string.Empty);
+                }
+
                 ShowTrayBalloon(
                     "TMS Agent",
                     "Η εφαρμογή TMS Agent Panel θα συνεχίσει να εκτελείται στη γραμμή εργασιών (System Tray) για αυτόματη λήψη ενημερώσεων.",

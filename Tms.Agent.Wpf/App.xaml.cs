@@ -17,6 +17,7 @@ public partial class App : System.Windows.Application
 {
     public static string LoggedInUser { get; set; } = string.Empty;
     public static string UserRole { get; set; } = string.Empty;
+    private static System.Threading.Mutex? _appMutex;
 
     private string? GetArgValue(string[] args, string argName)
     {
@@ -140,6 +141,29 @@ public partial class App : System.Windows.Application
             {
                 System.Diagnostics.Debug.WriteLine($"Service start failed: {ex.Message}");
             }
+            Shutdown();
+            return;
+        }
+
+        const string MutexName = "TmsAgentMutex_CleverData";
+        const string EventName = "TmsAgentEvent_CleverData";
+        bool createdNew;
+
+        _appMutex = new System.Threading.Mutex(true, MutexName, out createdNew);
+        if (!createdNew)
+        {
+            try
+            {
+                using (var eventWaitHandle = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.AutoReset, EventName))
+                {
+                    eventWaitHandle.Set();
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to signal running instance: {ex.Message}");
+            }
+
             Shutdown();
             return;
         }

@@ -193,8 +193,24 @@
                                             <div>
                                                 <strong>@(string.IsNullOrEmpty(client.Alias) ? client.MachineName : client.Alias)</strong>
                                                 <span style="color: var(--text-secondary); font-size: 11px; margin-left: 5px;">(@client.MachineName)</span>
-                                                <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;">v@(client.AgentVersion)</span>
+                                                <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;" title="@(client.LastAgentUpgradeTime.HasValue ? $"Αναβάθμιση Agent: {client.LastAgentUpgradeTime.Value.ToString("dd/MM/yyyy HH:mm")}" : "Άγνωστη ημερομηνία αναβάθμισης")">v@(client.AgentVersion)</span>
                                                 <span class="badge badge-mini" style="background-color: rgba(255,255,255,0.05); color: var(--text-secondary);">@client.MachineRole</span>
+                                                
+                                                @if (client.LastCommunicationTime.HasValue)
+                                                {
+                                                    var timeSinceLastComm = DateTime.UtcNow - client.LastCommunicationTime.Value;
+                                                    var isActive = timeSinceLastComm.TotalMinutes <= 5;
+                                                    <span class="badge badge-mini" style="background-color: @(isActive ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)"); color: @(isActive ? "#10B981" : "#F59E0B"); margin-left: 4px;" title="Τελευταία επικοινωνία: @client.LastCommunicationTime.Value.ToString("dd/MM/yyyy HH:mm:ss")">
+                                                        @(isActive ? "🟢 Active" : $"⏳ {client.LastCommunicationTime.Value.ToString("dd/MM/yyyy HH:mm")}")
+                                                    </span>
+                                                }
+
+                                                @if (client.Profiles.Any())
+                                                {
+                                                    <span style="font-size: 11px; color: var(--text-secondary); margin-left: 12px; font-style: italic;">
+                                                        ( @string.Join(" | ", client.Profiles.Select(p => $"{p.ProfileName}: v{p.LastUpdatedProgramVersion} (DB {p.LastUpdatedDbVersion})")) )
+                                                    </span>
+                                                }
                                             </div>
                                             <form method="post" asp-page-handler="ToggleUpgradeEnabled" asp-route-clientId="@client.Id" style="margin: 0;" onclick="event.stopPropagation()">
                                                 <button class="btn @(client.IsUpgradeEnabled ? "btn-success" : "btn-danger")" style="padding: 2px 8px; font-size: 10px; font-weight: bold; min-width: 140px; border-radius: 4px;" type="submit">
@@ -372,8 +388,24 @@
                                     <div class="tree-label" style="display: flex; align-items: center; justify-content: space-between; width: 100%; margin-right: 15px;">
                                         <div>
                                             <strong>@client.MachineName</strong>
-                                            <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;">v@(client.AgentVersion)</span>
+                                            <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;" title="@(client.LastAgentUpgradeTime.HasValue ? $"Αναβάθμιση Agent: {client.LastAgentUpgradeTime.Value.ToString("dd/MM/yyyy HH:mm")}" : "Άγνωστη ημερομηνία αναβάθμισης")">v@(client.AgentVersion)</span>
                                             <span class="badge badge-mini" style="background-color: rgba(255, 255, 255, 0.05); color: var(--text-secondary);">@client.MachineRole</span>
+
+                                            @if (client.LastCommunicationTime.HasValue)
+                                            {
+                                                var timeSinceLastComm = DateTime.UtcNow - client.LastCommunicationTime.Value;
+                                                var isActive = timeSinceLastComm.TotalMinutes <= 5;
+                                                <span class="badge badge-mini" style="background-color: @(isActive ? "rgba(16, 185, 129, 0.15)" : "rgba(245, 158, 11, 0.15)"); color: @(isActive ? "#10B981" : "#F59E0B"); margin-left: 4px;" title="Τελευταία επικοινωνία: @client.LastCommunicationTime.Value.ToString("dd/MM/yyyy HH:mm:ss")">
+                                                    @(isActive ? "🟢 Active" : $"⏳ {client.LastCommunicationTime.Value.ToString("dd/MM/yyyy HH:mm")}")
+                                                </span>
+                                            }
+
+                                            @if (client.Profiles.Any())
+                                            {
+                                                <span style="font-size: 11px; color: var(--text-secondary); margin-left: 12px; font-style: italic;">
+                                                    ( @string.Join(" | ", client.Profiles.Select(p => $"{p.ProfileName}: v{p.LastUpdatedProgramVersion} (DB {p.LastUpdatedDbVersion})")) )
+                                                </span>
+                                            }
                                         </div>
                                         <form method="post" asp-page-handler="ToggleUpgradeEnabled" asp-route-clientId="@client.Id" style="margin: 0;" onclick="event.stopPropagation()">
                                             <button class="btn @(client.IsUpgradeEnabled ? "btn-success" : "btn-danger")" style="padding: 2px 8px; font-size: 10px; font-weight: bold; min-width: 140px; border-radius: 4px;" type="submit">

@@ -228,9 +228,26 @@ using (var scope = app.Services.CreateScope())
                         alterCommand.ExecuteNonQuery();
                     }
                 }
+
+                if (!columns.Contains("LastCommunicationTime", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN LastCommunicationTime TEXT NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
+
+                if (!columns.Contains("LastAgentUpgradeTime", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN LastAgentUpgradeTime TEXT NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
             }
 
-            // 5. UpdateLogs table columns check
             using (var command = connection.CreateCommand())
             {
                 command.CommandText = "PRAGMA table_info(UpdateLogs);";
@@ -2408,6 +2425,34 @@ GO
             TargetType = "System"
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Διόρθωση σφάλματος επαναλαμβανόμενης επανεκκίνησης (restart loop) του WPF Agent Panel κατά τον έλεγχο εκδόσεων σε ορισμένα περιβάλλοντα." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.72"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.72",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Δικλείδα ασφαλείας Single Instance, υποχρεωτικό login κατά το άνοιγμα & καταγραφή χρόνων επικοινωνίας Agent.",
+            BinaryFileUrl = "/packages/app_1.5.72.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη Single Instance Guard (Mutex) για αποτροπή πολλαπλών διεργασιών και διπλών εικονιδίων στο System Tray." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αυτόματο Logout κατά το κλείσιμο του Panel, ώστε να απαιτείται πάντα login με διπλό κλικ." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Καταγραφή και προβολή ημερομηνίας/ώρας τελευταίας επικοινωνίας και αναβάθμισης του Agent στην κεντρική κονσόλα." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

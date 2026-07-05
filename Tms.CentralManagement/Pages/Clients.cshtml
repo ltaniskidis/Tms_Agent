@@ -187,12 +187,43 @@
                                                 <td>
                                                     <span style="color: var(--text-secondary);">@client.MachineName</span>
                                                     <span class="badge" style="font-size: 9px; padding: 2px 4px; background-color: rgba(255,255,255,0.05);">@client.MachineRole</span>
+
+                                                    @if (client.Profiles != null && client.Profiles.Any())
+                                                    {
+                                                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 6px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 4px;">
+                                                            @foreach (var p in client.Profiles)
+                                                            {
+                                                                <div style="margin-bottom: 2px;">
+                                                                    🏢 <strong>@p.ProfileName</strong>: 🖥️ v@(p.LastUpdatedProgramVersion) | 💾 DB: @(p.LastUpdatedDbVersion)
+                                                                    <span style="font-size: 9px; opacity: 0.7; margin-left: 4px;">(@(p.LastUpdatedTime?.ToString("dd/MM/yyyy HH:mm") ?? "-"))</span>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
                                                 </td>
                                                 <td>
                                                     <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-family: monospace; font-size: 11px;">@client.ApiKey</code>
                                                     <button type="button" onclick="navigator.clipboard.writeText('@client.ApiKey'); alert('Το API Key αντιγράφηκε!');" class="btn btn-mini" style="padding: 1px 4px; font-size: 10px; margin-left: 4px;" title="Αντιγραφή">📋</button>
                                                 </td>
-                                                 <td>v@(client.AgentVersion)</td>
+                                                <td>
+                                                    @if (client.AgentVersion == Model.CurrentSystemVersion)
+                                                    {
+                                                        <span class="agent-ver-text" style="color: var(--success); font-weight: bold;" title="Ο Agent είναι συγχρονισμένος με την τρέχουσα έκδοση συστήματος (v@(Model.CurrentSystemVersion)). @(client.LastAgentUpgradeTime.HasValue ? $"Αναβάθμιση: {client.LastAgentUpgradeTime.Value.ToString("dd/MM/yyyy HH:mm")}" : "")">🤖 v@(client.AgentVersion)</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="agent-ver-text" style="color: var(--warning); font-weight: bold; background-color: rgba(245, 158, 11, 0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(245, 158, 11, 0.3);" title="⚠️ Διαφορά έκδοσης! Η τρέχουσα έκδοση συστήματος είναι v@(Model.CurrentSystemVersion). @(client.LastAgentUpgradeTime.HasValue ? $"Αναβάθμιση: {client.LastAgentUpgradeTime.Value.ToString("dd/MM/yyyy HH:mm")}" : "")">⚠️ v@(client.AgentVersion)</span>
+                                                    }
+                                                    
+                                                    @if (client.LastCommunicationTime.HasValue)
+                                                    {
+                                                        var timeSinceLastComm = DateTime.UtcNow - client.LastCommunicationTime.Value;
+                                                        var isActive = timeSinceLastComm.TotalMinutes <= 5;
+                                                        <div style="font-size: 9px; color: @(isActive ? "#10B981" : "var(--text-secondary)"); margin-top: 4px; font-weight: @(isActive ? "bold" : "normal");" title="Τελευταία επικοινωνία: @client.LastCommunicationTime.Value.ToString("dd/MM/yyyy HH:mm:ss")">
+                                                            @(isActive ? "🟢 Active" : $"⏳ {client.LastCommunicationTime.Value.ToString("dd/MM/yyyy HH:mm")}")
+                                                        </div>
+                                                    }
+                                                </td>
                                                 <td style="white-space: nowrap;">
                                                     <button type="button" class="btn btn-mini btn-action" 
                                                             data-id="@client.Id"

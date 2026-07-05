@@ -19,12 +19,12 @@ namespace Tms.Agent.Tests
                 using (var cmd = conn.CreateCommand())
                 {
                     Console.WriteLine($"[TEST_VERSION] {Tms.Agent.Core.AgentVersionInfo.Version}");
-                    cmd.CommandText = "SELECT c.MachineName, p.ProfileName, c.AgentVersion, c.IsUpgradeEnabled FROM ClientProfiles p JOIN Clients c ON p.ClientMachineId = c.Id";
+                    cmd.CommandText = "SELECT c.MachineName, c.Alias, c.AgentVersion, p.ProfileName FROM ClientProfiles p JOIN Clients c ON p.ClientMachineId = c.Id";
                     using (var reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
                         {
-                            var info = $"Machine: {reader.GetValue(0)} | Profile: {reader.GetValue(1)} | Ver: {reader.GetValue(2)} | Enabled: {reader.GetValue(3)}";
+                            var info = $"Machine: {reader.GetValue(0)} | Alias: {reader.GetValue(1)} | Ver: {reader.GetValue(2)} | Profile: {reader.GetValue(3)}";
                             Console.WriteLine($"[FLESSAS_CLIENT_INSPECT] {info}");
                         }
                     }

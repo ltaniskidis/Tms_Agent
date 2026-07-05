@@ -213,7 +213,7 @@ namespace Tms.CentralManagement.Pages
             return RedirectToPage();
         }
 
-        public async Task<IActionResult> OnPostAddMachineToCustomerAsync(int customerId, string machineName, string machineRole, string alias)
+        public async Task<IActionResult> OnPostAddMachineToCustomerAsync(int customerId, string machineName, string machineRole, string alias, string? connectionString)
         {
             if (string.IsNullOrWhiteSpace(machineName))
             {
@@ -251,6 +251,56 @@ namespace Tms.CentralManagement.Pages
                         new AgentUser { Username = "tmsuser", Password = "tmsusr", Role = "Operator" }
                     }
                 };
+
+                // Copy profiles from another machine of this customer if any exist
+                var otherClient = await _context.Clients
+                    .Include(c => c.Profiles)
+                    .FirstOrDefaultAsync(c => c.CustomerId == customerId && c.Profiles.Any());
+
+                if (otherClient != null)
+                {
+                    foreach (var oldProfile in otherClient.Profiles)
+                    {
+                        var clonedProfile = new ClientProfile
+                        {
+                            ProfileId = oldProfile.ProfileId,
+                            ProfileName = oldProfile.ProfileName,
+                            Afm = oldProfile.Afm,
+                            SerialNumber = oldProfile.SerialNumber,
+                            ActiveUsersCount = oldProfile.ActiveUsersCount,
+                            TargetExeName = oldProfile.TargetExeName,
+                            TargetFolder = oldProfile.TargetFolder,
+                            Emails = oldProfile.Emails,
+                            IsAuthorizedForUpdate = false,
+                            IsPendingDelete = false,
+                            ConnectionString = !string.IsNullOrWhiteSpace(connectionString) ? connectionString.Trim() : oldProfile.ConnectionString,
+                            ConnectionStringType = !string.IsNullOrWhiteSpace(connectionString) ? "Direct" : oldProfile.ConnectionStringType,
+                            DbServer = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.DbServer,
+                            DbName = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.DbName,
+                            DbUser = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.DbUser,
+                            DbPassword = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.DbPassword,
+                            DbUseWindowsAuth = !string.IsNullOrWhiteSpace(connectionString) ? false : oldProfile.DbUseWindowsAuth,
+                            ConfigFilePath = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.ConfigFilePath
+                        };
+                        newClient.Profiles.Add(clonedProfile);
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(connectionString))
+                {
+                    // No other machines exist, but they specified a connection string, so create a default profile
+                    var defaultProfile = new ClientProfile
+                    {
+                        ProfileId = "1",
+                        ProfileName = customer.Name,
+                        TargetExeName = "TIMOLOGISI.exe",
+                        Emails = "support@cleverdata.gr,l.taniskdis@cleverdata.gr,e.kordouli@cleverdata.gr",
+                        IsAuthorizedForUpdate = false,
+                        IsPendingDelete = false,
+                        ConnectionString = connectionString.Trim(),
+                        ConnectionStringType = "Direct"
+                    };
+                    newClient.Profiles.Add(defaultProfile);
+                }
 
                 _context.Clients.Add(newClient);
                 await _context.SaveChangesAsync();

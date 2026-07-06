@@ -2447,12 +2447,38 @@ GO
             BinaryFileUrl = "/packages/app_1.5.72.zip",
             SecurityCode = "clever2026",
             IsActive = true,
-            IsCurrent = true,
+            IsCurrent = false,
             TargetType = "System"
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη Single Instance Guard (Mutex) για αποτροπή πολλαπλών διεργασιών και διπλών εικονιδίων στο System Tray." });
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αυτόματο Logout κατά το κλείσιμο του Panel, ώστε να απαιτείται πάντα login με διπλό κλικ." });
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Καταγραφή και προβολή ημερομηνίας/ώρας τελευταίας επικοινωνίας και αναβάθμισης του Agent στην κεντρική κονσόλα." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.73"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.73",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Αυτόματη εκκίνηση του αναβαθμισμένου Agent σε silent mode (System Tray) μετά από αναβάθμιση.",
+            BinaryFileUrl = "/packages/app_1.5.73.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Εξασφάλιση ότι ο Agent ξεκινά πάντα ελαχιστοποιημένος στο System Tray (--startup) μετά από αυτόματη αναβάθμιση." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

@@ -1528,7 +1528,7 @@ namespace Tms.Agent.Core.Services
                 }
                 else
                 {
-                    string argsStr = wasStartup ? " --startup" : "";
+                    string argsStr = " --startup"; // Always restart silently in tray after upgrade
                     batchContent.AppendLine($"start \"\" \"{currentExe}\"{argsStr}");
                     batchContent.AppendLine("if %wasServiceRunning% equ 1 (");
                     batchContent.AppendLine("    sc start TmsAgent > nul");

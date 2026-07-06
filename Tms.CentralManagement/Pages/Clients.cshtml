@@ -190,14 +190,18 @@
 
                                                     @if (client.Profiles != null && client.Profiles.Any())
                                                     {
-                                                        <div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px;">
+                                                        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px; border-top: 1px dashed rgba(255,255,255,0.08); padding-top: 6px; max-width: 280px;">
                                                             @foreach (var p in client.Profiles)
                                                             {
-                                                                <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 4px; padding: 2px 6px; font-size: 10px; line-height: 1.4; display: inline-flex; align-items: center; gap: 4px;" 
+                                                                <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 4px; padding: 4px 6px; font-size: 10px; line-height: 1.4;" 
                                                                      title="Τελευταίος Συγχρονισμός: @(p.LastUpdatedTime?.ToString("dd/MM/yyyy HH:mm") ?? "-")">
-                                                                    <span>🏢 @p.ProfileName</span>
-                                                                    <span style="color: #3B82F6; font-weight: bold; background: rgba(59, 130, 246, 0.1); padding: 0 4px; border-radius: 3px;">v@(p.LastUpdatedProgramVersion)</span>
-                                                                    <span style="color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 0 4px; border-radius: 3px;">DB: @p.LastUpdatedDbVersion</span>
+                                                                    <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                                                        <span style="font-weight: 500; text-align: left;">🏢 @p.ProfileName</span>
+                                                                        <span style="display: inline-flex; gap: 3px;">
+                                                                            <span style="color: #3B82F6; font-weight: bold; background: rgba(59, 130, 246, 0.1); padding: 0 4px; border-radius: 3px; font-size: 9px;">v@(p.LastUpdatedProgramVersion)</span>
+                                                                            <span style="color: var(--text-secondary); background: rgba(255,255,255,0.05); padding: 0 4px; border-radius: 3px; font-size: 9px;">DB: @p.LastUpdatedDbVersion</span>
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                             }
                                                         </div>

@@ -280,6 +280,25 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- ERP Changelog Link -->
+                    <Button Command="{Binding NavigateCommand}" CommandParameter="ErpChangelog">
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource SidebarButton}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentView}" Value="ErpChangelog">
+                                        <Setter Property="Background" Value="#252538"/>
+                                        <Setter Property="Foreground" Value="#6366F1"/>
+                                        <Setter Property="FontWeight" Value="SemiBold"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="📝" Margin="0,0,10,0" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text="Ιστορικό ERP" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
                     <!-- Setup Profiles Link -->
                     <Button Command="{Binding NavigateCommand}" CommandParameter="Config">
                         <Button.Style>
@@ -1523,6 +1542,163 @@
                                     </Style>
                                 </ListBox.ItemContainerStyle>
                             </ListBox>
+                        </Grid>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <!-- ERP Changelog Panel View -->
+            <Grid Grid.Row="1" x:Name="ErpChangelogPanel" Margin="0,15,0,0">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding CurrentView}" Value="ErpChangelog">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Title & Search Bar -->
+                    <Grid Grid.Row="0" Margin="0,0,0,20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="📝 Ιστορικό Εκδόσεων ERP" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF"/>
+                            <TextBlock Text="Δείτε αναλυτικά τις αλλαγές και τις νέες λειτουργίες του ERP συστήματος." FontSize="11" Foreground="#9CA3AF" Margin="0,2,0,0"/>
+                        </StackPanel>
+                        
+                        <!-- Search Box -->
+                        <TextBox Grid.Column="1" Width="220" Margin="10,0,10,0" Padding="10,6,10,6" 
+                                 Text="{Binding ErpChangelogSearchText, UpdateSourceTrigger=PropertyChanged}" 
+                                 Background="#111116" BorderBrush="#262636" Foreground="#FFFFFF" CaretBrush="#6366F1"
+                                 VerticalAlignment="Center" FontSize="12">
+                            <TextBox.Resources>
+                                <Style TargetType="{x:Type Border}">
+                                    <Setter Property="CornerRadius" Value="6" />
+                                </Style>
+                            </TextBox.Resources>
+                        </TextBox>
+                        
+                        <!-- Refresh Button -->
+                        <Button Grid.Column="2" Content="🔄 Ανανέωση" Command="{Binding RefreshErpChangelogCommand}" 
+                                Style="{StaticResource OutlineButton}" Padding="12,6,12,6" VerticalAlignment="Center"/>
+                    </Grid>
+
+                    <!-- Content -->
+                    <Border Grid.Row="1" Background="#111116" BorderBrush="#262636" BorderThickness="1.5" CornerRadius="8" Padding="15">
+                        <Grid>
+                            <!-- Changelog List -->
+                            <ListBox ItemsSource="{Binding ErpVersions}" Background="Transparent" BorderThickness="0" 
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="#171721" BorderBrush="#262636" BorderThickness="1" CornerRadius="8" Padding="15" Margin="0,0,0,12">
+                                            <Grid>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                    <RowDefinition Height="Auto"/>
+                                                </Grid.RowDefinitions>
+
+                                                <!-- Version and Release Date -->
+                                                <Grid Grid.Row="0" Margin="0,0,0,8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                                        <TextBlock Text="v" FontSize="15" FontWeight="Bold" Foreground="#6366F1" VerticalAlignment="Bottom"/>
+                                                        <TextBlock Text="{Binding VersionNumber}" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" Margin="4,0,0,0" VerticalAlignment="Bottom"/>
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1" Text="{Binding ReleaseDate, StringFormat='dd/MM/yyyy HH:mm'}" FontSize="11" Foreground="#9CA3AF" VerticalAlignment="Center"/>
+                                                </Grid>
+
+                                                <!-- Description -->
+                                                <TextBlock Grid.Row="1" Text="{Binding Description}" FontSize="12.5" Foreground="#E5E7EB" TextWrapping="Wrap" FontStyle="Italic" Margin="0,0,0,10">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Visible"/>
+                                                            <Style.Triggers>
+                                                                <Trigger Property="Text" Value="">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </Trigger>
+                                                                <Trigger Property="Text" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+
+                                                <!-- Separator -->
+                                                <Border Grid.Row="2" Height="1" Background="#262636" Margin="0,0,0,10"/>
+
+                                                <!-- Release Notes bullet points -->
+                                                <ItemsControl Grid.Row="3" ItemsSource="{Binding ReleaseNotes}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid Margin="0,2,0,4">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto"/>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <TextBlock Grid.Column="0" Text="•" Foreground="#6366F1" Margin="0,0,8,0" VerticalAlignment="Top" FontSize="14" FontWeight="Bold"/>
+                                                                <TextBlock Grid.Column="1" Text="{Binding}" Foreground="#D1D5DB" FontSize="12.5" TextWrapping="Wrap" LineHeight="18" VerticalAlignment="Top"/>
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Background" Value="Transparent"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Focusable" Value="False"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border Background="{TemplateBinding Background}" SnapsToDevicePixels="true">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                            </ListBox>
+
+                            <!-- Loading Spinner Overlay -->
+                            <Grid Background="#A00B0B0F" Visibility="{Binding IsLoadingErpChangelog, Converter={StaticResource BoolToVis}}">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <TextBlock Text="⌛" FontSize="28" Foreground="#6366F1" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="Φόρτωση ιστορικού εκδόσεων..." FontSize="13" Foreground="#E5E7EB" Margin="0,10,0,0"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Error Message / Empty state -->
+                            <Grid Background="#111116" Visibility="{Binding HasErpChangelogError, Converter={StaticResource BoolToVis}}">
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Width="400">
+                                    <TextBlock Text="⚠️" FontSize="32" Foreground="#EF4444" HorizontalAlignment="Center" Margin="0,0,0,10"/>
+                                    <TextBlock Text="{Binding ErpChangelogErrorMessage}" FontSize="13" Foreground="#EF4444" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,15"/>
+                                    <Button Content="🔄 Δοκιμάστε Ξανά" Command="{Binding RefreshErpChangelogCommand}" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Center" Padding="15,8,15,8"/>
+                                </StackPanel>
+                            </Grid>
                         </Grid>
                     </Border>
                 </Grid>

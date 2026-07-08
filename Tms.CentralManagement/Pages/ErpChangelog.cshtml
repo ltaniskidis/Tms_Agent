@@ -1,0 +1,206 @@
+@page
+@model Tms.CentralManagement.Pages.ErpChangelogModel
+@{
+    ViewData["Title"] = "Ιστορικό ERP";
+    var isEditing = Model.EditingVersionId.HasValue && Model.EditingVersionId.Value > 0;
+}
+
+<header>
+    <div>
+        <h1>📋 Ιστορικό Εκδόσεων ERP</h1>
+        <p style="color: var(--text-secondary); font-size: 14px; margin-top: 4px;">Καταχωρήστε και διαχειριστείτε το ιστορικό εκδόσεων (changelog) του ERP για τους πελάτες.</p>
+    </div>
+</header>
+
+<div class="responsive-split">
+    <!-- Versions List -->
+    <div style="flex: 1.2;">
+        <div class="card">
+            <!-- Search Bar -->
+            <div style="margin-bottom: 15px; position: relative; box-sizing: border-box; width: 100%;">
+                <input type="text" id="erp-search-input" onkeyup="filterErpVersions()" placeholder="Αναζήτηση έκδοσης, περιγραφής, release notes..." 
+                       style="width: 100%; padding: 10px 15px 10px 38px; background-color: #12121A; border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 13px; outline: none; transition: border-color 0.2s; box-sizing: border-box;" 
+                       onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border-color)'" />
+                <span style="position: absolute; left: 14px; top: 12px; color: var(--text-secondary); pointer-events: none; font-size: 14px;">🔍</span>
+            </div>
+
+            <div id="erp-versions-list">
+                <div class="card-title" style="margin-bottom: 15px;">
+                    <span>Καταχωρημένες Εκδόσεις ERP (@Model.Versions.Count)</span>
+                </div>
+
+                @if (!Model.Versions.Any())
+                {
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary); font-style: italic;">
+                        Δεν υπάρχουν καταχωρημένες εκδόσεις ERP. Χρησιμοποιήστε τη φόρμα στα δεξιά για να προσθέσετε μία.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var version in Model.Versions)
+                    {
+                        <div class="version-item" style="background-color: #12121A; border: 1px solid @(isEditing && Model.EditingVersionId == version.Id ? "var(--accent)" : "var(--border-color)"); border-radius: 8px; padding: 15px; margin-bottom: 15px; transition: border-color 0.2s;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div>
+                                    <span style="font-size: 16px; font-weight: bold; color: var(--text-primary);">v @version.VersionNumber</span>
+                                    <span style="font-size: 12px; color: var(--text-secondary); margin-left: 10px;">@version.ReleaseDate.ToString("dd/MM/yyyy HH:mm")</span>
+                                    
+                                    @if (version.Scripts.Any() && !string.IsNullOrEmpty(version.BinaryFileUrl))
+                                    {
+                                        <span style="font-size: 11px; font-weight: 500; background-color: rgba(245, 158, 11, 0.15); color: #F59E0B; border: 1px solid rgba(245, 158, 11, 0.3); padding: 2px 6px; border-radius: 4px; margin-left: 10px;">⚡ Βάση &amp; Εφαρμογή</span>
+                                    }
+                                    else if (version.Scripts.Any())
+                                    {
+                                        <span style="font-size: 11px; font-weight: 500; background-color: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); padding: 2px 6px; border-radius: 4px; margin-left: 10px;">💾 Βάση (Script)</span>
+                                    }
+                                    else if (!string.IsNullOrEmpty(version.BinaryFileUrl))
+                                    {
+                                        <span style="font-size: 11px; font-weight: 500; background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; border: 1px solid rgba(59, 130, 246, 0.3); padding: 2px 6px; border-radius: 4px; margin-left: 10px;">📦 Εφαρμογή</span>
+                                    }
+
+                                    @if (!version.IsActive)
+                                    {
+                                        <span style="font-size: 11px; font-weight: 500; background-color: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); padding: 2px 6px; border-radius: 4px; margin-left: 10px;">🔒 Απενεργοποιημένη</span>
+                                    }
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <a class="btn btn-outline" style="padding: 4px 10px; font-size: 12px; border-color: var(--accent); color: var(--accent);" href="/ErpChangelog?editId=@version.Id">
+                                        📝 Επεξεργασία
+                                    </a>
+                                    <form method="post" asp-page-handler="Toggle" asp-route-id="@version.Id" style="display: inline;">
+                                        <button class="btn btn-outline @(version.IsActive ? "" : "btn-danger")" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                            @(version.IsActive ? "🔒 Απενεργοποίηση" : "🔓 Ενεργοποίηση")
+                                        </button>
+                                    </form>
+                                    <form method="post" asp-page-handler="Delete" asp-route-id="@version.Id" style="display: inline;" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτή την έκδοση;');">
+                                        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px;" type="submit">
+                                            🗑️ Διαγραφή
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; font-style: italic;">
+                                @version.Description
+                            </p>
+
+                            <!-- Release Notes -->
+                            <div style="margin-bottom: 10px;">
+                                <strong style="font-size: 12px; color: var(--accent); display: block; margin-bottom: 4px;">Release Notes:</strong>
+                                <ul style="margin-left: 20px; font-size: 12px; color: #D1D5DB;">
+                                    @foreach (var note in version.ReleaseNotes)
+                                    {
+                                        <li>@note.NotesContent</li>
+                                    }
+                                </ul>
+                            </div>
+
+                            <!-- Scripts -->
+                            @if (version.Scripts.Any())
+                            {
+                                <div>
+                                    <strong style="font-size: 12px; color: var(--success); display: block; margin-bottom: 4px;">SQL Scripts:</strong>
+                                    <ul style="margin-left: 20px; font-size: 12px; color: #D1D5DB; font-family: monospace;">
+                                        @foreach (var script in version.Scripts)
+                                        {
+                                            <li>@script.ScriptName (Sequence: @script.SequenceOrder)</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit Version Form -->
+    <div style="flex: 0.8;">
+        <div class="card">
+            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span id="form-title">@(isEditing ? $"Επεξεργασία Έκδοσης v{Model.VersionNumber}" : "Νέα Έκδοση ERP")</span>
+                @if (isEditing)
+                {
+                    <a href="/ErpChangelog" class="btn btn-outline" style="padding: 4px 10px; font-size: 11px; border-color: var(--text-secondary); color: var(--text-secondary);">❌ Ακύρωση</a>
+                }
+            </div>
+
+            <form method="post">
+                <input type="hidden" asp-for="EditingVersionId" />
+                <div asp-validation-summary="ModelOnly" style="color: var(--danger); font-size: 13px; margin-bottom: 15px;"></div>
+
+                <div class="form-group">
+                    <label for="VersionNumber">Αριθμός Έκδοσης (π.χ. 1.3.2):</label>
+                    <input asp-for="VersionNumber" class="form-control" placeholder="1.3.2" required />
+                    <span asp-validation-for="VersionNumber" style="color: var(--danger); font-size: 11px;"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="ReleaseDate">Ημερομηνία &amp; Ώρα Διάθεσης:</label>
+                    <input asp-for="ReleaseDate" type="datetime-local" class="form-control" value="@Model.ReleaseDate.ToString("yyyy-MM-ddTHH:mm")" required />
+                    <span asp-validation-for="ReleaseDate" style="color: var(--danger); font-size: 11px;"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="Description">Σύντομη Περιγραφή:</label>
+                    <input asp-for="Description" class="form-control" placeholder="Ενημέρωση διορθώσεων / νέων λειτουργιών" />
+                </div>
+
+                <div class="form-group">
+                    <label for="BinaryFileUrl">Αρχείο ZIP / URL Λήψης (Προαιρετικό):</label>
+                    <input asp-for="BinaryFileUrl" class="form-control" placeholder="/packages/app_1.3.2.zip" />
+                </div>
+
+                <div class="form-group">
+                    <label for="SecurityCode">Κωδικός Έγκρισης (Προαιρετικό):</label>
+                    <input asp-for="SecurityCode" class="form-control" placeholder="π.χ. clever2026" />
+                </div>
+
+                <div class="form-group">
+                    <label for="ReleaseNotesText">Σημειώσεις Έκδοσης (Release Notes) - Μία ανά γραμμή:</label>
+                    <textarea asp-for="ReleaseNotesText" class="form-control" style="height: 120px;" placeholder="1. Προσθήκη νέας φόρμας&#10;2. Διόρθωση σφάλματος εκτύπωσης"></textarea>
+                </div>
+
+                <div style="border-top: 1px solid var(--border-color); margin: 20px 0; padding-top: 15px;">
+                    <h3 style="font-size: 14px; color: var(--success); margin-bottom: 10px;">SQL Script (Προαιρετικό)</h3>
+                    
+                    <div class="form-group">
+                        <label for="ScriptName">Όνομα SQL Αρχείου:</label>
+                        <input asp-for="ScriptName" class="form-control" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ScriptContent">Περιεχόμενο SQL Script:</label>
+                        <textarea asp-for="ScriptContent" class="form-control" style="height: 150px; font-family: monospace;" placeholder="-- ALTER TABLE [dbo].[Customers] ADD [Notes] NVARCHAR(MAX) NULL;"></textarea>
+                    </div>
+                </div>
+
+                <button class="btn" style="width: 100%; margin-top: 10px;" type="submit">
+                    @(isEditing ? "💾 Αποθήκευση Αλλαγών" : "💾 Αποθήκευση &amp; Δημοσίευση")
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Real-time filtering for ERP versions list
+    function filterErpVersions() {
+        var query = document.getElementById('erp-search-input').value.toLowerCase().trim();
+        
+        document.querySelectorAll('.version-item').forEach(item => {
+            if (query === '') {
+                item.style.display = 'block';
+                return;
+            }
+            
+            var text = item.innerText.toLowerCase();
+            if (text.includes(query)) {
+                item.style.display = 'block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+</script>

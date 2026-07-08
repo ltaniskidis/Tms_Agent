@@ -615,6 +615,44 @@ namespace Tms.Agent.Wpf.ViewModels
 
         public event Action<string, string, string>? SupportTicketUpdated;
 
+        // ERP Changelog Properties
+        public ObservableCollection<VersionDto> ErpVersions { get; set; } = new();
+
+        private bool _isLoadingErpChangelog;
+        public bool IsLoadingErpChangelog
+        {
+            get => _isLoadingErpChangelog;
+            set => SetProperty(ref _isLoadingErpChangelog, value);
+        }
+
+        private string _erpChangelogErrorMessage = string.Empty;
+        public string ErpChangelogErrorMessage
+        {
+            get => _erpChangelogErrorMessage;
+            set
+            {
+                if (SetProperty(ref _erpChangelogErrorMessage, value))
+                {
+                    OnPropertyChanged(nameof(HasErpChangelogError));
+                }
+            }
+        }
+
+        public bool HasErpChangelogError => !string.IsNullOrEmpty(ErpChangelogErrorMessage);
+
+        private string _erpChangelogSearchText = string.Empty;
+        public string ErpChangelogSearchText
+        {
+            get => _erpChangelogSearchText;
+            set
+            {
+                if (SetProperty(ref _erpChangelogSearchText, value))
+                {
+                    System.Windows.Data.CollectionViewSource.GetDefaultView(ErpVersions)?.Refresh();
+                }
+            }
+        }
+
         // Broadcast Messages Properties
         private bool _hasUnreadBroadcasts;
         public bool HasUnreadBroadcasts
@@ -639,6 +677,7 @@ namespace Tms.Agent.Wpf.ViewModels
         public ICommand SelectAttachmentCommand { get; }
         public ICommand SendSupportEmailCommand { get; }
         public ICommand RefreshSupportTicketsCommand { get; }
+        public ICommand RefreshErpChangelogCommand { get; }
         public ICommand MarkBroadcastsReadCommand { get; }
         public ICommand CheckUpdatesCommand { get; }
         public ICommand AuthorizeUpdateCommand { get; }
@@ -690,9 +729,14 @@ namespace Tms.Agent.Wpf.ViewModels
                 {
                     _ = LoadSupportTicketsAsync();
                 }
+                else if (CurrentView == "ErpChangelog")
+                {
+                    _ = LoadErpChangelogAsync();
+                }
             });
             CheckUpdatesCommand = new RelayCommand(async () => await CheckForUpdatesAsync());
             RefreshSupportTicketsCommand = new RelayCommand(async () => await LoadSupportTicketsAsync());
+            RefreshErpChangelogCommand = new RelayCommand(async () => await LoadErpChangelogAsync());
             
             UpdateProfileCommand = new RelayCommand<ProfileUiWrapper>(p =>
             {
@@ -761,6 +805,26 @@ namespace Tms.Agent.Wpf.ViewModels
             MarkBroadcastsReadCommand = new RelayCommand(MarkBroadcastsAsRead);
 
             LoadProfiles();
+            
+            // Setup CollectionView filtering for ErpChangelogSearchText
+            var erpView = System.Windows.Data.CollectionViewSource.GetDefaultView(ErpVersions);
+            if (erpView != null)
+            {
+                erpView.Filter = obj =>
+                {
+                    if (string.IsNullOrWhiteSpace(ErpChangelogSearchText))
+                        return true;
+
+                    if (obj is VersionDto version)
+                    {
+                        var q = ErpChangelogSearchText.ToLower().Trim();
+                        return (version.VersionNumber != null && version.VersionNumber.ToLower().Contains(q))
+                            || (version.Description != null && version.Description.ToLower().Contains(q))
+                            || (version.ReleaseNotes != null && version.ReleaseNotes.Any(n => n != null && n.ToLower().Contains(q)));
+                    }
+                    return true;
+                };
+            }
             
             // Setup CollectionView filtering for SearchText
             var view = System.Windows.Data.CollectionViewSource.GetDefaultView(Profiles);
@@ -2480,6 +2544,46 @@ namespace Tms.Agent.Wpf.ViewModels
             finally
             {
                 _isLoadingSupportTickets = false;
+            }
+        }
+
+        public async Task LoadErpChangelogAsync()
+        {
+            if (string.IsNullOrEmpty(ApiKey)) return;
+            if (_isLoadingErpChangelog) return;
+            IsLoadingErpChangelog = true;
+            ErpChangelogErrorMessage = string.Empty;
+
+            try
+            {
+                var latestChangelog = await _updateEngine.GetErpChangelogAsync(ServerUrl, ApiKey);
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    ErpVersions.Clear();
+                    if (latestChangelog != null)
+                    {
+                        foreach (var ver in latestChangelog)
+                        {
+                            ErpVersions.Add(ver);
+                        }
+                    }
+                    else
+                    {
+                        ErpChangelogErrorMessage = "Σφάλμα κατά τη λήψη του ιστορικού εκδόσεων από τον διακομιστή.";
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to load ERP changelog: {ex.Message}");
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    ErpChangelogErrorMessage = "Παρουσιάστηκε ένα απρόσμενο σφάλμα κατά τη λήψη του ιστορικού.";
+                });
+            }
+            finally
+            {
+                IsLoadingErpChangelog = false;
             }
         }
 

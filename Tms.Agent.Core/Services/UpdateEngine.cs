@@ -245,6 +245,28 @@ namespace Tms.Agent.Core.Services
             }
         }
 
+        public async Task<List<VersionDto>?> GetErpChangelogAsync(string serverUrl, string apiKey)
+        {
+            var url = $"{serverUrl.TrimEnd('/')}/api/updates/erp-changelog?apiKey={Uri.EscapeDataString(apiKey)}";
+
+            try
+            {
+                var response = await _httpClient.GetAsync(url);
+                if (response.IsSuccessStatusCode)
+                {
+                    var json = await response.Content.ReadAsStringAsync();
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    return JsonSerializer.Deserialize<List<VersionDto>>(json, options);
+                }
+                return null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error getting ERP changelog: {ex.Message}");
+                return null;
+            }
+        }
+
         // 3. Execute update workflow
         public async Task<UpdateResult> RunUpdateAsync(
             string serverUrl, 

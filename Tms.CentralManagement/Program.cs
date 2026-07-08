@@ -2562,6 +2562,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.77"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.77",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη σελίδας και καρτέλας Ιστορικού Εκδόσεων ERP (ERP Changelog) στον Agent και στον Server.",
+            BinaryFileUrl = "/packages/app_1.5.77.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη σελίδας και καρτέλας Ιστορικού Εκδόσεων ERP (ERP Changelog) στον Agent και στον Server με δυνατότητα αναζήτησης και φιλτραρίσματος." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

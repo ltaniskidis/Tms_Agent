@@ -535,5 +535,20 @@ SELECT 4;
             // Assert
             Assert.Null(version);
         }
+
+        [Fact]
+        public async Task Test_GetErpChangelogAsync()
+        {
+            // Arrange
+            var serverUrl = "http://localhost:5007";
+            var apiKey = "TMS-KEY-409B441F2E7B4954";
+            var engine = new UpdateEngine();
+
+            // Act
+            var changelog = await engine.GetErpChangelogAsync(serverUrl, apiKey);
+
+            // Assert
+            Assert.NotNull(changelog);
+        }
     }
 }

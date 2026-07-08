@@ -766,6 +766,44 @@ namespace Tms.CentralManagement.Controllers
             return Ok(tickets);
         }
 
+        // 7b. Agent/Public: Get ERP Changelog
+        [HttpGet("erp-changelog")]
+        public async Task<ActionResult<IEnumerable<VersionDto>>> GetErpChangelog([FromQuery] string apiKey)
+        {
+            if (string.IsNullOrEmpty(apiKey))
+            {
+                return BadRequest("API Key is required.");
+            }
+
+            var clientExists = await _context.Clients.AnyAsync(c => c.ApiKey == apiKey);
+            if (!clientExists)
+            {
+                return Unauthorized("Invalid API Key.");
+            }
+
+            var versions = await _context.Versions
+                .Where(v => v.TargetType == "Program" && v.IsActive)
+                .Include(v => v.ReleaseNotes)
+                .ToListAsync();
+
+            var result = versions
+                .OrderByDescending(v => Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0))
+                .Select(v => new VersionDto
+                {
+                    Id = v.Id,
+                    VersionNumber = v.VersionNumber,
+                    ReleaseDate = v.ReleaseDate,
+                    Description = v.Description,
+                    BinaryFileUrl = v.BinaryFileUrl,
+                    SecurityCode = v.SecurityCode,
+                    TargetType = v.TargetType,
+                    ReleaseNotes = v.ReleaseNotes.Select(rn => rn.NotesContent).ToList()
+                })
+                .ToList();
+
+            return Ok(result);
+        }
+
         // 8. Agent: Send support email
         [HttpPost("send-support-email")]
         public async Task<IActionResult> SendSupportEmail(

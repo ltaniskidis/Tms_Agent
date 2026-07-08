@@ -1499,10 +1499,7 @@ namespace Tms.Agent.Wpf.ViewModels
 
                         hasMonitoredUpdates = true;
 
-                        bool isAdminOrOwner = string.Equals(UserRole, "Admin", StringComparison.OrdinalIgnoreCase) ||
-                                               string.Equals(UserRole, "Owner", StringComparison.OrdinalIgnoreCase);
-
-                        if (isAdminOrOwner && !update.IsAuthorizedByAdmin && !update.IsWaitingForDb)
+                        if (!update.IsAuthorizedByAdmin && !update.IsWaitingForDb)
                         {
                             bool shouldNotify = isNewUpdate;
                             if (!shouldNotify)
@@ -1568,46 +1565,27 @@ namespace Tms.Agent.Wpf.ViewModels
 
                         if (isProgramRunning)
                         {
-                            if (UserRole == "Operator")
+                            // If the ERP program is running, we cannot perform a silent update.
+                            // We notify the user via the custom slide-in tray notification (modern balloon)
+                            // to close the program and run the update. This is non-blocking and works for all roles
+                            // (even when no user is logged in yet or when the agent is in silent/startup mode).
+                            bool shouldNotify = false;
+                            if (_lastOperatorPromptTimes.TryGetValue(p.Profile.ProfileId, out var lastTime))
                             {
-                                bool shouldNotify = false;
-                                if (_lastOperatorPromptTimes.TryGetValue(p.Profile.ProfileId, out var lastTime))
-                                {
-                                    if (DateTime.UtcNow - lastTime >= TimeSpan.FromMinutes(30))
-                                    {
-                                        shouldNotify = true;
-                                    }
-                                }
-                                else
+                                if (DateTime.UtcNow - lastTime >= TimeSpan.FromMinutes(30))
                                 {
                                     shouldNotify = true;
                                 }
-
-                                if (shouldNotify)
-                                {
-                                    OperatorClosePromptDetected?.Invoke(p.ProfileName, p.AvailableVersion.VersionNumber, 30000);
-                                    _lastOperatorPromptTimes[p.Profile.ProfileId] = DateTime.UtcNow;
-                                }
                             }
-                            else if (UserRole == "Admin" || UserRole == "Owner")
+                            else
                             {
-                                if (!IsSilentMode)
-                                {
-                                    var key = $"{p.ProfileId}_{p.AvailableVersion.VersionNumber}";
-                                    if (!_promptedUpdates.Contains(key))
-                                    {
-                                        _promptedUpdates.Add(key);
-                                        System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                                        {
-                                            System.Windows.MessageBox.Show(
-                                                System.Windows.Application.Current.MainWindow,
-                                                $"Έχει εγκριθεί η νέα αναβάθμιση {p.AvailableVersion.VersionNumber} για το προφίλ '{p.ProfileName}'.\nΠαρακαλώ κλείστε το TMS πρόγραμμα για να πραγματοποιηθεί η λήψη και εγκατάσταση των αρχείων.",
-                                                "TMS Agent - Απαιτείται Κλείσιμο Προγράμματος",
-                                                MessageBoxButton.OK,
-                                                MessageBoxImage.Warning);
-                                        }));
-                                    }
-                                }
+                                shouldNotify = true;
+                            }
+
+                            if (shouldNotify)
+                            {
+                                OperatorClosePromptDetected?.Invoke(p.ProfileName, p.AvailableVersion.VersionNumber, 30000);
+                                _lastOperatorPromptTimes[p.Profile.ProfileId] = DateTime.UtcNow;
                             }
                         }
                         else

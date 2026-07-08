@@ -1015,6 +1015,50 @@ namespace Tms.Agent.Core.Services
                         }
                     }
                 }
+
+                // Verification step: Ensure the last block of the executed script is recorded in SQL_HISTORY_UPDATE_SCRIPTS
+                foreach (var script in scripts.OrderBy(s => s.SequenceOrder))
+                {
+                    if (script.ScriptName.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) || 
+                        (script.ScriptName.EndsWith(".sql", StringComparison.OrdinalIgnoreCase) && ParseBulkScriptFile(script.ScriptContent).Any()))
+                    {
+                        var blocks = ParseBulkScriptFile(script.ScriptContent);
+                        var lastSqlBlock = blocks.LastOrDefault(b => HasSqlStatements(b.ScriptContent));
+                        if (lastSqlBlock != null)
+                        {
+                            bool lastBlockExists = false;
+                            try
+                            {
+                                using (var checkCmd = new SqlCommand(
+                                    "SELECT COUNT(*) FROM [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] WHERE LAST_SCRIPT_NUMBER = @lastScriptNum", 
+                                    connection))
+                                {
+                                    checkCmd.Parameters.AddWithValue("@lastScriptNum", lastSqlBlock.ScriptNumber);
+                                    var result = await checkCmd.ExecuteScalarAsync();
+                                    lastBlockExists = result != null && Convert.ToInt32(result) > 0;
+                                }
+
+                                if (!lastBlockExists)
+                                {
+                                    log($"[Verification] Το τελευταίο σενάριο #{lastSqlBlock.ScriptNumber} δεν βρέθηκε καταγεγραμμένο στο ιστορικό. Καταχώρηση...");
+                                    using (var insertCmd = new SqlCommand(
+                                        "INSERT INTO [dbo].[SQL_HISTORY_UPDATE_SCRIPTS] (LAST_SCRIPT_NUMBER, DATE_UPDATE) VALUES (@lastScriptNum, GETDATE())", 
+                                        connection))
+                                    {
+                                        insertCmd.Parameters.AddWithValue("@lastScriptNum", lastSqlBlock.ScriptNumber);
+                                        await insertCmd.ExecuteNonQueryAsync();
+                                    }
+                                    log($"[Verification] Το σενάριο #{lastSqlBlock.ScriptNumber} καταχωρήθηκε επιτυχώς στο ιστορικό.");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                log($"[Verification Warning] Σφάλμα κατά την επαλήθευση/καταχώρηση του σεναρίου #{lastSqlBlock.ScriptNumber}: {ex.Message}");
+                            }
+                        }
+                    }
+                }
+
                 return true;
             }
             catch (Exception ex)

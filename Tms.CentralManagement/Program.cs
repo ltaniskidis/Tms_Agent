@@ -2484,6 +2484,84 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.74"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.74",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση ειδοποίησης διαθέσιμων αναβαθμίσεων στο System Tray κατά την αυτόματη εκκίνηση (silent mode).",
+            BinaryFileUrl = "/packages/app_1.5.74.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Εμφάνιση του μοντέρνου balloon (NotificationWindow) για εγκεκριμένες αναβαθμίσεις ακόμη και όταν ο Agent εκτελείται σε silent mode / χωρίς login, εφόσον το ERP είναι ανοιχτό." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.75"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.75",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση ειδοποίησης διαθέσιμων αναβαθμίσεων στο System Tray κατά την αυτόματη εκκίνηση (silent mode) για μη εξουσιοδοτημένες αναβαθμίσεις.",
+            BinaryFileUrl = "/packages/app_1.5.75.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Εμφάνιση του πράσινου balloon (NotificationWindow) για διαθέσιμες (μη εγκεκριμένες) αναβαθμίσεις ακόμη και όταν ο Agent εκτελείται σε silent mode / χωρίς login." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.76"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.76",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη ελέγχου επαλήθευσης και αυτόματης καταχώρησης του τελευταίου εκτελεσμένου script της βάσης δεδομένων μετά από αναβάθμιση.",
+            BinaryFileUrl = "/packages/app_1.5.76.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη ελέγχου επαλήθευσης μετά από κάθε αναβάθμιση της βάσης δεδομένων που διασφαλίζει ότι το τελευταίο script block του SQL αρχείου είναι καταχωρημένο στον πίνακα SQL_HISTORY_UPDATE_SCRIPTS, και αυτόματη εισαγωγή του εάν απουσιάζει." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

@@ -1605,16 +1605,18 @@ namespace Tms.Agent.Wpf.ViewModels
                 }
             }
 
-            // Operator / Admin update notification logic (only if NOT in silent mode)
-            if (!IsSelfUpgradePending && !IsSilentMode)
+            // Operator / Admin update notification logic
+            if (!IsSelfUpgradePending)
             {
                 foreach (var p in Profiles.ToList())
                 {
                     if (p.AvailableVersion != null && !p.IsWaitingForDb && !_upgradingProfileIds.Contains(p.Profile.ProfileId))
                     {
-                        // Admins are always notified about any available version.
-                        // Operators are only notified if the update is authorized by the admin.
-                        if (IsAdmin || p.IsAuthorizedByAdmin)
+                        // Admins (or anonymous tray) are notified. Operators are notified only if the update is authorized.
+                        // If IsSilentMode is true (user not logged in yet), we show the balloon to everyone so they know an update exists.
+                        bool isAuthorizedUser = IsSilentMode || IsAdmin || p.IsAuthorizedByAdmin;
+                        
+                        if (isAuthorizedUser)
                         {
                             bool shouldNotify = false;
                             if (_lastOperatorPromptTimes.TryGetValue(p.Profile.ProfileId, out var lastTime))
@@ -1631,8 +1633,22 @@ namespace Tms.Agent.Wpf.ViewModels
 
                             if (shouldNotify)
                             {
-                                OperatorClosePromptDetected?.Invoke(p.ProfileName, p.AvailableVersion.VersionNumber, 30000);
                                 _lastOperatorPromptTimes[p.Profile.ProfileId] = DateTime.UtcNow;
+                                
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                                    mainWin?.ShowTrayBalloon(
+                                        "Διαθέσιμη Αναβάθμιση Εφαρμογής", 
+                                        $"Υπάρχει νέα έκδοση ({p.AvailableVersion.VersionNumber}) για '{p.ProfileName}'. Κάντε κλικ για εκτέλεση."
+                                    );
+                                    
+                                    // If the window is open (not silent), also show the slide-in Notification Window
+                                    if (!IsSilentMode)
+                                    {
+                                        OperatorClosePromptDetected?.Invoke(p.ProfileName, p.AvailableVersion.VersionNumber, 30000);
+                                    }
+                                });
                             }
                         }
                     }

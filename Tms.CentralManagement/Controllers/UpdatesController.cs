@@ -190,6 +190,24 @@ namespace Tms.CentralManagement.Controllers
             foreach (var localProfile in request.Profiles)
             {
                 var dbProfile = client.Profiles.FirstOrDefault(p => p.ProfileId == localProfile.ProfileId);
+                
+                ClientProfile? serverProfile = null;
+                if (isClient)
+                {
+                    serverProfile = await _context.ClientProfiles
+                        .Join(_context.Clients, 
+                              p => p.ClientMachineId, 
+                              c => c.Id, 
+                              (p, c) => new { Profile = p, Client = c })
+                        .Where(x => x.Profile.ProfileId == localProfile.ProfileId && 
+                                    x.Client.CustomerId == client.CustomerId && 
+                                    x.Client.MachineRole != "Client")
+                        .Select(x => x.Profile)
+                        .FirstOrDefaultAsync();
+                }
+
+                string dbVerStr = serverProfile?.LastUpdatedDbVersion ?? dbProfile?.LastUpdatedDbVersion ?? "0";
+
                 if (dbProfile == null)
                 {
                     // Registration
@@ -202,7 +220,7 @@ namespace Tms.CentralManagement.Controllers
                         ActiveUsersCount = localProfile.ActiveUsersCount,
                         LastUpdatedVersion = localProfile.CurrentVersion,
                         LastUpdatedProgramVersion = localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion,
-                        LastUpdatedDbVersion = localProfile.CurrentDbVersion ?? localProfile.CurrentVersion,
+                        LastUpdatedDbVersion = isClient ? dbVerStr : (localProfile.CurrentDbVersion ?? localProfile.CurrentVersion),
                         LastUpdateStatus = "Registered",
                         LastUpdatedTime = DateTime.UtcNow,
                         TargetFolder = localProfile.TargetFolder ?? string.Empty,
@@ -233,7 +251,7 @@ namespace Tms.CentralManagement.Controllers
 
                     // Check if server config is different. If so, push to client.
                     bool versionNeedsSync = isClient
-                        ? IsNewerVersion(dbProfile.LastUpdatedDbVersion, localProfile.CurrentDbVersion ?? localProfile.CurrentVersion)
+                        ? IsNewerVersion(dbVerStr, localProfile.CurrentDbVersion ?? localProfile.CurrentVersion)
                         : IsNewerVersion(dbProfile.LastUpdatedProgramVersion, localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion);
 
                     bool needsSync = dbProfile.ProfileName != localProfile.ProfileName ||
@@ -272,7 +290,7 @@ namespace Tms.CentralManagement.Controllers
                             ConfigFilePath = dbProfile.ConfigFilePath,
                             CurrentVersion = isClient ? (localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion) : dbProfile.LastUpdatedVersion,
                             CurrentProgramVersion = isClient ? (localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion) : dbProfile.LastUpdatedProgramVersion,
-                            CurrentDbVersion = dbProfile.LastUpdatedDbVersion,
+                            CurrentDbVersion = isClient ? dbVerStr : dbProfile.LastUpdatedDbVersion,
                             SerialNumber = dbProfile.SerialNumber,
                             ActiveUsersCount = dbProfile.ActiveUsersCount
                         });
@@ -287,7 +305,11 @@ namespace Tms.CentralManagement.Controllers
                         {
                             dbProfile.LastUpdatedProgramVersion = localProfile.CurrentProgramVersion ?? localProfile.CurrentVersion;
                         }
-                        if (IsNewerVersion(localProfile.CurrentDbVersion ?? localProfile.CurrentVersion, dbProfile.LastUpdatedDbVersion))
+                        if (isClient)
+                        {
+                            dbProfile.LastUpdatedDbVersion = dbVerStr;
+                        }
+                        else if (IsNewerVersion(localProfile.CurrentDbVersion ?? localProfile.CurrentVersion, dbProfile.LastUpdatedDbVersion))
                         {
                             dbProfile.LastUpdatedDbVersion = localProfile.CurrentDbVersion ?? localProfile.CurrentVersion;
                         }
@@ -364,19 +386,7 @@ namespace Tms.CentralManagement.Controllers
                         if (isClient)
                         {
                             // Check if database is already upgraded to allow operators to pull updated EXE
-                            // We query the Server-role machine of the same customer for this profile
-                            var serverProfile = await _context.ClientProfiles
-                                .Join(_context.Clients, 
-                                      p => p.ClientMachineId, 
-                                      c => c.Id, 
-                                      (p, c) => new { Profile = p, Client = c })
-                                .Where(x => x.Profile.ProfileId == localProfile.ProfileId && 
-                                            x.Client.CustomerId == client.CustomerId && 
-                                            x.Client.MachineRole != "Client")
-                                .Select(x => x.Profile)
-                                .FirstOrDefaultAsync();
-
-                            string dbVerStr = serverProfile?.LastUpdatedDbVersion ?? dbProfile.LastUpdatedDbVersion;
+                            // dbVerStr was already retrieved at the beginning of the loop
 
                             if (Version.TryParse(dbVerStr, out var dbVer))
                             {

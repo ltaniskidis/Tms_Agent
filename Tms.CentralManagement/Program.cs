@@ -2720,6 +2720,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.83"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.83",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διόρθωση συγχρονισμού έκδοσης βάσης δεδομένων στους operators (Client-role) ώστε να εμφανίζεται η πραγματική έκδοση βάσης (π.χ. 2343) αντί για 0, καθώς και υλοποίηση ενοποιημένων Balloon ειδοποιήσεων για νέες εκδόσεις όταν ο Agent είναι ελαχιστοποιημένος στο Tray.",
+            BinaryFileUrl = "/packages/app_1.5.83.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Διόρθωση συγχρονισμού έκδοσης βάσης και εμφάνιση Balloon ειδοποίησης διαθέσιμης αναβάθμισης στο Tray." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

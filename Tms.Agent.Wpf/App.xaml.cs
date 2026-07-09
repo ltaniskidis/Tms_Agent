@@ -19,6 +19,20 @@ public partial class App : System.Windows.Application
     public static string UserRole { get; set; } = string.Empty;
     private static System.Threading.Mutex? _appMutex;
 
+    public static void ReleaseMutex()
+    {
+        if (_appMutex != null)
+        {
+            try
+            {
+                _appMutex.ReleaseMutex();
+                _appMutex.Dispose();
+                _appMutex = null;
+            }
+            catch {}
+        }
+    }
+
     private string? GetArgValue(string[] args, string argName)
     {
         var idx = Array.FindIndex(args, a => string.Equals(a, argName, StringComparison.OrdinalIgnoreCase));

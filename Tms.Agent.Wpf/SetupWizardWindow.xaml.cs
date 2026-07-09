@@ -294,12 +294,13 @@ namespace Tms.Agent.Wpf
                             ServiceControlHelper.ApplyStartWithWindows(settings.StartWithWindows, targetExe);
 
                             // Start the installed executable
+                            App.ReleaseMutex();
                             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                             {
                                 FileName = targetExe,
                                 UseShellExecute = true
                             });
-
+ 
                             // Shutdown this configuration wizard instance
                             System.Windows.Application.Current.Shutdown();
                             return;
@@ -316,6 +317,7 @@ namespace Tms.Agent.Wpf
                                 UseShellExecute = true,
                                 Verb = "runas" // Request UAC elevation
                             };
+                            App.ReleaseMutex();
                             System.Diagnostics.Process.Start(selfStartInfo);
                             System.Windows.Application.Current.Shutdown();
                             return;

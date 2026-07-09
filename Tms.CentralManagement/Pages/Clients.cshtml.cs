@@ -213,6 +213,33 @@ namespace Tms.CentralManagement.Pages
             return RedirectToPage();
         }
 
+        private async Task<string> GenerateNextSerialNumberAsync()
+        {
+            var allSerials = await _context.ClientProfiles
+                .Select(p => p.SerialNumber)
+                .ToListAsync();
+
+            int maxSeq = 0;
+            var regex = new System.Text.RegularExpressions.Regex(@"^SN-01-(\d+)tms$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            foreach (var s in allSerials)
+            {
+                if (string.IsNullOrEmpty(s)) continue;
+                var match = regex.Match(s.Trim());
+                if (match.Success)
+                {
+                    if (int.TryParse(match.Groups[1].Value, out int seqVal))
+                    {
+                        if (seqVal > maxSeq)
+                        {
+                            maxSeq = seqVal;
+                        }
+                    }
+                }
+            }
+            int nextSeq = maxSeq + 1;
+            return $"SN-01-{nextSeq:D7}tms";
+        }
+
         public async Task<IActionResult> OnPostAddMachineToCustomerAsync(int customerId, string machineName, string machineRole, string alias, string? connectionString)
         {
             if (string.IsNullOrWhiteSpace(machineName))
@@ -297,7 +324,8 @@ namespace Tms.CentralManagement.Pages
                         IsAuthorizedForUpdate = false,
                         IsPendingDelete = false,
                         ConnectionString = connectionString.Trim(),
-                        ConnectionStringType = "Direct"
+                        ConnectionStringType = "Direct",
+                        SerialNumber = await GenerateNextSerialNumberAsync()
                     };
                     newClient.Profiles.Add(defaultProfile);
                 }
@@ -499,13 +527,19 @@ namespace Tms.CentralManagement.Pages
                     return RedirectToPage();
                 }
 
+                string finalSerialNumber = serialNumber?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(finalSerialNumber))
+                {
+                    finalSerialNumber = await GenerateNextSerialNumberAsync();
+                }
+
                 var newProfile = new ClientProfile
                 {
                     ClientMachineId = clientMachineId,
                     ProfileId = profileId.Trim(),
                     ProfileName = profileName.Trim(),
                     Afm = afm?.Trim() ?? string.Empty,
-                    SerialNumber = serialNumber?.Trim() ?? string.Empty,
+                    SerialNumber = finalSerialNumber,
                     ActiveUsersCount = activeUsersCount,
                     ConnectionString = connectionString?.Trim() ?? string.Empty,
                     ConnectionStringType = connectionStringType?.Trim() ?? "Direct",

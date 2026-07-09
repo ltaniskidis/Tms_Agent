@@ -17,10 +17,11 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
     });
 
-// Configure multipart form upload limits (500 MB)
+// Configure form upload and body length limits (500 MB)
 builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
 {
     options.MultipartBodyLengthLimit = 524288000;
+    options.ValueLengthLimit = 524288000;
 });
 
 builder.Services.AddRazorPages(options =>
@@ -2583,6 +2584,111 @@ GO
             TargetType = "System"
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη σελίδας και καρτέλας Ιστορικού Εκδόσεων ERP (ERP Changelog) στον Agent και στον Server με δυνατότητα αναζήτησης και φιλτραρίσματος." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.78"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.78",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Υλοποίηση μαζικής έγκρισης/επιβεβαίωσης αναβαθμίσεων για όλα τα εταιρικά προφίλ με ένα μόνο κλικ. Βελτιστοποίηση της ροής αυτόματων αναβαθμίσεων (silent updates) ώστε να εκτελούνται σιωπηλά αποκλειστικά κατά την εκκίνηση του υπολογιστή (Startup) για την αποφυγή συγκρούσεων (process locks) κατά τη χειροκίνητη λειτουργία.",
+            BinaryFileUrl = "/packages/app_1.5.78.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Μαζική έγκριση/επιβεβαίωση αναβαθμίσεων όλων των εταιρικών προφίλ με ένα κλικ." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Περιορισμός αυτόματων αναβαθμίσεων αποκλειστικά κατά το PC Startup (IsSilentMode = true)." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.79"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.79",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Ενοποίηση των ειδοποιήσεων αναβαθμίσεων. Οι διαχειριστές (Admins) λαμβάνουν πλέον τις ίδιες ειδοποιήσεις Balloon/Tray με τους Operators, οι οποίες επαναλαμβάνονται κάθε 30 λεπτά σε περίπτωση κλεισίματος, αντικαθιστώντας τα διακοπτόμενα MessageBoxes.",
+            BinaryFileUrl = "/packages/app_1.5.79.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Ενοποίηση ειδοποιήσεων αναβάθμισης σε Balloon/Tray για Admins & Operators με υπενθύμιση κάθε 30 λεπτά." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.80"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.80",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση σφάλματος race condition του Mutex κατά την ολοκλήρωση του Οδηγού Εγκατάστασης (Setup Wizard) που προκαλούσε τον απότομο τερματισμό του Agent αντί για την εμφάνιση της οθόνης Login.",
+            BinaryFileUrl = "/packages/app_1.5.80.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διόρθωση σφάλματος Mutex/Race Condition κατά την ολοκλήρωση της εγκατάστασης (Setup Wizard) του Agent." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.81"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.81",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση σφάλματος όπου ο Operator θεωρούσε εσφαλμένα ότι η εφαρμογή είναι ενημερωμένη, επειδή κατά τον συγχρονισμό ρυθμίσεων (config commands) αντικαθίστατο η τοπική έκδοση του προγράμματος από την έκδοση του Server.",
+            BinaryFileUrl = "/packages/app_1.5.81.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διορθώθηκε η παράκαμψη αντικατάστασης του CurrentProgramVersion στους operators (Client) κατά τον συγχρονισμό ρυθμίσεων." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

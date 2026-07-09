@@ -1439,8 +1439,8 @@ namespace Tms.Agent.Wpf.ViewModels
                                 DbPassword = cmd.DbPassword,
                                 DbUseWindowsAuth = cmd.DbUseWindowsAuth,
                                 ConfigFilePath = cmd.ConfigFilePath,
-                                CurrentVersion = string.Equals(MachineRole, "Client", StringComparison.OrdinalIgnoreCase) ? (cmd.CurrentProgramVersion ?? cmd.CurrentVersion ?? "0.0.0") : "0.0.0",
-                                CurrentProgramVersion = string.Equals(MachineRole, "Client", StringComparison.OrdinalIgnoreCase) ? (cmd.CurrentProgramVersion ?? cmd.CurrentVersion ?? "0.0.0") : "0.0.0",
+                                CurrentVersion = "0.0.0",
+                                CurrentProgramVersion = "0.0.0",
                                 CurrentDbVersion = string.Equals(MachineRole, "Client", StringComparison.OrdinalIgnoreCase) ? (cmd.CurrentDbVersion ?? "0") : "0",
                                 SerialNumber = cmd.SerialNumber,
                                 ActiveUsersCount = cmd.ActiveUsersCount
@@ -1469,8 +1469,6 @@ namespace Tms.Agent.Wpf.ViewModels
 
                             if (string.Equals(MachineRole, "Client", StringComparison.OrdinalIgnoreCase))
                             {
-                                existing.CurrentVersion = cmd.CurrentProgramVersion ?? cmd.CurrentVersion ?? existing.CurrentVersion;
-                                existing.CurrentProgramVersion = cmd.CurrentProgramVersion ?? cmd.CurrentVersion ?? existing.CurrentProgramVersion;
                                 existing.CurrentDbVersion = cmd.CurrentDbVersion ?? existing.CurrentDbVersion;
                             }
 
@@ -1607,32 +1605,17 @@ namespace Tms.Agent.Wpf.ViewModels
                 }
             }
 
-            // Operator / Admin update promotion and auto-execute logic
-            if (!IsSelfUpgradePending)
+            // Operator / Admin update notification logic (only if NOT in silent mode)
+            if (!IsSelfUpgradePending && !IsSilentMode)
             {
                 foreach (var p in Profiles.ToList())
                 {
-                    if (p.AvailableVersion != null && p.IsAuthorizedByAdmin && !p.IsWaitingForDb)
+                    if (p.AvailableVersion != null && !p.IsWaitingForDb && !_upgradingProfileIds.Contains(p.Profile.ProfileId))
                     {
-                        string exeName = p.Profile.TargetExeName ?? "TIMOLOGISI.exe";
-                        string exeNameWithoutExt = Path.GetFileNameWithoutExtension(exeName);
-                        bool isProgramRunning = false;
-                        try
+                        // Admins are always notified about any available version.
+                        // Operators are only notified if the update is authorized by the admin.
+                        if (IsAdmin || p.IsAuthorizedByAdmin)
                         {
-                            var runningProcesses = System.Diagnostics.Process.GetProcessesByName(exeNameWithoutExt);
-                            isProgramRunning = runningProcesses.Length > 0;
-                        }
-                        catch
-                        {
-                            // Ignored
-                        }
-
-                        if (isProgramRunning)
-                        {
-                            // If the ERP program is running, we cannot perform a silent update.
-                            // We notify the user via the custom slide-in tray notification (modern balloon)
-                            // to close the program and run the update. This is non-blocking and works for all roles
-                            // (even when no user is logged in yet or when the agent is in silent/startup mode).
                             bool shouldNotify = false;
                             if (_lastOperatorPromptTimes.TryGetValue(p.Profile.ProfileId, out var lastTime))
                             {
@@ -1652,41 +1635,18 @@ namespace Tms.Agent.Wpf.ViewModels
                                 _lastOperatorPromptTimes[p.Profile.ProfileId] = DateTime.UtcNow;
                             }
                         }
-                        else
-                        {
-                            // Program is closed, run silent update immediately!
-                            _ = RunSilentProfileUpgradeAsync(p);
-                        }
                     }
                 }
             }
 
-            // Business Admin update prompt modal (only if NOT in silent mode)
-            if (!IsSilentMode && IsAdmin)
+            // Startup auto-execute logic (only if in silent mode)
+            if (!IsSelfUpgradePending && IsSilentMode)
             {
-                foreach (var p in Profiles)
+                foreach (var p in Profiles.ToList())
                 {
-                    if (p.AvailableVersion != null && !p.IsWaitingForDb)
+                    if (p.AvailableVersion != null && p.IsAuthorizedByAdmin && !p.IsWaitingForDb && !_upgradingProfileIds.Contains(p.Profile.ProfileId))
                     {
-                        var key = $"admin_prompt_{p.ProfileId}_{p.AvailableVersion.VersionNumber}";
-                        if (!_promptedUpdates.Contains(key))
-                        {
-                            _promptedUpdates.Add(key);
-                            System.Windows.Application.Current.Dispatcher.BeginInvoke(new Action(() =>
-                            {
-                                var result = System.Windows.MessageBox.Show(
-                                    $"Ανιχνεύθηκε νέα έκδοση ({p.AvailableVersion.VersionNumber}) για την εταιρεία '{p.ProfileName}'.\n\nΘέλετε να προχωρήσετε με την εκτέλεση της αναβάθμισης τώρα;",
-                                    "TMS Agent - Διαθέσιμη Αναβάθμιση",
-                                    MessageBoxButton.YesNo,
-                                    MessageBoxImage.Question);
-                                
-                                if (result == MessageBoxResult.Yes)
-                                {
-                                    OpenWizard(p);
-                                }
-                            }));
-                            break;
-                        }
+                        _ = RunSilentProfileUpgradeAsync(p);
                     }
                 }
             }
@@ -1740,24 +1700,30 @@ namespace Tms.Agent.Wpf.ViewModels
         {
             if (wrapper == null || wrapper.AvailableVersion == null) return;
 
-            StatusMessage = $"Έγκριση αναβάθμισης για το προφίλ '{wrapper.ProfileName}'...";
+            StatusMessage = "Έγκριση αναβάθμισης για όλες τις εταιρείες...";
             try
             {
                 bool success = await _updateEngine.AuthorizeUpdateAsync(
                     ServerUrl,
                     ApiKey,
                     _clientId,
-                    wrapper.ProfileId,
+                    "all",
                     wrapper.AvailableVersion.VersionNumber
                 );
 
                 if (success)
                 {
-                    wrapper.IsAuthorizedByAdmin = true;
-                    StatusMessage = $"Η αναβάθμιση για το προφίλ '{wrapper.ProfileName}' εγκρίθηκε.";
+                    foreach (var p in Profiles)
+                    {
+                        if (p.AvailableVersion != null)
+                        {
+                            p.IsAuthorizedByAdmin = true;
+                        }
+                    }
+                    StatusMessage = "Η αναβάθμιση εγκρίθηκε επιτυχώς για όλες τις εταιρείες.";
                     
                     System.Windows.MessageBox.Show(
-                        $"Η αναβάθμιση εγκρίθηκε επιτυχώς! Οι Operators θα λάβουν ειδοποίηση.",
+                        "Η αναβάθμιση εγκρίθηκε επιτυχώς για όλες τις εταιρείες! Οι αναβαθμίσεις θα εκτελεστούν αυτόματα.",
                         "TMS Agent",
                         MessageBoxButton.OK,
                         MessageBoxImage.Information);
@@ -1780,6 +1746,7 @@ namespace Tms.Agent.Wpf.ViewModels
             }
         }
 
+        private readonly HashSet<string> _upgradingProfileIds = new();
         private bool _isSelfUpgrading = false;
         private async Task RunSelfUpgradeAsync(string systemBinaryUrl, string targetVersion)
         {
@@ -2022,6 +1989,18 @@ namespace Tms.Agent.Wpf.ViewModels
                 
                 var wrapper = PendingUpdateWrapper;
 
+                lock (_upgradingProfileIds)
+                {
+                    if (_upgradingProfileIds.Contains(wrapper.Profile.ProfileId))
+                    {
+                        WizardStage = 3;
+                        WizardSuccess = false;
+                        WizardErrorMessage = "Η αναβάθμιση αυτής της εταιρείας εκτελείται ήδη.";
+                        return;
+                    }
+                    _upgradingProfileIds.Add(wrapper.Profile.ProfileId);
+                }
+
                 // Dry Run Preview for Database scripts
                 if (wrapper.AvailableVersion.Scripts != null && wrapper.AvailableVersion.Scripts.Any())
                 {
@@ -2089,6 +2068,11 @@ namespace Tms.Agent.Wpf.ViewModels
 
                 bool success = result.Success;
 
+                lock (_upgradingProfileIds)
+                {
+                    _upgradingProfileIds.Remove(wrapper.Profile.ProfileId);
+                }
+
                 if (success)
                 {
                     wrapper.Status = "Ενημερώθηκε!";
@@ -2149,91 +2133,110 @@ namespace Tms.Agent.Wpf.ViewModels
         {
             if (wrapper == null || wrapper.AvailableVersion == null) return;
 
-            string profileName = wrapper.ProfileName;
-            string targetVersion = wrapper.AvailableVersion.VersionNumber;
-
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            lock (_upgradingProfileIds)
             {
-                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση Εφαρμογής", $"Έναρξη αυτόματης αναβάθμισης για την εταιρεία: {profileName} (v{targetVersion})...");
-            });
+                if (_upgradingProfileIds.Contains(wrapper.Profile.ProfileId))
+                {
+                    return; // Already upgrading!
+                }
+                _upgradingProfileIds.Add(wrapper.Profile.ProfileId);
+            }
 
-            LogOutput = string.Empty;
-
-            var result = await Task.Run(async () =>
+            try
             {
-                return await _updateEngine.RunUpdateAsync(
-                    ServerUrl,
-                    _clientId,
-                    _machineName,
-                    MachineRole,
-                    ApiKey,
-                    wrapper.Profile,
-                    wrapper.AvailableVersion,
-                    logLine =>
+                string profileName = wrapper.ProfileName;
+                string targetVersion = wrapper.AvailableVersion.VersionNumber;
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                    mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση Εφαρμογής", $"Έναρξη αυτόματης αναβάθμισης για την εταιρεία: {profileName} (v{targetVersion})...");
+                });
+
+                LogOutput = string.Empty;
+
+                var result = await Task.Run(async () =>
+                {
+                    return await _updateEngine.RunUpdateAsync(
+                        ServerUrl,
+                        _clientId,
+                        _machineName,
+                        MachineRole,
+                        ApiKey,
+                        wrapper.Profile,
+                        wrapper.AvailableVersion,
+                        logLine =>
+                        {
+                            if (logLine.Contains("Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή"))
+                            {
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                                    mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση σε εξέλιξη", "Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή.", System.Windows.Forms.ToolTipIcon.Warning);
+                                });
+                            }
+
+                            System.Diagnostics.Debug.WriteLine(logLine);
+                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                            {
+                                LogOutput += logLine + "\n";
+                            });
+                            
+                            // Show balloon notifications for major milestones
+                            if (logLine.Contains("SQL scripts"))
+                            {
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                                    mainWin?.ShowTrayBalloon("TMS Agent - Βάση Δεδομένων", $"Εκτέλεση SQL scripts για την εταιρεία: {profileName}...");
+                                });
+                            }
+                            else if (logLine.Contains("Λήψη εκτελέσιμου"))
+                            {
+                                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                                {
+                                    var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                                    mainWin?.ShowTrayBalloon("TMS Agent - Λήψη Αρχείων", $"Λήψη νέων αρχείων της εφαρμογής για την εταιρεία: {profileName}...");
+                                });
+                            }
+                        }
+                    );
+                });
+
+                bool success = result.Success;
+
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
+                    if (success)
                     {
-                        if (logLine.Contains("Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή"))
-                        {
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                                mainWin?.ShowTrayBalloon("TMS Agent - Αναβάθμιση σε εξέλιξη", "Παρακαλώ περιμένετε, πραγματοποιείται αναβάθμιση στην εφαρμογή.", System.Windows.Forms.ToolTipIcon.Warning);
-                            });
-                        }
-
-                        System.Diagnostics.Debug.WriteLine(logLine);
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            LogOutput += logLine + "\n";
-                        });
+                        wrapper.Status = "Ενημερώθηκε!";
+                        wrapper.AvailableVersion = null;
+                        wrapper.IsAuthorizedByAdmin = false;
+                        wrapper.RefreshProperties();
+                        StatusMessage = $"Η αναβάθμιση του προφίλ '{wrapper.ProfileName}' ολοκληρώθηκε.";
                         
-                        // Show balloon notifications for major milestones
-                        if (logLine.Contains("SQL scripts"))
-                        {
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                                mainWin?.ShowTrayBalloon("TMS Agent - Βάση Δεδομένων", $"Εκτέλεση SQL scripts για την εταιρεία: {profileName}...");
-                            });
-                        }
-                        else if (logLine.Contains("Λήψη εκτελέσιμου"))
-                        {
-                            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                            {
-                                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                                mainWin?.ShowTrayBalloon("TMS Agent - Λήψη Αρχείων", $"Λήψη νέων αρχείων της εφαρμογής για την εταιρεία: {profileName}...");
-                            });
-                        }
+                        _profileManager.SaveProfiles(Profiles.Select(p => p.Profile).ToList());
+
+                        mainWin?.ShowTrayBalloon("TMS Agent - Επιτυχία", $"Η αναβάθμιση της εταιρείας {profileName} ολοκληρώθηκε με επιτυχία!");
                     }
-                );
-            });
-
-            bool success = result.Success;
-
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    else
+                    {
+                        wrapper.Status = "Αποτυχία ενημέρωσης";
+                        StatusMessage = $"Η αναβάθμιση του προφίλ '{wrapper.ProfileName}' απέτυχε. Δείτε τα logs.";
+                        
+                        string errorMsg = !string.IsNullOrEmpty(result.ErrorMessage) ? result.ErrorMessage : "Σφάλμα κατά την αναβάθμιση.";
+                        mainWin?.ShowTrayBalloon("TMS Agent - Αποτυχία", $"Η αναβάθμιση της εταιρείας {profileName} απέτυχε: {errorMsg}", System.Windows.Forms.ToolTipIcon.Error);
+                    }
+                });
+            }
+            finally
             {
-                var mainWin = System.Windows.Application.Current.MainWindow as MainWindow;
-                if (success)
+                lock (_upgradingProfileIds)
                 {
-                    wrapper.Status = "Ενημερώθηκε!";
-                    wrapper.AvailableVersion = null;
-                    wrapper.IsAuthorizedByAdmin = false;
-                    wrapper.RefreshProperties();
-                    StatusMessage = $"Η αναβάθμιση του προφίλ '{wrapper.ProfileName}' ολοκληρώθηκε.";
-                    
-                    _profileManager.SaveProfiles(Profiles.Select(p => p.Profile).ToList());
-
-                    mainWin?.ShowTrayBalloon("TMS Agent - Επιτυχία", $"Η αναβάθμιση της εταιρείας {profileName} ολοκληρώθηκε με επιτυχία!");
+                    _upgradingProfileIds.Remove(wrapper.Profile.ProfileId);
                 }
-                else
-                {
-                    wrapper.Status = "Αποτυχία ενημέρωσης";
-                    StatusMessage = $"Η αναβάθμιση του προφίλ '{wrapper.ProfileName}' απέτυχε. Δείτε τα logs.";
-                    
-                    string errorMsg = !string.IsNullOrEmpty(result.ErrorMessage) ? result.ErrorMessage : "Σφάλμα κατά την αναβάθμιση.";
-                    mainWin?.ShowTrayBalloon("TMS Agent - Αποτυχία", $"Η αναβάθμιση της εταιρείας {profileName} απέτυχε: {errorMsg}", System.Windows.Forms.ToolTipIcon.Error);
-                }
-            });
+            }
         }
 
         // Local User Management Helper Methods

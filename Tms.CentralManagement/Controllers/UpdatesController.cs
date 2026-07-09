@@ -161,6 +161,20 @@ namespace Tms.CentralManagement.Controllers
                 };
             }
 
+            // Auto-enable monitoring for databases used by any configured profile
+            foreach (var profile in client.Profiles.Where(p => !p.IsPendingDelete))
+            {
+                if (!string.IsNullOrEmpty(profile.DbName))
+                {
+                    var matchingDb = client.Databases.FirstOrDefault(d => 
+                        string.Equals(d.DatabaseName, profile.DbName, StringComparison.OrdinalIgnoreCase));
+                    if (matchingDb != null && !matchingDb.IsMonitored)
+                    {
+                        matchingDb.IsMonitored = true;
+                    }
+                }
+            }
+
             response.MonitoredDatabaseNames = client.Databases
                 .Where(d => d.IsMonitored)
                 .Select(d => d.DatabaseName)
@@ -531,13 +545,22 @@ namespace Tms.CentralManagement.Controllers
                 return Unauthorized("Invalid API Key.");
             }
 
-            var profile = client.Profiles.FirstOrDefault(p => p.ProfileId == request.ProfileId);
-            if (profile == null)
+            if (string.Equals(request.ProfileId, "all", StringComparison.OrdinalIgnoreCase))
             {
-                return NotFound("Profile not found.");
+                foreach (var p in client.Profiles)
+                {
+                    p.IsAuthorizedForUpdate = true;
+                }
             }
-
-            profile.IsAuthorizedForUpdate = true;
+            else
+            {
+                var profile = client.Profiles.FirstOrDefault(p => p.ProfileId == request.ProfileId);
+                if (profile == null)
+                {
+                    return NotFound("Profile not found.");
+                }
+                profile.IsAuthorizedForUpdate = true;
+            }
             await _context.SaveChangesAsync();
             return Ok();
         }

@@ -364,11 +364,25 @@ namespace Tms.CentralManagement.Controllers
                         if (isClient)
                         {
                             // Check if database is already upgraded to allow operators to pull updated EXE
-                            if (Version.TryParse(dbProfile.LastUpdatedDbVersion, out var dbVer))
+                            // We query the Server-role machine of the same customer for this profile
+                            var serverProfile = await _context.ClientProfiles
+                                .Join(_context.Clients, 
+                                      p => p.ClientMachineId, 
+                                      c => c.Id, 
+                                      (p, c) => new { Profile = p, Client = c })
+                                .Where(x => x.Profile.ProfileId == localProfile.ProfileId && 
+                                            x.Client.CustomerId == client.CustomerId && 
+                                            x.Client.MachineRole != "Client")
+                                .Select(x => x.Profile)
+                                .FirstOrDefaultAsync();
+
+                            string dbVerStr = serverProfile?.LastUpdatedDbVersion ?? dbProfile.LastUpdatedDbVersion;
+
+                            if (Version.TryParse(dbVerStr, out var dbVer))
                             {
                                 isDbUpToDate = dbVer >= latestParsed;
                             }
-                            else if (!string.IsNullOrEmpty(dbProfile.LastUpdatedDbVersion))
+                            else if (!string.IsNullOrEmpty(dbVerStr))
                             {
                                 var lastScript = pendingScripts.OrderBy(s => s.SequenceOrder).LastOrDefault();
                                 if (lastScript != null)
@@ -383,7 +397,7 @@ namespace Tms.CentralManagement.Controllers
                                     {
                                         lastScriptIdent = Path.GetFileNameWithoutExtension(lastScript.ScriptName);
                                     }
-                                    isDbUpToDate = string.Equals(dbProfile.LastUpdatedDbVersion, lastScriptIdent, StringComparison.OrdinalIgnoreCase);
+                                    isDbUpToDate = string.Equals(dbVerStr, lastScriptIdent, StringComparison.OrdinalIgnoreCase);
                                 }
                                 else
                                 {

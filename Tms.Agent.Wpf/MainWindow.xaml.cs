@@ -263,11 +263,19 @@ namespace Tms.Agent.Wpf
                     if (DataContext is MainViewModel vm)
                     {
                         vm.ApplyUserAuthentication(App.LoggedInUser, App.UserRole);
+                        vm.IsSilentMode = false;
                     }
                 }
                 else
                 {
                     return;
+                }
+            }
+            else
+            {
+                if (DataContext is MainViewModel vm)
+                {
+                    vm.IsSilentMode = false;
                 }
             }
 

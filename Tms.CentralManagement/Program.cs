@@ -2694,6 +2694,32 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.82"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.82",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση σφάλματος όπου ο Agent εκτελούσε αυτόματα την αναβάθμιση στο παρασκήνιο (silent mode) παρόλο που ο χρήστης είχε ανοίξει το Panel της εφαρμογής. Πλέον, με το άνοιγμα του Panel, το Silent Mode απενεργοποιείται αυτόματα.",
+            BinaryFileUrl = "/packages/app_1.5.82.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Απενεργοποίηση του Silent Mode (Startup) κατά το άνοιγμα του Agent Panel από το Tray." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     if (!context.ConsoleUsers.Any())
     {
         context.ConsoleUsers.Add(new ConsoleUser

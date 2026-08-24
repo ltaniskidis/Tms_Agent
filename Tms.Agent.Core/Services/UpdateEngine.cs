@@ -521,16 +521,32 @@ namespace Tms.Agent.Core.Services
                             Log("Εξαγωγή αρχείων και αντικατάσταση...");
                             if (Path.GetExtension(downloadUrl).Equals(".zip", StringComparison.OrdinalIgnoreCase))
                             {
-                                Log("Ασφαλής εξαγωγή αρχείων ZIP...");
+                                Log("\u0391\u03c3\u03c6\u03b1\u03bb\u03ae\u03c2 \u03b5\u03be\u03b1\u03b3\u03c9\u03b3\u03ae \u03b1\u03c1\u03c7\u03b5\u03af\u03c9\u03bd ZIP...");
                                 using (var archive = ZipFile.OpenRead(tempZipPath))
                                 {
+                                    string commonRoot = "";
+                                    var entriesWithFiles = archive.Entries.Where(e => !string.IsNullOrEmpty(e.Name)).ToList();
+                                    if (entriesWithFiles.Any())
+                                    {
+                                        string firstPath = entriesWithFiles.First().FullName;
+                                        int firstSlash = firstPath.IndexOf('/');
+                                        if (firstSlash == -1) firstSlash = firstPath.IndexOf('\\');
+                                        if (firstSlash > 0)
+                                        {
+                                            string candidateRoot = firstPath.Substring(0, firstSlash + 1);
+                                            bool allShareRoot = entriesWithFiles.All(e => e.FullName.StartsWith(candidateRoot, StringComparison.OrdinalIgnoreCase));
+                                            if (allShareRoot)
+                                            {
+                                                commonRoot = candidateRoot;
+                                            }
+                                        }
+                                    }
+
                                     foreach (var entry in archive.Entries)
                                     {
                                         if (string.IsNullOrEmpty(entry.Name)) continue; // Directory entry
 
                                         string targetFilePath;
-                                        
-                                        // If this is the main EXE inside the zip, rename it to activeExeName when extracting
                                         string zipEntryName = entry.Name;
                                         string defaultBaseName = "TIMOLOGISI";
                                         string configBaseName = Path.GetFileNameWithoutExtension(profile.TargetExeName ?? "TIMOLOGISI.exe");
@@ -543,38 +559,85 @@ namespace Tms.Agent.Core.Services
                                                            string.Equals(cleanZipEntryBaseName, cleanConfigBaseName, StringComparison.OrdinalIgnoreCase) ||
                                                            string.Equals(cleanZipEntryBaseName, defaultBaseName, StringComparison.OrdinalIgnoreCase)));
 
+                                        bool isConfigOfMainExe = false;
+                                        if (zipEntryName.EndsWith(".config", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            string assocExeName = zipEntryName.Substring(0, zipEntryName.Length - 7);
+                                            if (!assocExeName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                assocExeName += ".exe";
+                                            }
+
+                                            string cleanAssocBaseName = System.Text.RegularExpressions.Regex.Replace(Path.GetFileNameWithoutExtension(assocExeName), @"\d+$", "");
+                                            isConfigOfMainExe = string.Equals(assocExeName, profile.TargetExeName, StringComparison.OrdinalIgnoreCase) ||
+                                                                string.Equals(assocExeName, "TIMOLOGISI.exe", StringComparison.OrdinalIgnoreCase) ||
+                                                                string.Equals(cleanAssocBaseName, cleanConfigBaseName, StringComparison.OrdinalIgnoreCase) ||
+                                                                string.Equals(cleanAssocBaseName, defaultBaseName, StringComparison.OrdinalIgnoreCase);
+                                        }
+
                                         if (isMainExe)
                                         {
                                             targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, activeExeName));
-                                            Log($"Εξαγωγή νέου εκτελέσιμου αρχείου ως {activeExeName} (από {entry.Name} στο ZIP)...");
+                                            Log("\u0395\u03be\u03b1\u03b3\u03c9\u03b3\u03ae \u03bd\u03ad\u03bf\u03c5 \u03b5\u03ba\u03c4\u03b5\u03bb\u03ad\u03c3\u03b9\u03bc\u03bf\u03c5 \u03b1\u03c1\u03c7\u03b5\u03af\u03bf\u03c5 \u03c9\u03c2 " + activeExeName + " (\u03b1\u03c0\u03cc " + entry.Name + " \u03c3\u03c4\u03bf ZIP)...");
+                                            
+                                            var parentDir = Path.GetDirectoryName(targetFilePath);
+                                            if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+                                            {
+                                                Directory.CreateDirectory(parentDir);
+                                            }
+                                            entry.ExtractToFile(targetFilePath, overwrite: true);
+                                        }
+                                        else if (isConfigOfMainExe)
+                                        {
+                                            string activeConfigName = activeExeName + ".config";
+                                            targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, activeConfigName));
+                                            
+                                            var parentDir = Path.GetDirectoryName(targetFilePath);
+                                            if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+                                            {
+                                                Directory.CreateDirectory(parentDir);
+                                            }
+
+                                            if (File.Exists(targetFilePath))
+                                            {
+                                                MergeConfigBindingRedirects(targetFilePath, entry, Log);
+                                            }
+                                            else
+                                            {
+                                                Log("\u0395\u03be\u03b1\u03b3\u03c9\u03b3\u03ae \u03bd\u03ad\u03bf\u03c5 \u03b1\u03c1\u03c7\u03b5\u03af\u03bf\u03c5 config \u03c9\u03c2 " + activeConfigName + " (\u03b1\u03c0\u03cc " + entry.Name + " \u03c3\u03c4\u03bf ZIP)...");
+                                                entry.ExtractToFile(targetFilePath, overwrite: true);
+                                            }
                                         }
                                         else
                                         {
-                                            targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, entry.FullName));
+                                            string relativePath = entry.FullName;
+                                            if (!string.IsNullOrEmpty(commonRoot) && relativePath.StartsWith(commonRoot, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                relativePath = relativePath.Substring(commonRoot.Length);
+                                            }
+                                            targetFilePath = Path.GetFullPath(Path.Combine(targetFolder, relativePath));
+                                            Log("\u0395\u03be\u03b1\u03b3\u03c9\u03b3\u03ae \u03b1\u03c1\u03c7\u03b5\u03af\u03bf\u03c5: " + relativePath + " (\u03b1\u03c0\u03cc " + entry.FullName + " \u03c3\u03c4\u03bf ZIP)...");
+                                            
+                                            var parentDir = Path.GetDirectoryName(targetFilePath);
+                                            if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
+                                            {
+                                                Directory.CreateDirectory(parentDir);
+                                            }
+                                            entry.ExtractToFile(targetFilePath, overwrite: true);
                                         }
-                                        
-                                        // Ensure directory exists
-                                        var parentDir = Path.GetDirectoryName(targetFilePath);
-                                        if (!string.IsNullOrEmpty(parentDir) && !Directory.Exists(parentDir))
-                                        {
-                                            Directory.CreateDirectory(parentDir);
-                                        }
-
-                                        // Extract the entry (overwriting if it already exists, other files have no renaming/backup)
-                                        entry.ExtractToFile(targetFilePath, overwrite: true);
                                     }
                                 }
                             }
                             else
                             {
-                                var targetFilePath = Path.Combine(targetFolder, activeExeName);
-                                if (!Directory.Exists(targetFolder))
-                                {
-                                    Directory.CreateDirectory(targetFolder);
-                                }
-                                File.Copy(tempZipPath, targetFilePath, overwrite: true);
-                                Log($"Αντιγραφή νέου εκτελέσιμου αρχείου ως {activeExeName}...");
-                            }
+                                 var targetFilePath = Path.Combine(targetFolder, activeExeName);
+                                 if (!Directory.Exists(targetFolder))
+                                 {
+                                     Directory.CreateDirectory(targetFolder);
+                                 }
+                                 File.Copy(tempZipPath, targetFilePath, overwrite: true);
+                                 Log($"Ξ‘Ξ½Ο„ΞΉΞ³ΟΞ±Ο†Ξ® Ξ½Ξ­ΞΏΟ… ΞµΞΊΟ„ΞµΞ»Ξ­ΟƒΞΉΞΌΞΏΟ… Ξ±ΟΟ‡ΞµΞ―ΞΏΟ… Ο‰Ο‚ {activeExeName}...");
+                             }
 
                             fileSuccess = true;
                             Log("Η αντιγραφή των αρχείων ολοκληρώθηκε με επιτυχία.");
@@ -1863,7 +1926,129 @@ namespace Tms.Agent.Core.Services
             return null;
         }
 
+        public static void MergeConfigBindingRedirects(string localConfigPath, ZipArchiveEntry newConfigEntry, Action<string> log)
+        {
+            try
+            {
+                log("\u03a3\u03c5\u03b3\u03c7\u03ce\u03bd\u03b5\u03c5\u03c3\u03b7 binding redirects \u03c3\u03c4\u03bf \u03b1\u03c1\u03c7\u03b5\u03af\u03bf \u03c1\u03c5\u03b8\u03bc\u03af\u03c3\u03b5\u03c9\u03bd: " + Path.GetFileName(localConfigPath));
+
+                var localXml = new System.Xml.XmlDocument();
+                localXml.Load(localConfigPath);
+
+                var newXml = new System.Xml.XmlDocument();
+                using (var stream = newConfigEntry.Open())
+                {
+                    newXml.Load(stream);
+                }
+
+                var nsManagerNew = new System.Xml.XmlNamespaceManager(newXml.NameTable);
+                nsManagerNew.AddNamespace("asm", "urn:schemas-microsoft-com:asm.v1");
+
+                var newAssemblyBindingNodes = newXml.SelectNodes("//configuration/runtime/*[local-name()='assemblyBinding']");
+                if (newAssemblyBindingNodes == null || newAssemblyBindingNodes.Count == 0)
+                {
+                    newAssemblyBindingNodes = newXml.SelectNodes("//*[local-name()='assemblyBinding']");
+                }
+
+                if (newAssemblyBindingNodes == null || newAssemblyBindingNodes.Count == 0)
+                {
+                    log("\u0394\u03b5\u03bd \u03b2\u03c1\u03ad\u03b8\u03b7\u03ba\u03b1\u03bd binding redirects \u03c3\u03c4\u03bf \u03bd\u03ad\u03bf \u03b1\u03c1\u03c7\u03b5\u03af\u03bf \u03c1\u03c5\u03b8\u03bc\u03af\u03c3\u03b5\u03c9\u03bd.");
+                    return;
+                }
+
+                var localConfigNode = localXml.SelectSingleNode("/configuration");
+                if (localConfigNode == null)
+                {
+                    log("\u03a3\u03c6\u03ac\u03bb\u03bc\u03b1: \u0394\u03b5\u03bd \u03b2\u03c1\u03ad\u03b8\u03b7\u03ba\u03b5 \u03c4\u03bf tag <configuration> \u03c3\u03c4\u03bf \u03c4\u03bf\u03c0\u03b9\u03ba\u03cc \u03b1\u03c1\u03c7\u03b5\u03af\u03bf config.");
+                    return;
+                }
+
+                var localRuntimeNode = localXml.SelectSingleNode("/configuration/runtime");
+                if (localRuntimeNode == null)
+                {
+                    localRuntimeNode = localXml.CreateElement("runtime");
+                    localConfigNode.AppendChild(localRuntimeNode);
+                }
+
+                foreach (System.Xml.XmlNode newBindingNode in newAssemblyBindingNodes)
+                {
+                    var nsUri = newBindingNode.NamespaceURI;
+                    System.Xml.XmlNode? localAssemblyBinding = null;
+
+                    if (string.IsNullOrEmpty(nsUri))
+                    {
+                        localAssemblyBinding = localRuntimeNode.SelectSingleNode("*[local-name()='assemblyBinding']");
+                    }
+                    else
+                    {
+                        var nsManagerLocal = new System.Xml.XmlNamespaceManager(localXml.NameTable);
+                        nsManagerLocal.AddNamespace("asm", nsUri);
+                        localAssemblyBinding = localRuntimeNode.SelectSingleNode("asm:assemblyBinding", nsManagerLocal);
+                    }
+
+                    if (localAssemblyBinding == null)
+                    {
+                        if (!string.IsNullOrEmpty(nsUri))
+                        {
+                            localAssemblyBinding = localXml.CreateElement("assemblyBinding", nsUri);
+                        }
+                        else
+                        {
+                            localAssemblyBinding = localXml.CreateElement("assemblyBinding");
+                        }
+                        localRuntimeNode.AppendChild(localAssemblyBinding);
+                    }
+
+                    var newDepAssemblies = newBindingNode.SelectNodes("*[local-name()='dependentAssembly']");
+                    if (newDepAssemblies == null) continue;
+
+                    foreach (System.Xml.XmlNode newDep in newDepAssemblies)
+                    {
+                        var assemblyIdentity = newDep.SelectSingleNode("*[local-name()='assemblyIdentity']");
+                        if (assemblyIdentity == null) continue;
+
+                        var assemblyName = assemblyIdentity.Attributes?["name"]?.Value;
+                        if (string.IsNullOrEmpty(assemblyName)) continue;
+
+                        System.Xml.XmlNode? existingDep = null;
+                        foreach (System.Xml.XmlNode child in localAssemblyBinding.ChildNodes)
+                        {
+                            if (child.LocalName == "dependentAssembly")
+                            {
+                                var childIdentity = child.SelectSingleNode("*[local-name()='assemblyIdentity']");
+                                if (childIdentity != null && string.Equals(childIdentity.Attributes?["name"]?.Value, assemblyName, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    existingDep = child;
+                                    break;
+                                }
+                            }
+                        }
+
+                        var importedNode = localXml.ImportNode(newDep, true);
+
+                        if (existingDep != null)
+                        {
+                            localAssemblyBinding.ReplaceChild(importedNode, existingDep);
+                            log("\u0395\u03bd\u03b7\u03bc\u03ad\u03c1\u03c9\u03c3\u03b7 binding redirect \u03b3\u03b9\u03b1 \u03c4\u03bf assembly: " + assemblyName);
+                        }
+                        else
+                        {
+                            localAssemblyBinding.AppendChild(importedNode);
+                            log("\u03a0\u03c1\u03bf\u03c3\u03b8\u03ae\u03ba\u03b7 \u03bd\u03ad\u03bf\u03c5 binding redirect \u03b3\u03b9\u03b1 \u03c4\u03bf assembly: " + assemblyName);
+                        }
+                    }
+                }
+
+                localXml.Save(localConfigPath);
+                log("\u0395\u03c0\u03b9\u03c4\u03c5\u03c7\u03ae\u03c2 \u03c3\u03c5\u03b3\u03c7\u03ce\u03bd\u03b5\u03c5\u03c3\u03b7 binding redirects \u03c3\u03c4\u03bf: " + Path.GetFileName(localConfigPath));
+            }
+            catch (Exception ex)
+            {
+                log("\u03a3\u03c6\u03ac\u03bb\u03bc\u03b1 \u03ba\u03b1\u03c4\u03ac \u03c4\u03b7 \u03c3\u03c5\u03b3\u03c7\u03ce\u03bd\u03b5\u03c5\u03c3\u03b7 \u03c4\u03c9\u03bd binding redirects: " + ex.Message);
+                throw;
+            }
+        }
+
         #endregion
     }
 }
-

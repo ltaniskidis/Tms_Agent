@@ -10,6 +10,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Tms.CentralManagement.Data;
 
+using Microsoft.Extensions.Logging;
+
 namespace Tms.CentralManagement.Pages
 {
     [Authorize(Roles = "SuperAdmin")]
@@ -17,11 +19,13 @@ namespace Tms.CentralManagement.Pages
     {
         private readonly CentralDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<SupportTicketsModel> _logger;
 
-        public SupportTicketsModel(CentralDbContext context, IConfiguration configuration)
+        public SupportTicketsModel(CentralDbContext context, IConfiguration configuration, ILogger<SupportTicketsModel> logger)
         {
             _context = context;
             _configuration = configuration;
+            _logger = logger;
         }
 
         public List<SupportTicket> OpenTickets { get; set; } = new();
@@ -242,7 +246,7 @@ namespace Tms.CentralManagement.Pages
                 }
                 catch (Exception fileEx)
                 {
-                    Console.WriteLine($"Failed to write local response email file: {fileEx}");
+                    _logger.LogError(fileEx, "Failed to write local response email file");
                 }
             }
 

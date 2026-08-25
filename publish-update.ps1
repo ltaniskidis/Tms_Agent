@@ -98,6 +98,14 @@ if (Test-Path $serverPackagesProd) {
     Copy-Item -Path $zipPath -Destination $serverPackagesProd -Force
 }
 
+# Copy to Docker packages volume directory if it exists
+$dockerPackages = Join-Path $currentDir "packages"
+if (Test-Path $dockerPackages) {
+    Write-Host "Copying to Docker packages folder: $dockerPackages..." -ForegroundColor Yellow
+    Copy-Item -Path $zipPath -Destination $dockerPackages -Force
+}
+
+
 # 6. Serving from PublishAndSetup directly
 Write-Host "Update package is stored directly in PublishAndSetup." -ForegroundColor Cyan
 

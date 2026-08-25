@@ -193,6 +193,10 @@
                                             <div>
                                                 <strong>@(string.IsNullOrEmpty(client.Alias) ? client.MachineName : client.Alias)</strong>
                                                 <span style="color: var(--text-secondary); font-size: 11px; margin-left: 5px;">(@client.MachineName)</span>
+                                                @if (!string.IsNullOrEmpty(client.ServerUrl))
+                                                {
+                                                    <span style="font-size: 10px; color: var(--text-secondary); margin-left: 8px; font-family: monospace; background-color: rgba(255,255,255,0.03); padding: 1px 4px; border-radius: 3px;" title="Διεύθυνση Central Server (URL)">🔗 @client.ServerUrl</span>
+                                                }
                                                 <span class="badge badge-mini" style="background-color: rgba(59, 130, 246, 0.15); color: #3B82F6; margin-left: 8px;" title="@(client.LastAgentUpgradeTime.HasValue ? $"Αναβάθμιση Agent: {client.LastAgentUpgradeTime.Value.ToString("dd/MM/yyyy HH:mm")}" : "Άγνωστη ημερομηνία αναβάθμισης")">v@(client.AgentVersion)</span>
                                                 <span class="badge badge-mini" style="background-color: rgba(255,255,255,0.05); color: var(--text-secondary);">@client.MachineRole</span>
                                                 

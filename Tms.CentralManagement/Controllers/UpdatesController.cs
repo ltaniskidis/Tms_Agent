@@ -12,6 +12,8 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Microsoft.Extensions.Logging;
+
 namespace Tms.CentralManagement.Controllers
 {
     [ApiController]
@@ -20,11 +22,14 @@ namespace Tms.CentralManagement.Controllers
     {
         private readonly CentralDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<UpdatesController> _logger;
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, string> _scriptIdentCache = new();
 
-        public UpdatesController(CentralDbContext context, IConfiguration configuration)
+        public UpdatesController(CentralDbContext context, IConfiguration configuration, ILogger<UpdatesController> logger)
         {
             _context = context;
             _configuration = configuration;
+            _logger = logger;
         }
 
         // 1. Check for updates from Agents
@@ -60,6 +65,7 @@ namespace Tms.CentralManagement.Controllers
                 client.LastAgentUpgradeTime = DateTime.UtcNow;
             }
             client.AgentVersion = request.AgentVersion ?? "1.0.0";
+            client.ServerUrl = request.ServerUrl;
 
             bool isClient = string.Equals(request.MachineRole, "Client", StringComparison.OrdinalIgnoreCase);
 
@@ -161,27 +167,9 @@ namespace Tms.CentralManagement.Controllers
                 };
             }
 
-            // Auto-enable monitoring for databases used by any configured profile
-            foreach (var profile in client.Profiles.Where(p => !p.IsPendingDelete))
-            {
-                if (!string.IsNullOrEmpty(profile.DbName))
-                {
-                    var matchingDb = client.Databases.FirstOrDefault(d => 
-                        string.Equals(d.DatabaseName, profile.DbName, StringComparison.OrdinalIgnoreCase));
-                    if (matchingDb != null && !matchingDb.IsMonitored)
-                    {
-                        matchingDb.IsMonitored = true;
-                    }
-                }
-            }
-
-            response.MonitoredDatabaseNames = client.Databases
-                .Where(d => d.IsMonitored)
-                .Select(d => d.DatabaseName)
-                .ToList();
+            response.MonitoredDatabaseNames = new List<string>();
 
             var allActiveVersions = await _context.Versions
-                .Include(v => v.Scripts)
                 .Include(v => v.ReleaseNotes)
                 .Where(v => v.IsActive && v.TargetType == "Program")
                 .ToListAsync();
@@ -316,16 +304,7 @@ namespace Tms.CentralManagement.Controllers
                     }
                 }
 
-                // Auto-enable monitoring for the database associated with this profile
-                if (!string.IsNullOrEmpty(localProfile.DbName))
-                {
-                    var matchingDb = client.Databases.FirstOrDefault(d => 
-                        string.Equals(d.DatabaseName, localProfile.DbName, StringComparison.OrdinalIgnoreCase));
-                    if (matchingDb != null && !matchingDb.IsMonitored)
-                    {
-                        matchingDb.IsMonitored = true;
-                    }
-                }
+
 
                 // Check for updates (only if upgrade is enabled)
                 if (client.IsUpgradeEnabled)
@@ -366,16 +345,25 @@ namespace Tms.CentralManagement.Controllers
                         var latestProgUrl = latestProgramVersionObj?.VersionInfo?.BinaryFileUrl ?? string.Empty;
 
                         // Check if any script exists in versions newer than currentDbVer up to latestParsed
-                        var pendingScripts = allActiveVersions
-                            .Select(v => new { VersionInfo = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
+                        var versionsInRangeObj = allActiveVersions
+                            .Select(v => new { v.Id, VersionString = v.VersionNumber, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
                             .Where(x => x.Parsed > currentDbVer && x.Parsed <= latestParsed)
-                            .SelectMany(x => x.VersionInfo.Scripts ?? new List<SqlScript>())
                             .ToList();
+                        
+                        var versionsInRangeIds = versionsInRangeObj.Select(x => x.Id).ToList();
+
+                        List<SqlScript> allScriptsInRange = new List<SqlScript>();
+                        if (versionsInRangeIds.Any())
+                        {
+                            allScriptsInRange = await _context.SqlScripts
+                                .Where(s => versionsInRangeIds.Contains(s.VersionInfoId))
+                                .ToListAsync();
+                        }
 
                         // Filter out already executed scripts using script identifier matching
                         string clientDbVersionStr = localProfile.CurrentDbVersion ?? localProfile.CurrentVersion ?? string.Empty;
-                        pendingScripts = pendingScripts
-                            .Where(s => !IsScriptExecuted(s.ScriptName, s.ScriptContent, clientDbVersionStr))
+                        var pendingScripts = allScriptsInRange
+                            .Where(s => !IsScriptExecuted(s.Id, s.ScriptName, s.ScriptContent, clientDbVersionStr))
                             .ToList();
 
                         bool hasPendingScripts = pendingScripts.Any();
@@ -397,15 +385,19 @@ namespace Tms.CentralManagement.Controllers
                                 var lastScript = pendingScripts.OrderBy(s => s.SequenceOrder).LastOrDefault();
                                 if (lastScript != null)
                                 {
-                                    string lastScriptIdent = lastScript.ScriptName;
-                                    var blocks = ParseBulkScriptFileContent(lastScript.ScriptContent);
-                                    if (blocks.Any())
+                                    if (!_scriptIdentCache.TryGetValue(lastScript.Id, out var lastScriptIdent))
                                     {
-                                        lastScriptIdent = blocks.Last().ScriptNumber;
-                                    }
-                                    else
-                                    {
-                                        lastScriptIdent = Path.GetFileNameWithoutExtension(lastScript.ScriptName);
+                                        lastScriptIdent = lastScript.ScriptName;
+                                        var blocks = ParseBulkScriptFileContent(lastScript.ScriptContent);
+                                        if (blocks.Any())
+                                        {
+                                            lastScriptIdent = blocks.Last().ScriptNumber;
+                                        }
+                                        else
+                                        {
+                                            lastScriptIdent = Path.GetFileNameWithoutExtension(lastScript.ScriptName);
+                                        }
+                                        _scriptIdentCache[lastScript.Id] = lastScriptIdent;
                                     }
                                     isDbUpToDate = string.Equals(dbVerStr, lastScriptIdent, StringComparison.OrdinalIgnoreCase);
                                 }
@@ -429,7 +421,8 @@ namespace Tms.CentralManagement.Controllers
                         else
                         {
                             bool isAlreadyUpdated = !string.IsNullOrEmpty(dbProfile.LastUpdatedVersion) && 
-                                                    !IsNewerVersion(latestVersionObj.VersionInfo.VersionNumber, dbProfile.LastUpdatedVersion);
+                                                    !IsNewerVersion(latestVersionObj.VersionInfo.VersionNumber, dbProfile.LastUpdatedVersion) &&
+                                                    dbProfile.LastUpdateStatus != "Failed";
 
                             if (isAlreadyUpdated && !dbProfile.IsAuthorizedForUpdate)
                             {
@@ -453,17 +446,22 @@ namespace Tms.CentralManagement.Controllers
                             }
 
                             // Build the scripts list, including all scripts from versions > currentDbVer up to latestParsed, ordered by version and then sequence order
-                            var sortedScripts = allActiveVersions
-                                .Select(v => new { VersionInfo = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
-                                .Where(x => x.Parsed > currentDbVer && x.Parsed <= latestParsed)
-                                .OrderBy(x => x.Parsed)
-                                .SelectMany(x => x.VersionInfo.Scripts ?? new List<SqlScript>())
-                                .Select(s => new ScriptDto
+                            var sortedScripts = allScriptsInRange
+                                .Select(s => new 
+                                { 
+                                    Script = s, 
+                                    VerParsed = Version.TryParse(
+                                        versionsInRangeObj.FirstOrDefault(v => v.Id == s.VersionInfoId)?.VersionString ?? "0.0.0", 
+                                        out var ver) ? ver : new Version(0, 0, 0) 
+                                })
+                                .OrderBy(x => x.VerParsed)
+                                .ThenBy(x => x.Script.SequenceOrder)
+                                .Select(x => new ScriptDto
                                 {
-                                    Id = s.Id,
-                                    ScriptName = s.ScriptName,
-                                    ScriptContent = s.ScriptContent,
-                                    SequenceOrder = s.SequenceOrder
+                                    Id = x.Script.Id,
+                                    ScriptName = x.Script.ScriptName,
+                                    ScriptContent = x.Script.ScriptContent,
+                                    SequenceOrder = x.Script.SequenceOrder
                                 })
                                 .ToList();
 
@@ -479,7 +477,7 @@ namespace Tms.CentralManagement.Controllers
                                     VersionNumber = latestUpdate.VersionNumber,
                                     ReleaseDate = latestUpdate.ReleaseDate,
                                     Description = latestUpdate.Description,
-                                    BinaryFileUrl = latestProgUrl,
+                                    BinaryFileUrl = (currentProgVer >= latestProgParsed) ? string.Empty : latestProgUrl,
                                     SecurityCode = latestUpdate.SecurityCode,
                                     ReleaseNotes = latestUpdate.ReleaseNotes.Select(rn => rn.NotesContent).ToList(),
                                     Scripts = sortedScripts
@@ -531,6 +529,42 @@ namespace Tms.CentralManagement.Controllers
                 });
             }
 
+            // Auto-enable monitoring for databases used by any configured profile
+            foreach (var profile in client.Profiles.Where(p => !p.IsPendingDelete))
+            {
+                if (!string.IsNullOrEmpty(profile.DbName))
+                {
+                    var matchingDb = client.Databases.FirstOrDefault(d => 
+                        string.Equals(d.DatabaseName, profile.DbName, StringComparison.OrdinalIgnoreCase));
+                    if (matchingDb != null)
+                    {
+                        if (!matchingDb.IsMonitored)
+                        {
+                            matchingDb.IsMonitored = true;
+                        }
+                    }
+                    else
+                    {
+                        matchingDb = new ClientDatabase
+                        {
+                            InstanceName = "Remote / Configured",
+                            DatabaseName = profile.DbName,
+                            ConnectionString = profile.ConnectionString ?? string.Empty,
+                            IsMonitored = true,
+                            LastUpdatedVersion = "",
+                            LastUpdateStatus = "Configured",
+                            LastUpdatedTime = DateTime.UtcNow
+                        };
+                        client.Databases.Add(matchingDb);
+                    }
+                }
+            }
+
+            response.MonitoredDatabaseNames = client.Databases
+                .Where(d => d.IsMonitored)
+                .Select(d => d.DatabaseName)
+                .ToList();
+
             await _context.SaveChangesAsync();
 
             // Fetch active broadcast messages for this client
@@ -546,6 +580,12 @@ namespace Tms.CentralManagement.Controllers
                 })
                 .ToListAsync();
             response.Broadcasts = broadcasts;
+
+            var redirectUrl = _configuration["AgentRedirectServerUrl"];
+            if (!string.IsNullOrEmpty(redirectUrl))
+            {
+                response.NewServerUrl = redirectUrl;
+            }
 
             response.HasUpdates = response.Updates.Any();
             return Ok(response);
@@ -895,7 +935,7 @@ namespace Tms.CentralManagement.Controllers
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error saving attachment: {ex}");
+                    _logger.LogError(ex, "Error saving attachment");
                 }
             }
 
@@ -1037,7 +1077,7 @@ namespace Tms.CentralManagement.Controllers
                 }
                 catch (Exception fileEx)
                 {
-                    Console.WriteLine($"Failed to write local email file: {fileEx}");
+                    _logger.LogError(fileEx, "Failed to write local email file");
                 }
             }
 
@@ -1206,19 +1246,23 @@ namespace Tms.CentralManagement.Controllers
             return string.Compare(newVerStr, oldVerStr, StringComparison.OrdinalIgnoreCase) > 0;
         }
 
-        private static bool IsScriptExecuted(string scriptName, string scriptContent, string clientDbVersion)
+        private static bool IsScriptExecuted(int scriptId, string scriptName, string scriptContent, string clientDbVersion)
         {
             if (string.IsNullOrEmpty(clientDbVersion)) return false;
 
-            string scriptIdent = scriptName;
-            var blocks = ParseBulkScriptFileContent(scriptContent);
-            if (blocks.Any())
+            if (!_scriptIdentCache.TryGetValue(scriptId, out var scriptIdent))
             {
-                scriptIdent = blocks.Last().ScriptNumber;
-            }
-            else
-            {
-                scriptIdent = Path.GetFileNameWithoutExtension(scriptName);
+                scriptIdent = scriptName;
+                var blocks = ParseBulkScriptFileContent(scriptContent);
+                if (blocks.Any())
+                {
+                    scriptIdent = blocks.Last().ScriptNumber;
+                }
+                else
+                {
+                    scriptIdent = Path.GetFileNameWithoutExtension(scriptName);
+                }
+                _scriptIdentCache[scriptId] = scriptIdent;
             }
 
             if (string.Equals(scriptIdent, clientDbVersion, StringComparison.OrdinalIgnoreCase))

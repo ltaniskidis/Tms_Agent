@@ -7,15 +7,19 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 using Tms.CentralManagement.Data;
 
+using Microsoft.Extensions.Logging;
+
 namespace Tms.CentralManagement.Pages
 {
     public class ClientsModel : PageModel
     {
         private readonly CentralDbContext _context;
+        private readonly ILogger<ClientsModel> _logger;
 
-        public ClientsModel(CentralDbContext context)
+        public ClientsModel(CentralDbContext context, ILogger<ClientsModel> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         public List<ClientMachine> Clients { get; set; } = new();
@@ -93,7 +97,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostCreateClientAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostCreateClientAsync");
                 ErrorMessage = $"Σφάλμα κατά τη δημιουργία πελάτη: {ex.Message}";
             }
 
@@ -122,7 +126,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostDeleteClientAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostDeleteClientAsync");
                 ErrorMessage = $"Σφάλμα κατά τη διαγραφή μηχανήματος: {ex.Message}";
             }
 
@@ -279,6 +283,16 @@ namespace Tms.CentralManagement.Pages
                     }
                 };
 
+                bool isPath = false;
+                if (!string.IsNullOrWhiteSpace(connectionString))
+                {
+                    var trimmed = connectionString.Trim();
+                    isPath = trimmed.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.EndsWith(".config", StringComparison.OrdinalIgnoreCase) ||
+                             trimmed.EndsWith(".xml", StringComparison.OrdinalIgnoreCase);
+                }
+
                 // Copy profiles from another machine of this customer if any exist
                 var otherClient = await _context.Clients
                     .Include(c => c.Profiles)
@@ -300,21 +314,21 @@ namespace Tms.CentralManagement.Pages
                             Emails = oldProfile.Emails,
                             IsAuthorizedForUpdate = false,
                             IsPendingDelete = false,
-                            ConnectionString = !string.IsNullOrWhiteSpace(connectionString) ? connectionString.Trim() : oldProfile.ConnectionString,
-                            ConnectionStringType = !string.IsNullOrWhiteSpace(connectionString) ? "Direct" : oldProfile.ConnectionStringType,
-                            DbServer = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.DbServer,
-                            DbName = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.DbName,
-                            DbUser = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.DbUser,
-                            DbPassword = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.DbPassword,
-                            DbUseWindowsAuth = !string.IsNullOrWhiteSpace(connectionString) ? false : oldProfile.DbUseWindowsAuth,
-                            ConfigFilePath = !string.IsNullOrWhiteSpace(connectionString) ? "" : oldProfile.ConfigFilePath
+                            ConnectionString = !string.IsNullOrWhiteSpace(connectionString) ? (isPath ? "" : connectionString.Trim()) : oldProfile.ConnectionString,
+                            ConnectionStringType = !string.IsNullOrWhiteSpace(connectionString) ? (isPath ? "ConfigFile" : "Direct") : oldProfile.ConnectionStringType,
+                            DbServer = !string.IsNullOrWhiteSpace(connectionString) ? (isPath ? "" : oldProfile.DbServer) : oldProfile.DbServer,
+                            DbName = !string.IsNullOrWhiteSpace(connectionString) ? (isPath ? "" : oldProfile.DbName) : oldProfile.DbName,
+                            DbUser = !string.IsNullOrWhiteSpace(connectionString) ? (isPath ? "" : oldProfile.DbUser) : oldProfile.DbUser,
+                            DbPassword = !string.IsNullOrWhiteSpace(connectionString) ? (isPath ? "" : oldProfile.DbPassword) : oldProfile.DbPassword,
+                            DbUseWindowsAuth = !string.IsNullOrWhiteSpace(connectionString) ? (isPath ? false : oldProfile.DbUseWindowsAuth) : oldProfile.DbUseWindowsAuth,
+                            ConfigFilePath = !string.IsNullOrWhiteSpace(connectionString) ? (isPath ? connectionString.Trim() : "") : oldProfile.ConfigFilePath
                         };
                         newClient.Profiles.Add(clonedProfile);
                     }
                 }
                 else if (!string.IsNullOrWhiteSpace(connectionString))
                 {
-                    // No other machines exist, but they specified a connection string, so create a default profile
+                    // No other machines exist, but they specified a connection string/path, so create a default profile
                     var defaultProfile = new ClientProfile
                     {
                         ProfileId = "1",
@@ -323,8 +337,9 @@ namespace Tms.CentralManagement.Pages
                         Emails = "support@cleverdata.gr,l.taniskdis@cleverdata.gr,e.kordouli@cleverdata.gr",
                         IsAuthorizedForUpdate = false,
                         IsPendingDelete = false,
-                        ConnectionString = connectionString.Trim(),
-                        ConnectionStringType = "Direct",
+                        ConnectionString = isPath ? "" : connectionString.Trim(),
+                        ConnectionStringType = isPath ? "ConfigFile" : "Direct",
+                        ConfigFilePath = isPath ? connectionString.Trim() : "",
                         SerialNumber = await GenerateNextSerialNumberAsync()
                     };
                     newClient.Profiles.Add(defaultProfile);
@@ -382,7 +397,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostUpdateClientSettingsAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostUpdateClientSettingsAsync");
                 ErrorMessage = $"Σφάλμα κατά την ενημέρωση ρυθμίσεων πελάτη: {ex.Message}";
             }
             return RedirectToPage();
@@ -406,7 +421,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostRegenerateApiKeyAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostRegenerateApiKeyAsync");
                 ErrorMessage = $"Σφάλμα κατά τη δημιουργία API Key: {ex.Message}";
             }
             return RedirectToPage();
@@ -453,7 +468,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostAddAgentUserAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostAddAgentUserAsync");
                 ErrorMessage = $"Σφάλμα κατά την προσθήκη χρήστη: {ex.Message}";
             }
             return RedirectToPage();
@@ -477,7 +492,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostDeleteAgentUserAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostDeleteAgentUserAsync");
                 ErrorMessage = $"Σφάλμα κατά τη διαγραφή χρήστη: {ex.Message}";
             }
 
@@ -563,7 +578,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostAddClientProfileAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostAddClientProfileAsync");
                 ErrorMessage = $"Σφάλμα κατά την προσθήκη εταιρείας: {ex.Message}";
             }
             return RedirectToPage();
@@ -617,7 +632,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostSaveClientProfileSettingsAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostSaveClientProfileSettingsAsync");
                 ErrorMessage = $"Σφάλμα κατά την αποθήκευση αλλαγών εταιρείας: {ex.Message}";
             }
             return RedirectToPage();
@@ -641,7 +656,7 @@ namespace Tms.CentralManagement.Pages
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error in OnPostDeleteClientProfileAsync: {ex}");
+                _logger.LogError(ex, "Error in OnPostDeleteClientProfileAsync");
                 ErrorMessage = $"Σφάλμα κατά τη διαγραφή εταιρείας: {ex.Message}";
             }
             return RedirectToPage();

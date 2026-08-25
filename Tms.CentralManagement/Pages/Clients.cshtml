@@ -183,7 +183,15 @@
                                         @foreach (var client in customer.Machines)
                                         {
                                             <tr>
-                                                <td><strong>@(string.IsNullOrEmpty(client.Alias) ? client.MachineName : client.Alias)</strong></td>
+                                                <td>
+                                                    <strong>@(string.IsNullOrEmpty(client.Alias) ? client.MachineName : client.Alias)</strong>
+                                                    @if (!string.IsNullOrEmpty(client.ServerUrl))
+                                                    {
+                                                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; font-family: monospace; word-break: break-all;" title="Διεύθυνση Central Server (URL)">
+                                                            @client.ServerUrl
+                                                        </div>
+                                                    }
+                                                </td>
                                                 <td>
                                                     <span style="color: var(--text-secondary);">@client.MachineName</span>
                                                     <span class="badge" style="font-size: 9px; padding: 2px 4px; background-color: rgba(255,255,255,0.05);">@client.MachineRole</span>
@@ -764,7 +772,7 @@
                             <select name="connectionStringType" id="profileFormConnectionStringType" class="form-control form-control-sm" onchange="toggleConnectionStringFields()">
                                 <option value="Direct">Απευθείας Connection String</option>
                                 <option value="Builder">Κατασκευαστής (Builder)</option>
-                                <option value="ConfigFile">Ανάγνωση από Αρχείο Ρυθμίσεων (.config / .json)</option>
+                                <option value="ConfigFile">Ανάγνωση από Αρχείο Ρυθμίσεων (.config / .json / .ini)</option>
                             </select>
                         </div>
 
@@ -815,8 +823,8 @@
                                     <input type="text" name="configFilePath" id="profileFormConfigPath" class="form-control form-control-sm" placeholder="π.χ. C:\Program Files\TmsApp\appsettings.json" style="flex: 1;" />
                                     <button type="button" class="btn btn-outline btn-sm" onclick="triggerFileBrowse('profileFormConfigPath')" style="padding: 0 10px; height: 31px; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px;">📄 Αναζήτηση</button>
                                 </div>
-                                <input type="file" id="fileBrowserDummy" accept=".json,.config,.xml" style="display: none;" onchange="handleFileSelected(this, 'profileFormConfigPath')" />
-                                <small class="form-text text-muted" style="font-size: 9px; color: var(--text-secondary); margin-top: 2px;">⚠️ Ορίζετε το αρχείο ρυθμίσεων (JSON ή XML) από όπου ο Agent θα διαβάζει αυτόματα τη σύνδεση.</small>
+                                <input type="file" id="fileBrowserDummy" accept=".json,.config,.xml,.ini,.JSON,.CONFIG,.XML,.INI" style="display: none;" onchange="handleFileSelected(this, 'profileFormConfigPath')" />
+                                <small class="form-text text-muted" style="font-size: 9px; color: var(--text-secondary); margin-top: 2px;">⚠️ Ορίζετε το αρχείο ρυθμίσεων (JSON, XML ή INI) από όπου ο Agent θα διαβάζει αυτόματα τη σύνδεση.</small>
                             </div>
                         </div>
 
@@ -2322,15 +2330,54 @@
         var inputId = input.dataset.targetInput || defaultInputId;
         if (input.files.length > 0) {
             var file = input.files[0];
-            var filename = file.name;
+            var filename = file.name ? file.name.trim() : "";
             var targetInput = document.getElementById(inputId);
             if (targetInput) {
                 var folderInput = document.getElementById("profileFormFolder");
-                var baseDir = folderInput ? folderInput.value : "C:\\";
+                var baseDir = folderInput ? folderInput.value.trim() : "";
+                
+                if (!baseDir) {
+                    alert("⚠️ Παρακαλώ συμπληρώστε πρώτα τον 'Φάκελο Εγκατάστασης' (π.χ. C:\\Program Files (x86)\\PRAKTOREIA) ώστε να μπορέσει να υπολογιστεί η πλήρης διαδρομή του αρχείου.");
+                    targetInput.value = filename;
+                    return;
+                }
+                
                 if (baseDir && !baseDir.endsWith("\\")) {
                     baseDir += "\\";
                 }
-                targetInput.value = baseDir + filename;
+                
+                // Try to find the file in folderBrowserDummy files to get the relative path
+                var relativeSubPath = "";
+                var folderDummy = document.getElementById("folderBrowserDummy");
+                if (folderDummy && folderDummy.files && folderDummy.files.length > 0) {
+                    for (var i = 0; i < folderDummy.files.length; i++) {
+                        var f = folderDummy.files[i];
+                        if (f.name === filename) {
+                            var relPath = f.webkitRelativePath || "";
+                            var parts = relPath.split('/');
+                            if (parts.length > 1) {
+                                // Remove the first folder (which is the root folder selected)
+                                parts.shift(); 
+                                relativeSubPath = parts.join('\\');
+                                break;
+                            }
+                        }
+                    }
+                }
+                
+                // Heuristic fallback: if filename is settings.ini and baseDir does not already contain "sup", default to "sup\Settings.ini".
+                if (!relativeSubPath && filename.toLowerCase().indexOf("settings") !== -1) {
+                    var baseLower = baseDir.toLowerCase();
+                    if (baseLower.indexOf("\\sup") === -1 && baseLower.indexOf("/sup") === -1) {
+                        relativeSubPath = "sup\\" + filename;
+                    }
+                }
+                
+                if (relativeSubPath) {
+                    targetInput.value = baseDir + relativeSubPath;
+                } else {
+                    targetInput.value = baseDir + filename;
+                }
             }
         }
     }

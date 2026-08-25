@@ -85,6 +85,14 @@ namespace Tms.Agent.Wpf
 
                         if (response != null)
                         {
+                            // 0. Handle Server URL Redirection from Server
+                            if (!string.IsNullOrEmpty(response.NewServerUrl) && response.NewServerUrl.TrimEnd('/') != settings.ServerUrl.TrimEnd('/'))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Service redirects Server URL to {response.NewServerUrl}...");
+                                settings.ServerUrl = response.NewServerUrl.Trim();
+                                settingsManager.SaveSettings(settings);
+                            }
+
                             // Check for Agent self-upgrade
                             if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != Tms.Agent.Core.AgentVersionInfo.Version && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
                             {

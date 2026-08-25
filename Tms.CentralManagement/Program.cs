@@ -257,6 +257,15 @@ using (var scope = app.Services.CreateScope())
                         alterCommand.ExecuteNonQuery();
                     }
                 }
+
+                if (!columns.Contains("ServerUrl", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN ServerUrl TEXT NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
             }
 
             using (var command = connection.CreateCommand())
@@ -2936,6 +2945,52 @@ GO
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.91"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.91",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη αποστολής και απεικόνισης της διεύθυνσης Central Server (URL) του Agent στο UI του Central κάτω από το Alias.",
+            BinaryFileUrl = "/packages/app_1.5.91.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη αποστολής και απεικόνισης της διεύθυνσης Central Server (URL) του Agent στο UI του Central κάτω από το Alias." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    // Ensure only the latest System version is marked as current
+    var systemVersions = context.Versions.Local.Concat(context.Versions).Where(v => v.TargetType == "System").ToList();
+    if (systemVersions.Any())
+    {
+        var latestSystem = systemVersions
+            .Select(v => new { Version = v, Parsed = Version.TryParse(v.VersionNumber, out var ver) ? ver : new Version(0, 0, 0) })
+            .OrderByDescending(x => x.Parsed)
+            .FirstOrDefault()?.Version;
+
+        foreach (var v in systemVersions)
+        {
+            var shouldBeCurrent = (v == latestSystem);
+            if (v.IsCurrent != shouldBeCurrent)
+            {
+                v.IsCurrent = shouldBeCurrent;
+                hasChanges = true;
+            }
+        }
     }
 
 

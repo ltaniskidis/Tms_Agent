@@ -1365,6 +1365,14 @@ namespace Tms.Agent.Wpf.ViewModels
                 return;
             }
 
+            // Handle Server URL Redirection from Server
+            if (!string.IsNullOrEmpty(response.NewServerUrl) && response.NewServerUrl.TrimEnd('/') != ServerUrl.TrimEnd('/'))
+            {
+                StatusMessage = $"Μεταφορά σύνδεσης σε νέο URL: {response.NewServerUrl}";
+                ServerUrl = response.NewServerUrl.Trim();
+                SaveAgentSettings();
+            }
+
             IsUpgradeAllowed = response.IsUpgradeAllowed;
             _canOperatorRunUpdates = response.Permissions?.CanOperatorRunUpdates ?? false;
             _canOperatorViewLogs = response.Permissions?.CanOperatorViewLogs ?? true;

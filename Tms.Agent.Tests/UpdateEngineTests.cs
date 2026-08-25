@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Tms.Agent.Core.Models;
 using Tms.Agent.Core.Services;
+using Tms.Shared.Models;
 using Xunit;
 
 namespace Tms.Agent.Tests
@@ -549,6 +550,176 @@ SELECT 4;
 
             // Assert
             Assert.NotNull(changelog);
+        }
+
+        [Fact]
+        public void ParseIniConnectionStringTest()
+        {
+            // Arrange
+            var iniContent = @"[SQLSERVER]
+%KEY: 9999-9999-9999-9999
+%DATABASENAME:=DHS
+%INSTANCE: OLDWMS
+--%SERVER: L-TANISKIDIS-L1
+%IFINSTANCE:  FALSE
+%DATABASENAME: Data_House
+%SAPASSWORD:=p@ssw0rd
+%SERVER:=localhost
+%SAPASSWORD: p@ssw0rd
+%USER: sa
+%INSTANCE:=
+--%SERVER:= L-TANISKIDIS-L1
+%IFINSTANCE:=FALSE
+%USER:=sa
+%KEY:= 9999-9999-9999-9999
+%SERVER: LOUKAS-PC";
+
+            var tempFilePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString() + ".ini");
+            File.WriteAllText(tempFilePath, iniContent);
+
+            var profile = new LocalProfile
+            {
+                ConnectionStringType = "ConfigFile",
+                ConfigFilePath = tempFilePath
+            };
+
+            // Act
+            var resolvedConnStr = profile.GetResolvedConnectionString();
+
+            // Clean up
+            try { File.Delete(tempFilePath); } catch {}
+
+            // Assert
+            Assert.Contains("Server=localhost", resolvedConnStr);
+            Assert.Contains("Database=DHS", resolvedConnStr);
+            Assert.Contains("User Id=sa", resolvedConnStr);
+            Assert.Contains("Password=p@ssw0rd", resolvedConnStr);
+        }
+
+        [Fact]
+        public void Test_ServerUrlRedirection()
+        {
+            // Arrange
+            var response = new UpdateCheckResponse
+            {
+                NewServerUrl = "http://grafeio.dhsweb.gr:5007"
+            };
+            var currentServerUrl = "http://home.dhsweb.gr:5007";
+
+            // Act
+            bool shouldRedirect = !string.IsNullOrEmpty(response.NewServerUrl) && response.NewServerUrl.TrimEnd('/') != currentServerUrl.TrimEnd('/');
+            if (shouldRedirect)
+            {
+                currentServerUrl = response.NewServerUrl.Trim();
+            }
+
+            // Assert
+            Assert.True(shouldRedirect);
+            Assert.Equal("http://grafeio.dhsweb.gr:5007", currentServerUrl);
+        }
+
+        [Fact]
+        public void MergeConfigBindingRedirects_MergesCorrectlyAndPreservesCustomKeys()
+        {
+            // 1. Setup local config XML with activation keys and app settings
+            var localXml = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<configuration>
+  <connectionStrings>
+    <add name=""ProdDB"" connectionString=""Server=myServerAddress;Database=myDataBase;User Id=myUsername;Password=myPassword;"" />
+  </connectionStrings>
+  <appSettings>
+    <add key=""ActivationCode"" value=""ACT-12345-XYZ"" />
+    <add key=""MachineSerial"" value=""SN-998877"" />
+  </appSettings>
+  <runtime>
+    <assemblyBinding xmlns=""urn:schemas-microsoft-com:asm.v1"">
+      <dependentAssembly>
+        <assemblyIdentity name=""Newtonsoft.Json"" publicKeyToken=""30ad4fe6b2a6aeed"" culture=""neutral"" />
+        <bindingRedirect oldVersion=""0.0.0.0-10.0.0.0"" newVersion=""10.0.0.0"" />
+      </dependentAssembly>
+    </assemblyBinding>
+  </runtime>
+</configuration>";
+
+            // 2. Setup zip config XML (simulating new updates with newer redirects)
+            var zipConfigXml = @"<?xml version=""1.0"" encoding=""utf-8""?>
+<configuration>
+  <runtime>
+    <assemblyBinding xmlns=""urn:schemas-microsoft-com:asm.v1"">
+      <dependentAssembly>
+        <assemblyIdentity name=""Newtonsoft.Json"" publicKeyToken=""30ad4fe6b2a6aeed"" culture=""neutral"" />
+        <bindingRedirect oldVersion=""0.0.0.0-13.0.0.0"" newVersion=""13.0.0.0"" />
+      </dependentAssembly>
+      <dependentAssembly>
+        <assemblyIdentity name=""System.Runtime.CompilerServices.Unsafe"" publicKeyToken=""b03f5f7f11d50a3a"" culture=""neutral"" />
+        <bindingRedirect oldVersion=""0.0.0.0-6.0.0.0"" newVersion=""6.0.0.0"" />
+      </dependentAssembly>
+    </assemblyBinding>
+  </runtime>
+</configuration>";
+
+            // Write these to temp files/archive
+            var tempFolder = Path.Combine(Path.GetTempPath(), "TmsAgentTests_Merge_" + Guid.NewGuid());
+            Directory.CreateDirectory(tempFolder);
+
+            var localConfigPath = Path.Combine(tempFolder, "TIMOLOGISI.exe.config");
+            File.WriteAllText(localConfigPath, localXml);
+
+            var zipFilePath = Path.Combine(tempFolder, "package.zip");
+            using (var zipStream = new FileStream(zipFilePath, FileMode.Create))
+            using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                var entry = archive.CreateEntry("TIMOLOGISI.exe.config");
+                using (var writer = new StreamWriter(entry.Open()))
+                {
+                    writer.Write(zipConfigXml);
+                }
+            }
+
+            try
+            {
+                // Run the merge
+                using (var archive = System.IO.Compression.ZipFile.OpenRead(zipFilePath))
+                {
+                    var entry = archive.GetEntry("TIMOLOGISI.exe.config");
+                    Assert.NotNull(entry);
+                    UpdateEngine.MergeConfigBindingRedirects(localConfigPath, entry, Console.WriteLine);
+                }
+
+                // Verify the merged config file
+                var resultXml = new System.Xml.XmlDocument();
+                resultXml.Load(localConfigPath);
+
+                // Assert that app settings are completely preserved
+                var activationCodeNode = resultXml.SelectSingleNode("//appSettings/add[@key='ActivationCode']");
+                Assert.NotNull(activationCodeNode);
+                Assert.Equal("ACT-12345-XYZ", activationCodeNode.Attributes?["value"]?.Value);
+
+                var connStringNode = resultXml.SelectSingleNode("//connectionStrings/add[@name='ProdDB']");
+                Assert.NotNull(connStringNode);
+                Assert.Contains("Server=myServerAddress", connStringNode.Attributes?["connectionString"]?.Value);
+
+                // Assert that Newtonsoft.Json redirect was updated to newVersion="13.0.0.0"
+                var nsManager = new System.Xml.XmlNamespaceManager(resultXml.NameTable);
+                nsManager.AddNamespace("asm", "urn:schemas-microsoft-com:asm.v1");
+                
+                var newtonsoftRedirect = resultXml.SelectSingleNode("//asm:assemblyBinding/asm:dependentAssembly[asm:assemblyIdentity[@name='Newtonsoft.Json']]/asm:bindingRedirect", nsManager);
+                Assert.NotNull(newtonsoftRedirect);
+                Assert.Equal("13.0.0.0", newtonsoftRedirect.Attributes?["newVersion"]?.Value);
+                Assert.Equal("0.0.0.0-13.0.0.0", newtonsoftRedirect.Attributes?["oldVersion"]?.Value);
+
+                // Assert that System.Runtime.CompilerServices.Unsafe redirect was added
+                var unsafeRedirect = resultXml.SelectSingleNode("//asm:assemblyBinding/asm:dependentAssembly[asm:assemblyIdentity[@name='System.Runtime.CompilerServices.Unsafe']]/asm:bindingRedirect", nsManager);
+                Assert.NotNull(unsafeRedirect);
+                Assert.Equal("6.0.0.0", unsafeRedirect.Attributes?["newVersion"]?.Value);
+            }
+            finally
+            {
+                if (Directory.Exists(tempFolder))
+                {
+                    Directory.Delete(tempFolder, recursive: true);
+                }
+            }
         }
     }
 }

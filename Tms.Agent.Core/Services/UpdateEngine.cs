@@ -63,6 +63,7 @@ namespace Tms.Agent.Core.Services
                 MachineRole = machineRole,
                 AgentVersion = agentVersion,
                 ApiKey = apiKey,
+                ServerUrl = serverUrl,
                 Profiles = localProfiles.Select(p => new LocalProfileDto
                 {
                     ProfileId = p.ProfileId,

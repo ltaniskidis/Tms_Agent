@@ -127,6 +127,7 @@ namespace Tms.CentralManagement.Data
         public int? CustomerId { get; set; }
         public Customer? Customer { get; set; }
         public string? Alias { get; set; }
+        public string? ServerUrl { get; set; }
 
         public DateTime? LastCommunicationTime { get; set; }
         public DateTime? LastAgentUpgradeTime { get; set; }

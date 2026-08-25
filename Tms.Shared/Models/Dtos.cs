@@ -10,6 +10,7 @@ namespace Tms.Shared.Models
         public string MachineRole { get; set; } = "Both"; // SqlServer, Client, Both
         public string AgentVersion { get; set; } = "1.0.0";
         public string ApiKey { get; set; } = string.Empty;
+        public string ServerUrl { get; set; } = string.Empty;
         public List<LocalProfileDto> Profiles { get; set; } = new();
         public List<DiscoveredDatabaseDto> DiscoveredDatabases { get; set; } = new();
         public bool StartWithWindows { get; set; }
@@ -58,6 +59,7 @@ namespace Tms.Shared.Models
         public List<BroadcastMessageDto> Broadcasts { get; set; } = new();
         public bool StartWithWindows { get; set; }
         public string SystemBinaryUrl { get; set; } = string.Empty;
+        public string? NewServerUrl { get; set; }
     }
 
     public class ProfileConfigCommandDto

@@ -118,6 +118,83 @@ namespace Tms.Agent.Core.Models
                             log?.Invoke($"Σφάλμα ανάλυσης JSON: {ex.Message}");
                         }
                     }
+                    else if (ConfigFilePath.EndsWith(".ini", StringComparison.OrdinalIgnoreCase) || content.Contains("[SQLSERVER]"))
+                    {
+                        try
+                        {
+                            var dict = new Dictionary<string, (string Value, bool IsExplicit)>();
+                            var lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+                            foreach (var rawLine in lines)
+                            {
+                                var line = rawLine.Trim();
+                                if (line.StartsWith("--") || line.StartsWith("#") || line.StartsWith(";"))
+                                    continue;
+
+                                if (line.Contains(":") || line.Contains("="))
+                                {
+                                    bool isExplicit = line.Contains(":=");
+                                    string separator = isExplicit ? ":=" : ":";
+                                    int sepIndex = line.IndexOf(separator);
+                                    if (sepIndex > 0)
+                                    {
+                                        string key = line.Substring(0, sepIndex).Trim().TrimStart('%').ToUpper();
+                                        string val = line.Substring(sepIndex + separator.Length).Trim();
+
+                                        if (!dict.ContainsKey(key) || isExplicit || !dict[key].IsExplicit)
+                                        {
+                                            dict[key] = (val, isExplicit);
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (dict.ContainsKey("SERVER") && dict.ContainsKey("DATABASENAME"))
+                            {
+                                string server = dict["SERVER"].Value;
+                                string db = dict["DATABASENAME"].Value;
+                                string user = dict.ContainsKey("USER") ? dict["USER"].Value : "";
+                                string pass = dict.ContainsKey("SAPASSWORD") ? dict["SAPASSWORD"].Value : "";
+                                string instance = dict.ContainsKey("INSTANCE") ? dict["INSTANCE"].Value : "";
+                                string ifInstance = dict.ContainsKey("IFINSTANCE") ? dict["IFINSTANCE"].Value : "";
+
+                                // Build server address
+                                string serverAddress = server;
+                                if (!string.IsNullOrEmpty(instance) && 
+                                    (string.Equals(ifInstance, "true", StringComparison.OrdinalIgnoreCase) || 
+                                     !server.Contains("\\")))
+                                {
+                                    serverAddress = $"{server}\\{instance}";
+                                }
+
+                                var parts = new List<string> { $"Server={serverAddress}", $"Database={db}" };
+                                if (!string.IsNullOrEmpty(user))
+                                {
+                                    parts.Add($"User Id={user}");
+                                    if (!string.IsNullOrEmpty(pass))
+                                    {
+                                        parts.Add($"Password={pass}");
+                                    }
+                                }
+                                else
+                                {
+                                    parts.Add("Integrated Security=True");
+                                }
+                                parts.Add("TrustServerCertificate=True");
+
+                                var built = string.Join(";", parts) + ";";
+                                log?.Invoke($"Ανάγνωση Connection String από INI αρχείο: {ConfigFilePath}");
+                                return built;
+                            }
+                            else
+                            {
+                                log?.Invoke($"Προειδοποίηση: Το INI αρχείο '{ConfigFilePath}' δεν περιέχει SERVER ή DATABASENAME.");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            log?.Invoke($"Σφάλμα ανάλυσης INI αρχείου: {ex.Message}");
+                        }
+                    }
                     else // XML / Config Format
                     {
                         try

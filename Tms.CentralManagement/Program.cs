@@ -1,7 +1,17 @@
 using Microsoft.EntityFrameworkCore;
 using Tms.CentralManagement.Data;
+using Serilog;
+
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateBootstrapLogger();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog((context, services, configuration) => configuration
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
 // Configure Kestrel upload limits (500 MB)
 builder.WebHost.ConfigureKestrel(options =>
@@ -68,8 +78,8 @@ builder.Services.AddDbContext<CentralDbContext>(options =>
         }
         connectionString = $"Data Source={System.IO.Path.Combine(baseDir, "central.db")}";
     }
-    Console.WriteLine($"[DATABASE CONNECTION] Using SQLite Connection String: {connectionString}");
-    options.UseSqlite(connectionString);
+    options.UseSqlite(connectionString, sqliteOptions => 
+        sqliteOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
 });
 
 var app = builder.Build();
@@ -411,7 +421,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Error checking/adding SQLite columns: {ex.Message}");
+        Log.Error(ex, "Error checking/adding SQLite columns");
     }
 
     // Auto-match existing clients to customers
@@ -465,7 +475,7 @@ using (var scope = app.Services.CreateScope())
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"Error auto-matching clients to customers: {ex.Message}");
+        Log.Error(ex, "Error auto-matching clients to customers");
     }
 
             // Update existing version target types to System if they belong to Console/Agent
@@ -2745,6 +2755,189 @@ GO
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;
     }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.84"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.84",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Παράκαμψη αυτόματης ανίχνευσης τοπικών βάσεων δεδομένων SQL για Client-role Agents ώστε να αποφεύγονται timeouts και κολλήματα επικοινωνίας.",
+            BinaryFileUrl = "/packages/app_1.5.84.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Παράκαμψη αυτόματης ανίχνευσης τοπικών βάσεων δεδομένων SQL για Client-role Agents." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.85"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.85",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη υποστήριξης για ανάγνωση Connection String από αρχεία ρυθμίσεων INI (settings.ini) και αυτόματη ανίχνευση διαδρομών.",
+            BinaryFileUrl = "/packages/app_1.5.85.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = false, // Set to false since 1.5.86 is now current
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη υποστήριξης για ανάγνωση Connection String από αρχεία settings.ini και αυτόματη ανίχνευση διαδρομών." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.86"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.86",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη δυνατότητας δυναμικού push/redirect του URL σύνδεσης των Agents από τον διακομιστή.",
+            BinaryFileUrl = "/packages/app_1.5.86.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη δυνατότητας δυναμικού push/redirect του URL σύνδεσης των Agents από τον διακομιστή." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.87"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.87",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Διορθώσεις στον επιλογέα διαδρομής αρχείου ρυθμίσεων (υποστήριξη υποφακέλων) και στην αυτόματη καταγραφή απομακρυσμένων βάσεων των προφίλ ως monitored.",
+            BinaryFileUrl = "/packages/app_1.5.87.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Διορθώσεις στον επιλογέα διαδρομής αρχείου ρυθμίσεων (υποστήριξη υποφακέλων) και στην αυτόματη καταγραφή απομακρυσμένων βάσεων των προφίλ ως monitored." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.88"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.88",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Βελτιστοποίηση επιδόσεων κατά το check-in των Agents με on-demand (lazy) φόρτωση SQL scripts και in-memory caching των Script Identifiers για αποφυγή Regex parsing.",
+            BinaryFileUrl = "/packages/app_1.5.88.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Βελτιστοποίηση επιδόσεων κατά το check-in των Agents με lazy loading των SQL scripts και in-memory caching των Script Identifiers." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.89"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.89",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Προσθήκη μηχανισμού επαναπροσπάθειας (retry) στη λήψη των ZIP πακέτων αναβάθμισης για μεγαλύτερη ανθεκτικότητα σε ασταθείς συνδέσεις δικτύου.",
+            BinaryFileUrl = "/packages/app_1.5.89.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη μηχανισμού επαναπροσπάθειας (retry) στη λήψη των ZIP πακέτων αναβάθμισης για μεγαλύτερη ανθεκτικότητα σε ασταθείς συνδέσεις δικτύου." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.90"))
+    {
+        // Deactivate other system versions
+        var oldSystemVersions = context.Versions.Where(v => v.TargetType == "System").ToList();
+        foreach (var oldV in oldSystemVersions)
+        {
+            oldV.IsCurrent = false;
+        }
+
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.90",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση σφάλματος ZIP extraction root folder, logging, config merging, και κωδικοποίησης log.",
+            BinaryFileUrl = "/packages/app_1.5.90.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διόρθωση σφάλματος ZIP extraction root folder, logging, config merging, και κωδικοποίησης log." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
 
     if (!context.ConsoleUsers.Any())
     {

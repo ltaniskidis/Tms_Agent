@@ -166,12 +166,19 @@ namespace Tms.CentralManagement.Pages
         {
             try
             {
-                var customer = await _context.Customers.FindAsync(id);
+                var customer = await _context.Customers
+                    .Include(c => c.Machines)
+                    .FirstOrDefaultAsync(c => c.Id == id);
+
                 if (customer != null)
                 {
+                    if (customer.Machines != null && customer.Machines.Any())
+                    {
+                        _context.Clients.RemoveRange(customer.Machines);
+                    }
                     _context.Customers.Remove(customer);
                     await _context.SaveChangesAsync();
-                    SuccessMessage = "Ο πελάτης διαγράφηκε επιτυχώς.";
+                    SuccessMessage = "Ο πελάτης και τα μηχανήματά του διαγράφηκαν επιτυχώς.";
                 }
                 else
                 {

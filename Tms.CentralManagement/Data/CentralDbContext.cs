@@ -33,7 +33,7 @@ namespace Tms.CentralManagement.Data
                 .HasMany(c => c.Machines)
                 .WithOne(m => m.Customer)
                 .HasForeignKey(m => m.CustomerId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<VersionInfo>()
                 .HasMany(v => v.Scripts)

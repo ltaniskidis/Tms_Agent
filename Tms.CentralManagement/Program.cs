@@ -2973,6 +2973,25 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.92"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.92",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Διόρθωση σφάλματος επανεμφάνισης διαγραμμένων μηχανημάτων κατά το rebuild του Docker και προσθήκη cascade διαγραφής μηχανημάτων κατά τη διαγραφή πελάτη.",
+            BinaryFileUrl = "/packages/app_1.5.92.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διόρθωση σφάλματος επανεμφάνισης διαγραμμένων μηχανημάτων κατά το rebuild του Docker και προσθήκη cascade διαγραφής μηχανημάτων κατά τη διαγραφή πελάτη." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     // Ensure only the latest System version is marked as current
     var systemVersions = context.Versions.Local.Concat(context.Versions).Where(v => v.TargetType == "System").ToList();
     if (systemVersions.Any())

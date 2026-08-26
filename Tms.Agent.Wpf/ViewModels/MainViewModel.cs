@@ -61,6 +61,82 @@ namespace Tms.Agent.Wpf.ViewModels
             set => SetProperty(ref _serverUrl, value);
         }
 
+        private string _productionServerUrl = "https://tmsagent.cdgr.dev";
+        public string ProductionServerUrl
+        {
+            get => _productionServerUrl;
+            set
+            {
+                if (SetProperty(ref _productionServerUrl, value))
+                {
+                    if (IsProductionEnvironment)
+                    {
+                        ServerUrl = value;
+                    }
+                }
+            }
+        }
+
+        private string _testServerUrl = "http://home.dhsweb.gr:5007";
+        public string TestServerUrl
+        {
+            get => _testServerUrl;
+            set
+            {
+                if (SetProperty(ref _testServerUrl, value))
+                {
+                    if (IsTestEnvironment)
+                    {
+                        ServerUrl = value;
+                    }
+                }
+            }
+        }
+
+        private string _selectedEnvironment = "Production";
+        public string SelectedEnvironment
+        {
+            get => _selectedEnvironment;
+            set
+            {
+                if (SetProperty(ref _selectedEnvironment, value))
+                {
+                    OnPropertyChanged(nameof(IsProductionEnvironment));
+                    OnPropertyChanged(nameof(IsTestEnvironment));
+                }
+            }
+        }
+
+        public bool IsProductionEnvironment
+        {
+            get => string.Equals(SelectedEnvironment, "Production", StringComparison.OrdinalIgnoreCase);
+            set
+            {
+                if (value)
+                {
+                    SelectedEnvironment = "Production";
+                    ServerUrl = ProductionServerUrl;
+                    SaveAgentSettings();
+                    _ = CheckForUpdatesAsync();
+                }
+            }
+        }
+
+        public bool IsTestEnvironment
+        {
+            get => string.Equals(SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase);
+            set
+            {
+                if (value)
+                {
+                    SelectedEnvironment = "Test";
+                    ServerUrl = TestServerUrl;
+                    SaveAgentSettings();
+                    _ = CheckForUpdatesAsync();
+                }
+            }
+        }
+
         private string _apiKey = string.Empty;
         public string ApiKey
         {
@@ -709,6 +785,9 @@ namespace Tms.Agent.Wpf.ViewModels
             // Load Settings
             var settings = _settingsManager.LoadSettings();
             _serverUrl = settings.ServerUrl;
+            _productionServerUrl = settings.ProductionServerUrl ?? "https://tmsagent.cdgr.dev";
+            _testServerUrl = settings.TestServerUrl ?? "http://home.dhsweb.gr:5007";
+            _selectedEnvironment = settings.SelectedEnvironment ?? "Production";
             _machineRole = settings.MachineRole;
             _apiKey = settings.ApiKey;
             _startWithWindows = settings.StartWithWindows;
@@ -873,6 +952,9 @@ namespace Tms.Agent.Wpf.ViewModels
         {
             var settings = _settingsManager.LoadSettings();
             settings.ServerUrl = ServerUrl;
+            settings.ProductionServerUrl = ProductionServerUrl;
+            settings.TestServerUrl = TestServerUrl;
+            settings.SelectedEnvironment = SelectedEnvironment;
             settings.MachineRole = MachineRole;
             settings.ApiKey = ApiKey;
             settings.StartWithWindows = StartWithWindows;
@@ -1351,7 +1433,8 @@ namespace Tms.Agent.Wpf.ViewModels
                 ApiKey, 
                 localProfilesList,
                 StartWithWindows,
-                forceSyncStartWithWindows
+                forceSyncStartWithWindows,
+                SelectedEnvironment
             );
             _ = LoadSupportTicketsAsync();
 
@@ -1366,10 +1449,34 @@ namespace Tms.Agent.Wpf.ViewModels
             }
 
             // Handle Server URL Redirection from Server
-            if (!string.IsNullOrEmpty(response.NewServerUrl) && response.NewServerUrl.TrimEnd('/') != ServerUrl.TrimEnd('/'))
+            bool settingsChanged = false;
+            if (!string.IsNullOrEmpty(response.NewServerUrl) && response.NewServerUrl.Trim() != ProductionServerUrl)
             {
-                StatusMessage = $"Μεταφορά σύνδεσης σε νέο URL: {response.NewServerUrl}";
-                ServerUrl = response.NewServerUrl.Trim();
+                ProductionServerUrl = response.NewServerUrl.Trim();
+                settingsChanged = true;
+            }
+            if (!string.IsNullOrEmpty(response.NewTestServerUrl) && response.NewTestServerUrl.Trim() != TestServerUrl)
+            {
+                TestServerUrl = response.NewTestServerUrl.Trim();
+                settingsChanged = true;
+            }
+
+            if (!string.IsNullOrEmpty(response.TargetEnvironment) && !string.Equals(response.TargetEnvironment, SelectedEnvironment, StringComparison.OrdinalIgnoreCase))
+            {
+                SelectedEnvironment = response.TargetEnvironment;
+                settingsChanged = true;
+            }
+
+            string targetUrl = IsTestEnvironment ? TestServerUrl : ProductionServerUrl;
+            if (!string.IsNullOrEmpty(targetUrl) && targetUrl.TrimEnd('/') != ServerUrl.TrimEnd('/'))
+            {
+                StatusMessage = $"Μεταφορά σύνδεσης σε νέο URL: {targetUrl}";
+                ServerUrl = targetUrl.Trim();
+                settingsChanged = true;
+            }
+
+            if (settingsChanged)
+            {
                 SaveAgentSettings();
             }
 

@@ -58,6 +58,9 @@ public partial class App : System.Windows.Application
                 string key = GetArgValue(e.Args, "--key") ?? string.Empty;
                 string role = GetArgValue(e.Args, "--role") ?? "Client";
                 bool startWithWindows = string.Equals(GetArgValue(e.Args, "--startup-windows"), "1");
+                string prodUrl = GetArgValue(e.Args, "--prod-url") ?? "https://tmsagent.cdgr.dev";
+                string testUrl = GetArgValue(e.Args, "--test-url") ?? "http://home.dhsweb.gr:5007";
+                string selectedEnv = GetArgValue(e.Args, "--selected-env") ?? "Production";
 
                 // Save settings
                 var settingsManager = new SettingsManager();
@@ -66,7 +69,10 @@ public partial class App : System.Windows.Application
                     ServerUrl = url,
                     ApiKey = key,
                     MachineRole = role,
-                    StartWithWindows = startWithWindows
+                    StartWithWindows = startWithWindows,
+                    ProductionServerUrl = prodUrl,
+                    TestServerUrl = testUrl,
+                    SelectedEnvironment = selectedEnv
                 };
                 settingsManager.SaveSettings(settings);
 

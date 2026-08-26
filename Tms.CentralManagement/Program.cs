@@ -258,6 +258,20 @@ using (var scope = app.Services.CreateScope())
                     }
                 }
 
+                if (!columns.Contains("SelectedEnvironment", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN SelectedEnvironment TEXT NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                    using (var updateCommand = connection.CreateCommand())
+                    {
+                        updateCommand.CommandText = "UPDATE Clients SET SelectedEnvironment = 'Production' WHERE SelectedEnvironment IS NULL;";
+                        updateCommand.ExecuteNonQuery();
+                    }
+                }
+
                 if (!columns.Contains("ServerUrl", StringComparer.OrdinalIgnoreCase))
                 {
                     using (var alterCommand = connection.CreateCommand())
@@ -368,6 +382,47 @@ using (var scope = app.Services.CreateScope())
                                 Password TEXT NOT NULL,
                                 EnableSsl INTEGER NOT NULL DEFAULT 1,
                                 Sender TEXT NOT NULL
+                            );";
+                        createTableCommand.ExecuteNonQuery();
+                    }
+                }
+            }
+
+            // Check and update SystemSettings table structure
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = "PRAGMA table_info(SystemSettings);";
+                var columns = new List<string>();
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        columns.Add(reader["name"].ToString() ?? "");
+                    }
+                }
+
+                if (columns.Any() && (!columns.Contains("CreatedAt", StringComparer.OrdinalIgnoreCase) || !columns.Contains("AgentRedirectTestServerUrl", StringComparer.OrdinalIgnoreCase)))
+                {
+                    // Drop and recreate to have the new schema
+                    using (var dropCommand = connection.CreateCommand())
+                    {
+                        dropCommand.CommandText = "DROP TABLE SystemSettings;";
+                        dropCommand.ExecuteNonQuery();
+                    }
+                    columns.Clear(); // Force recreation below
+                }
+
+                if (!columns.Any())
+                {
+                    using (var createTableCommand = connection.CreateCommand())
+                    {
+                        createTableCommand.CommandText = @"
+                            CREATE TABLE SystemSettings (
+                                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                AgentRedirectServerUrl TEXT NULL,
+                                AgentRedirectTestServerUrl TEXT NULL,
+                                CreatedAt TEXT NOT NULL,
+                                ChangedBy TEXT NULL
                             );";
                         createTableCommand.ExecuteNonQuery();
                     }

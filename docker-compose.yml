@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  tms-server:
+    build:
+      context: .
+      dockerfile: Tms.CentralManagement/Dockerfile
+    container_name: tms-server
+    ports:
+      - "5007:8080" # Map host port 5007 to container port 8080
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/central.db
+    volumes:
+      - ./data:/app/data
+      - ./packages:/app/wwwroot/packages
+    restart: unless-stopped

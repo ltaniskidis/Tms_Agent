@@ -148,7 +148,7 @@
                 </StackPanel>
 
                 <!-- Help Info -->
-                  <TextBlock Grid.Row="2" Text="Έκδοση 1.5.37" FontSize="10" Foreground="#555566" HorizontalAlignment="Center"/>
+                  <TextBlock Grid.Row="2" Text="Έκδοση 1.5.93" FontSize="10" Foreground="#555566" HorizontalAlignment="Center"/>
             </Grid>
         </Border>
 
@@ -168,9 +168,20 @@
                         <TextBlock Text="🔌 1. Σύνδεση με Central Server" FontSize="15" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,5"/>
                         <TextBlock Text="Εισάγετε τη διεύθυνση URL του διακομιστή και το API Key πιστοποίησης του Agent." FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,20" TextWrapping="Wrap"/>
 
-                        <!-- Server URL -->
-                        <TextBlock Text="ΔΙΕΥΘΥΝΣΗ CENTRAL SERVER (URL)" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
-                        <TextBox x:Name="ServerUrlInput" Text="http://localhost:5007" Margin="0,0,0,15"/>
+                        <!-- Environment selection -->
+                        <TextBlock Text="ΕΝΕΡΓΟ ΠΕΡΙΒΑΛΛΟΝ" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                            <RadioButton x:Name="EnvironmentProdRadio" Content="Παραγωγικό (Prod)" IsChecked="True" Foreground="#FFFFFF" FontSize="12" Margin="0,0,15,0"/>
+                            <RadioButton x:Name="EnvironmentTestRadio" Content="Δοκιμαστικό (Test)" Foreground="#FFFFFF" FontSize="12"/>
+                        </StackPanel>
+
+                        <!-- Production Server URL -->
+                        <TextBlock Text="ΔΙΕΥΘΥΝΣΗ ΠΑΡΑΓΩΓΙΚΟΥ SERVER (PROD URL)" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                        <TextBox x:Name="ProductionUrlInput" Text="https://tmsagent.cdgr.dev" Margin="0,0,0,15"/>
+
+                        <!-- Test Server URL -->
+                        <TextBlock Text="ΔΙΕΥΘΥΝΣΗ ΔΟΚΙΜΑΣΤΙΚΟΥ SERVER (TEST URL)" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>
+                        <TextBox x:Name="TestUrlInput" Text="http://home.dhsweb.gr:5007" Margin="0,0,0,15"/>
 
                         <!-- API Key -->
                         <TextBlock Text="API KEY ΠΙΣΤΟΠΟΙΗΣΗΣ" FontSize="10" FontWeight="Bold" Foreground="#9CA3AF" Margin="0,0,0,6"/>

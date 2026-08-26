@@ -1,0 +1,49 @@
+# Git
+.git
+**/.git
+.gitignore
+.gitattributes
+
+# IDEs and Editors
+.vs
+.vscode
+**/.vs
+**/.vscode
+**/*.user
+**/*.suo
+**/*.userosscache
+**/*.sln.docstates
+
+# Build artifacts
+bin
+obj
+**/bin
+**/obj
+PublishAndSetup
+**/PublishAndSetup
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+**/*.db
+**/*.db-shm
+**/*.db-wal
+data
+**/data
+dumped_script.sql
+
+# Local NuGet packages
+packages
+**/packages
+
+# Projects not needed in the server build
+Tms.Agent.Wpf
+**/Tms.Agent.Wpf
+Tms.Agent.Tests
+**/Tms.Agent.Tests
+
+# Other files
+*.zip
+**/*.zip
+*.docx

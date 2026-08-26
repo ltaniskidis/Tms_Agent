@@ -66,6 +66,10 @@ namespace Tms.CentralManagement.Controllers
             }
             client.AgentVersion = request.AgentVersion ?? "1.0.0";
             client.ServerUrl = request.ServerUrl;
+            if (string.IsNullOrEmpty(client.SelectedEnvironment))
+            {
+                client.SelectedEnvironment = request.SelectedEnvironment ?? "Production";
+            }
 
             bool isClient = string.Equals(request.MachineRole, "Client", StringComparison.OrdinalIgnoreCase);
 
@@ -581,11 +585,50 @@ namespace Tms.CentralManagement.Controllers
                 .ToListAsync();
             response.Broadcasts = broadcasts;
 
-            var redirectUrl = _configuration["AgentRedirectServerUrl"];
-            if (!string.IsNullOrEmpty(redirectUrl))
+            var systemSetting = await _context.SystemSettings.OrderByDescending(s => s.Id).FirstOrDefaultAsync();
+            var redirectUrl = systemSetting?.AgentRedirectServerUrl ?? _configuration["AgentRedirectServerUrl"];
+            var redirectTestUrl = systemSetting?.AgentRedirectTestServerUrl ?? _configuration["AgentRedirectTestServerUrl"];
+
+            bool isTestEnv = string.Equals(client.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase);
+            bool isOldAgent = true;
+            if (Version.TryParse(request.AgentVersion, out var agentVer))
             {
-                response.NewServerUrl = redirectUrl;
+                if (agentVer >= new Version(1, 5, 93))
+                {
+                    isOldAgent = false;
+                }
             }
+
+            if (isOldAgent)
+            {
+                if (isTestEnv)
+                {
+                    if (!string.IsNullOrEmpty(redirectTestUrl))
+                    {
+                        response.NewServerUrl = redirectTestUrl.Trim();
+                    }
+                }
+                else
+                {
+                    if (!string.IsNullOrEmpty(redirectUrl))
+                    {
+                        response.NewServerUrl = redirectUrl.Trim();
+                    }
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(redirectUrl))
+                {
+                    response.NewServerUrl = redirectUrl.Trim();
+                }
+                if (!string.IsNullOrEmpty(redirectTestUrl))
+                {
+                    response.NewTestServerUrl = redirectTestUrl.Trim();
+                }
+            }
+
+            response.TargetEnvironment = client.SelectedEnvironment;
 
             response.HasUpdates = response.Updates.Any();
             return Ok(response);

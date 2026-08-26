@@ -944,9 +944,32 @@
                             <StackPanel>
                                 <TextBlock Text="🔌 Παράμετροι Σύνδεσης" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" Margin="0,0,0,15"/>
 
-                                <!-- Server URL -->
-                                <TextBlock Text="Διεύθυνση Central Server (URL):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
-                                <TextBox Text="{Binding ServerUrl, UpdateSourceTrigger=PropertyChanged}" 
+                                <!-- Active URL (Read-Only) -->
+                                <TextBlock Text="Ενεργή Διεύθυνση Central Server (URL):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding ServerUrl, Mode=OneWay}" 
+                                         Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
+                                         Foreground="#3B82F6" FontWeight="SemiBold" Margin="0,0,0,15"
+                                         IsReadOnly="True"/>
+
+                                <!-- Environment Selection Toggle -->
+                                <TextBlock Text="Ενεργό Περιβάλλον Λειτουργίας:" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+                                    <RadioButton Content="✅ Παραγωγικό (Production)" IsChecked="{Binding IsProductionEnvironment}" 
+                                                 Foreground="#FFFFFF" FontSize="12" Margin="0,0,20,0" IsEnabled="{Binding IsOwner}"/>
+                                    <RadioButton Content="⚠️ Δοκιμαστικό (Test / Staging)" IsChecked="{Binding IsTestEnvironment}" 
+                                                 Foreground="#FFFFFF" FontSize="12" IsEnabled="{Binding IsOwner}"/>
+                                </StackPanel>
+
+                                <!-- Production Server URL -->
+                                <TextBlock Text="Διεύθυνση Παραγωγικού Server (Prod URL):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding ProductionServerUrl, UpdateSourceTrigger=PropertyChanged}" 
+                                         Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
+                                         Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,15"
+                                         IsReadOnly="{Binding IsSettingsLocked}"/>
+
+                                <!-- Test Server URL -->
+                                <TextBlock Text="Διεύθυνση Δοκιμαστικού Server (Test URL):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding TestServerUrl, UpdateSourceTrigger=PropertyChanged}" 
                                          Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
                                          Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,15"
                                          IsReadOnly="{Binding IsSettingsLocked}"/>

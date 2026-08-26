@@ -15,6 +15,7 @@ namespace Tms.Shared.Models
         public List<DiscoveredDatabaseDto> DiscoveredDatabases { get; set; } = new();
         public bool StartWithWindows { get; set; }
         public bool ForceSyncStartWithWindows { get; set; }
+        public string SelectedEnvironment { get; set; } = "Production";
     }
 
     public class DiscoveredDatabaseDto
@@ -60,6 +61,8 @@ namespace Tms.Shared.Models
         public bool StartWithWindows { get; set; }
         public string SystemBinaryUrl { get; set; } = string.Empty;
         public string? NewServerUrl { get; set; }
+        public string? NewTestServerUrl { get; set; }
+        public string? TargetEnvironment { get; set; }
     }
 
     public class ProfileConfigCommandDto

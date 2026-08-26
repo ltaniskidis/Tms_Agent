@@ -24,6 +24,7 @@ namespace Tms.CentralManagement.Data
         public DbSet<BroadcastMessage> BroadcastMessages { get; set; } = null!;
         public DbSet<SupportTicket> SupportTickets { get; set; } = null!;
         public DbSet<SmtpSetting> SmtpSettings { get; set; } = null!;
+        public DbSet<SystemSetting> SystemSettings { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -128,6 +129,8 @@ namespace Tms.CentralManagement.Data
         public Customer? Customer { get; set; }
         public string? Alias { get; set; }
         public string? ServerUrl { get; set; }
+
+        public string? SelectedEnvironment { get; set; } = "Production";
 
         public DateTime? LastCommunicationTime { get; set; }
         public DateTime? LastAgentUpgradeTime { get; set; }
@@ -256,6 +259,15 @@ namespace Tms.CentralManagement.Data
         public string Password { get; set; } = string.Empty;
         public bool EnableSsl { get; set; } = true;
         public string Sender { get; set; } = string.Empty;
+    }
+
+    public class SystemSetting
+    {
+        public int Id { get; set; }
+        public string? AgentRedirectServerUrl { get; set; }
+        public string? AgentRedirectTestServerUrl { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public string? ChangedBy { get; set; }
     }
 
     public class Customer

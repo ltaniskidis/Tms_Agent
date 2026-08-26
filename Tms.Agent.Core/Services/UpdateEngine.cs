@@ -40,7 +40,8 @@ namespace Tms.Agent.Core.Services
             string apiKey, 
             List<LocalProfile> localProfiles,
             bool startWithWindows,
-            bool forceSyncStartWithWindows = false)
+            bool forceSyncStartWithWindows = false,
+            string selectedEnvironment = "Production")
         {
             var url = $"{serverUrl.TrimEnd('/')}/api/updates/check";
             
@@ -87,7 +88,8 @@ namespace Tms.Agent.Core.Services
                 }).ToList(),
                 DiscoveredDatabases = discoveredDbs,
                 StartWithWindows = startWithWindows,
-                ForceSyncStartWithWindows = forceSyncStartWithWindows
+                ForceSyncStartWithWindows = forceSyncStartWithWindows,
+                SelectedEnvironment = selectedEnvironment
             };
 
             try

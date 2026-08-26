@@ -67,6 +67,27 @@ namespace Tms.Agent.Wpf
                 {
                     // Reload settings and profiles at each tick to get latest changes from GUI
                     var settings = settingsManager.LoadSettings();
+                    bool settingsNeedsInit = false;
+                    if (string.IsNullOrEmpty(settings.ProductionServerUrl))
+                    {
+                        settings.ProductionServerUrl = "https://tmsagent.cdgr.dev";
+                        settingsNeedsInit = true;
+                    }
+                    if (string.IsNullOrEmpty(settings.TestServerUrl))
+                    {
+                        settings.TestServerUrl = "http://home.dhsweb.gr:5007";
+                        settingsNeedsInit = true;
+                    }
+                    if (string.IsNullOrEmpty(settings.SelectedEnvironment))
+                    {
+                        settings.SelectedEnvironment = "Production";
+                        settingsNeedsInit = true;
+                    }
+                    if (settingsNeedsInit)
+                    {
+                        settingsManager.SaveSettings(settings);
+                    }
+
                     var profiles = profileManager.LoadProfiles();
 
                     if (!string.IsNullOrEmpty(settings.ApiKey) && !string.IsNullOrEmpty(settings.ServerUrl))
@@ -80,16 +101,44 @@ namespace Tms.Agent.Wpf
                             settings.ApiKey,
                             profiles,
                             settings.StartWithWindows,
-                            false
+                            false,
+                            settings.SelectedEnvironment
                         );
 
                         if (response != null)
                         {
                             // 0. Handle Server URL Redirection from Server
-                            if (!string.IsNullOrEmpty(response.NewServerUrl) && response.NewServerUrl.TrimEnd('/') != settings.ServerUrl.TrimEnd('/'))
+                            bool settingsChanged = false;
+                            
+                            if (!string.IsNullOrEmpty(response.NewServerUrl) && response.NewServerUrl.Trim() != settings.ProductionServerUrl)
                             {
-                                System.Diagnostics.Debug.WriteLine($"Service redirects Server URL to {response.NewServerUrl}...");
-                                settings.ServerUrl = response.NewServerUrl.Trim();
+                                settings.ProductionServerUrl = response.NewServerUrl.Trim();
+                                settingsChanged = true;
+                            }
+                            if (!string.IsNullOrEmpty(response.NewTestServerUrl) && response.NewTestServerUrl.Trim() != settings.TestServerUrl)
+                            {
+                                settings.TestServerUrl = response.NewTestServerUrl.Trim();
+                                settingsChanged = true;
+                            }
+                            if (!string.IsNullOrEmpty(response.TargetEnvironment) && !string.Equals(response.TargetEnvironment, settings.SelectedEnvironment, StringComparison.OrdinalIgnoreCase))
+                            {
+                                settings.SelectedEnvironment = response.TargetEnvironment;
+                                settingsChanged = true;
+                            }
+                            
+                            string targetUrl = string.Equals(settings.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase) 
+                                ? settings.TestServerUrl 
+                                : settings.ProductionServerUrl;
+                                
+                            if (!string.IsNullOrEmpty(targetUrl) && targetUrl.TrimEnd('/') != settings.ServerUrl.TrimEnd('/'))
+                            {
+                                System.Diagnostics.Debug.WriteLine($"Service redirects active Server URL to {targetUrl}...");
+                                settings.ServerUrl = targetUrl.Trim();
+                                settingsChanged = true;
+                            }
+
+                            if (settingsChanged)
+                            {
                                 settingsManager.SaveSettings(settings);
                             }
 

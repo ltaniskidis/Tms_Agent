@@ -69,10 +69,11 @@ namespace Tms.Agent.Wpf
             UpdateStepIndicator(Step2Indicator, Step2NumberBorder, _currentStep == 2);
             UpdateStepIndicator(Step3Indicator, Step3NumberBorder, _currentStep == 3);
 
-            // If we arrived at step 3, populate the summary fields
             if (_currentStep == 3)
             {
-                SummaryUrlText.Text = ServerUrlInput.Text.Trim();
+                string selectedEnv = EnvironmentProdRadio.IsChecked == true ? "Production" : "Test";
+                string activeUrl = selectedEnv == "Test" ? TestUrlInput.Text.Trim() : ProductionUrlInput.Text.Trim();
+                SummaryUrlText.Text = $"{activeUrl} ({selectedEnv})";
                 SummaryApiKeyText.Text = string.IsNullOrEmpty(ApiKeyInput.Text.Trim()) ? "-" : ApiKeyInput.Text.Trim();
                 SummaryRoleText.Text = GetSelectedRoleFriendlyName();
                 SummaryServiceText.Text = StartWithWindowsCheckbox.IsChecked == true ? "Ναι" : "Όχι";
@@ -137,18 +138,31 @@ namespace Tms.Agent.Wpf
             if (_currentStep == 1)
             {
                 // Validate URL and API Key
-                string url = ServerUrlInput.Text.Trim();
+                string prodUrl = ProductionUrlInput.Text.Trim();
+                string testUrl = TestUrlInput.Text.Trim();
                 string apiKey = ApiKeyInput.Text.Trim();
 
-                if (string.IsNullOrEmpty(url))
+                if (string.IsNullOrEmpty(prodUrl))
                 {
-                    MessageBox.Show("Παρακαλώ εισάγετε τη διεύθυνση URL του Central Server.", "Σφάλμα", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Παρακαλώ εισάγετε τη διεύθυνση URL του Παραγωγικού Server.", "Σφάλμα", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
-                if (!url.StartsWith("http://") && !url.StartsWith("https://"))
+                if (!prodUrl.StartsWith("http://") && !prodUrl.StartsWith("https://"))
                 {
-                    MessageBox.Show("Η διεύθυνση URL πρέπει να ξεκινάει με http:// ή https://", "Σφάλμα", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    MessageBox.Show("Η διεύθυνση URL Παραγωγής πρέπει να ξεκινάει με http:// ή https://", "Σφάλμα", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (string.IsNullOrEmpty(testUrl))
+                {
+                    MessageBox.Show("Παρακαλώ εισάγετε τη διεύθυνση URL του Δοκιμαστικού Server.", "Σφάλμα", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                if (!testUrl.StartsWith("http://") && !testUrl.StartsWith("https://"))
+                {
+                    MessageBox.Show("Η διεύθυνση URL Δοκιμών πρέπει να ξεκινάει με http:// ή https://", "Σφάλμα", MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
@@ -168,7 +182,10 @@ namespace Tms.Agent.Wpf
 
         private async void TestConnectionButton_Click(object sender, RoutedEventArgs e)
         {
-            string url = ServerUrlInput.Text.Trim();
+            string prodUrl = ProductionUrlInput.Text.Trim();
+            string testUrl = TestUrlInput.Text.Trim();
+            string selectedEnv = EnvironmentProdRadio.IsChecked == true ? "Production" : "Test";
+            string url = selectedEnv == "Test" ? testUrl : prodUrl;
             string apiKey = ApiKeyInput.Text.Trim();
             string role = GetSelectedRole();
             bool startWithWindows = StartWithWindowsCheckbox.IsChecked == true;
@@ -185,11 +202,12 @@ namespace Tms.Agent.Wpf
                         _tempClientId,
                         Environment.MachineName,
                         role,
-                        "1.5.37",
+                        Tms.Agent.Core.AgentVersionInfo.Version,
                         apiKey,
                         new List<LocalProfile>(),
                         startWithWindows,
-                        true // forceSyncStartWithWindows
+                        true, // forceSyncStartWithWindows
+                        selectedEnv
                     )
                 );
 
@@ -232,9 +250,15 @@ namespace Tms.Agent.Wpf
             // Finalize and Save
             try
             {
+                string selectedEnv = EnvironmentProdRadio.IsChecked == true ? "Production" : "Test";
+                string prodUrl = ProductionUrlInput.Text.Trim();
+                string testUrl = TestUrlInput.Text.Trim();
                 var settings = new AgentSettings
                 {
-                    ServerUrl = ServerUrlInput.Text.Trim(),
+                    ProductionServerUrl = prodUrl,
+                    TestServerUrl = testUrl,
+                    SelectedEnvironment = selectedEnv,
+                    ServerUrl = selectedEnv == "Test" ? testUrl : prodUrl,
                     ApiKey = ApiKeyInput.Text.Trim(),
                     MachineRole = GetSelectedRole(),
                     StartWithWindows = StartWithWindowsCheckbox.IsChecked == true
@@ -308,7 +332,7 @@ namespace Tms.Agent.Wpf
                         catch (UnauthorizedAccessException)
                         {
                             // Relaunch self as administrator to complete setup and installation
-                            string args = $"--install-from \"{currentExe}\" --url \"{settings.ServerUrl}\" --key \"{settings.ApiKey}\" --role \"{settings.MachineRole}\" --startup-windows {(settings.StartWithWindows ? 1 : 0)}";
+                            string args = $"--install-from \"{currentExe}\" --url \"{settings.ServerUrl}\" --key \"{settings.ApiKey}\" --role \"{settings.MachineRole}\" --startup-windows {(settings.StartWithWindows ? 1 : 0)} --prod-url \"{settings.ProductionServerUrl}\" --test-url \"{settings.TestServerUrl}\" --selected-env \"{settings.SelectedEnvironment}\"";
                             
                             var selfStartInfo = new System.Diagnostics.ProcessStartInfo
                             {

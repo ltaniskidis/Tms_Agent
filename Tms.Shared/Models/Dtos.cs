@@ -63,6 +63,8 @@ namespace Tms.Shared.Models
         public string? NewServerUrl { get; set; }
         public string? NewTestServerUrl { get; set; }
         public string? TargetEnvironment { get; set; }
+        public string? NewProductionApiKey { get; set; }
+        public string? NewTestApiKey { get; set; }
     }
 
     public class ProfileConfigCommandDto

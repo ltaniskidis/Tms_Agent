@@ -103,6 +103,7 @@ namespace Tms.Agent.Wpf.ViewModels
                 {
                     OnPropertyChanged(nameof(IsProductionEnvironment));
                     OnPropertyChanged(nameof(IsTestEnvironment));
+                    UpdateActiveApiKey();
                 }
             }
         }
@@ -137,11 +138,61 @@ namespace Tms.Agent.Wpf.ViewModels
             }
         }
 
+        private void UpdateActiveApiKey()
+        {
+            if (string.Equals(SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!string.IsNullOrEmpty(TestApiKey))
+                {
+                    ApiKey = TestApiKey;
+                }
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(ProductionApiKey))
+                {
+                    ApiKey = ProductionApiKey;
+                }
+            }
+        }
+
         private string _apiKey = string.Empty;
         public string ApiKey
         {
             get => _apiKey;
             set => SetProperty(ref _apiKey, value);
+        }
+
+        private string _productionApiKey = string.Empty;
+        public string ProductionApiKey
+        {
+            get => _productionApiKey;
+            set
+            {
+                if (SetProperty(ref _productionApiKey, value))
+                {
+                    if (string.Equals(SelectedEnvironment, "Production", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ApiKey = value;
+                    }
+                }
+            }
+        }
+
+        private string _testApiKey = string.Empty;
+        public string TestApiKey
+        {
+            get => _testApiKey;
+            set
+            {
+                if (SetProperty(ref _testApiKey, value))
+                {
+                    if (string.Equals(SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ApiKey = value;
+                    }
+                }
+            }
         }
 
         private bool _startWithWindows;
@@ -790,7 +841,10 @@ namespace Tms.Agent.Wpf.ViewModels
             _selectedEnvironment = settings.SelectedEnvironment ?? "Production";
             _machineRole = settings.MachineRole;
             _apiKey = settings.ApiKey;
+            _productionApiKey = string.IsNullOrEmpty(settings.ProductionApiKey) ? settings.ApiKey : settings.ProductionApiKey;
+            _testApiKey = string.IsNullOrEmpty(settings.TestApiKey) ? settings.ApiKey : settings.TestApiKey;
             _startWithWindows = settings.StartWithWindows;
+            UpdateActiveApiKey();
 
             // Commands Setup
             NavigateCommand = new RelayCommand<string>(view =>
@@ -957,6 +1011,8 @@ namespace Tms.Agent.Wpf.ViewModels
             settings.SelectedEnvironment = SelectedEnvironment;
             settings.MachineRole = MachineRole;
             settings.ApiKey = ApiKey;
+            settings.ProductionApiKey = ProductionApiKey;
+            settings.TestApiKey = TestApiKey;
             settings.StartWithWindows = StartWithWindows;
             _settingsManager.SaveSettings(settings);
         }
@@ -1021,6 +1077,8 @@ namespace Tms.Agent.Wpf.ViewModels
             var settings = _settingsManager.LoadSettings();
             ServerUrl = settings.ServerUrl;
             ApiKey = settings.ApiKey;
+            ProductionApiKey = string.IsNullOrEmpty(settings.ProductionApiKey) ? settings.ApiKey : settings.ProductionApiKey;
+            TestApiKey = string.IsNullOrEmpty(settings.TestApiKey) ? settings.ApiKey : settings.TestApiKey;
             MachineRole = settings.MachineRole;
             StartWithWindows = settings.StartWithWindows;
 
@@ -1464,6 +1522,24 @@ namespace Tms.Agent.Wpf.ViewModels
             if (!string.IsNullOrEmpty(response.TargetEnvironment) && !string.Equals(response.TargetEnvironment, SelectedEnvironment, StringComparison.OrdinalIgnoreCase))
             {
                 SelectedEnvironment = response.TargetEnvironment;
+                settingsChanged = true;
+            }
+
+            if (!string.IsNullOrEmpty(response.NewProductionApiKey) && response.NewProductionApiKey.Trim() != ProductionApiKey)
+            {
+                ProductionApiKey = response.NewProductionApiKey.Trim();
+                settingsChanged = true;
+            }
+            if (!string.IsNullOrEmpty(response.NewTestApiKey) && response.NewTestApiKey.Trim() != TestApiKey)
+            {
+                TestApiKey = response.NewTestApiKey.Trim();
+                settingsChanged = true;
+            }
+
+            string targetApiKey = IsTestEnvironment ? TestApiKey : ProductionApiKey;
+            if (!string.IsNullOrEmpty(targetApiKey) && targetApiKey.Trim() != ApiKey)
+            {
+                ApiKey = targetApiKey.Trim();
                 settingsChanged = true;
             }
 

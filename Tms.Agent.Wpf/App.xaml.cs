@@ -61,6 +61,8 @@ public partial class App : System.Windows.Application
                 string prodUrl = GetArgValue(e.Args, "--prod-url") ?? "https://tmsagent.cdgr.dev";
                 string testUrl = GetArgValue(e.Args, "--test-url") ?? "http://home.dhsweb.gr:5007";
                 string selectedEnv = GetArgValue(e.Args, "--selected-env") ?? "Production";
+                string prodKey = GetArgValue(e.Args, "--prod-key") ?? key;
+                string testKey = GetArgValue(e.Args, "--test-key") ?? key;
 
                 // Save settings
                 var settingsManager = new SettingsManager();
@@ -68,6 +70,8 @@ public partial class App : System.Windows.Application
                 {
                     ServerUrl = url,
                     ApiKey = key,
+                    ProductionApiKey = prodKey,
+                    TestApiKey = testKey,
                     MachineRole = role,
                     StartWithWindows = startWithWindows,
                     ProductionServerUrl = prodUrl,

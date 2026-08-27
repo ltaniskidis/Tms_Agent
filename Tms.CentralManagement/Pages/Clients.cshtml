@@ -195,8 +195,14 @@
                                                     }
                                                     @if (!string.IsNullOrEmpty(client.ServerUrl))
                                                     {
-                                                        <div style="font-size: 10px; color: var(--text-secondary); margin-top: 4px; font-family: monospace; word-break: break-all;" title="Διεύθυνση Central Server (URL)">
-                                                            @client.ServerUrl
+                                                        <div style="font-size: 10px; color: #10B981; margin-top: 4px; font-family: monospace; word-break: break-all;" title="Διεύθυνση Central Server (URL)">
+                                                            🟢 Prod: @client.ServerUrl
+                                                        </div>
+                                                    }
+                                                    @if (!string.IsNullOrEmpty(client.TestServerUrl))
+                                                    {
+                                                        <div style="font-size: 10px; color: #F59E0B; margin-top: 4px; font-family: monospace; word-break: break-all;" title="Διεύθυνση Δοκιμαστικού Server (URL)">
+                                                            🟡 Test: @client.TestServerUrl
                                                         </div>
                                                     }
                                                 </td>
@@ -224,8 +230,25 @@
                                                     }
                                                 </td>
                                                 <td>
-                                                    <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-family: monospace; font-size: 11px;">@client.ApiKey</code>
-                                                    <button type="button" onclick="navigator.clipboard.writeText('@client.ApiKey'); alert('Το API Key αντιγράφηκε!');" class="btn btn-mini" style="padding: 1px 4px; font-size: 10px; margin-left: 4px;" title="Αντιγραφή">📋</button>
+                                                    <div style="font-size: 11px; display: flex; flex-direction: column; gap: 4px;">
+                                                        <div style="display: flex; align-items: center; gap: 4px;">
+                                                            <span class="badge" style="font-size: 8px; padding: 1px 3px; background-color: #10B981; color: white;">Prod</span>
+                                                            <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-family: monospace; font-size: 11px;">@client.ApiKey</code>
+                                                            <button type="button" onclick="navigator.clipboard.writeText('@client.ApiKey'); alert('Το API Key αντιγράφηκε!');" class="btn btn-mini" style="padding: 1px 4px; font-size: 10px;" title="Αντιγραφή">📋</button>
+                                                        </div>
+                                                        <div style="display: flex; align-items: center; gap: 4px;">
+                                                            <span class="badge" style="font-size: 8px; padding: 1px 3px; background-color: #F59E0B; color: white;">Test</span>
+                                                            @if (!string.IsNullOrEmpty(client.TestApiKey))
+                                                            {
+                                                                <code style="background: rgba(0,0,0,0.2); padding: 2px 6px; border-radius: 4px; color: var(--accent); font-family: monospace; font-size: 11px;">@client.TestApiKey</code>
+                                                                <button type="button" onclick="navigator.clipboard.writeText('@client.TestApiKey'); alert('Το Test API Key αντιγράφηκε!');" class="btn btn-mini" style="padding: 1px 4px; font-size: 10px;" title="Αντιγραφή">📋</button>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span style="opacity: 0.5; font-size: 10px;">-</span>
+                                                            }
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     @if (client.AgentVersion == Model.CurrentSystemVersion)
@@ -254,6 +277,9 @@
                                                                 data-role="@client.MachineRole"
                                                                 data-guid="@client.ClientGuid"
                                                                 data-apikey="@client.ApiKey"
+                                                                data-testapikey="@client.TestApiKey"
+                                                                data-serverurl="@client.ServerUrl"
+                                                                data-testserverurl="@client.TestServerUrl"
                                                                 data-upgrade="@(client.IsUpgradeEnabled ? "true" : "false")"
                                                                 data-startwithwindows="@(client.StartWithWindows ? "true" : "false")"
                                                                 data-viewlogs="@(client.Permissions?.CanOperatorViewLogs == true ? "true" : "false")"
@@ -494,8 +520,21 @@
                                 <td class="td-key">
                                     <div class="key-container" style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
                                         <div class="key-row" style="display:flex; align-items:center; gap:6px;">
+                                            <span class="badge" style="font-size: 8px; padding: 1px 3px; background-color: #10B981; color: white;">Prod</span>
                                             <span class="code-text key-display" style="font-size:11px;">@client.ApiKey</span>
                                             <button class="btn btn-copy" onclick="copyText('@client.ApiKey', this)" title="Αντιγραφή API Key">📋</button>
+                                        </div>
+                                        <div class="key-row" style="display:flex; align-items:center; gap:6px;">
+                                            <span class="badge" style="font-size: 8px; padding: 1px 3px; background-color: #F59E0B; color: white;">Test</span>
+                                            @if (!string.IsNullOrEmpty(client.TestApiKey))
+                                            {
+                                                <span class="code-text key-display" style="font-size:11px;">@client.TestApiKey</span>
+                                                <button class="btn btn-copy" onclick="copyText('@client.TestApiKey', this)" title="Αντιγραφή Test API Key">📋</button>
+                                            }
+                                            else
+                                            {
+                                                <span style="opacity: 0.5; font-size: 10px;">-</span>
+                                            }
                                         </div>
                                         <span class="code-text" style="font-size: 9px; opacity: 0.6; padding: 1px 4px; border:none; background:none;">GUID: @client.ClientGuid</span>
                                     </div>
@@ -527,6 +566,9 @@
                                             data-role="@client.MachineRole"
                                             data-guid="@client.ClientGuid"
                                             data-apikey="@client.ApiKey"
+                                            data-testapikey="@client.TestApiKey"
+                                            data-serverurl="@client.ServerUrl"
+                                            data-testserverurl="@client.TestServerUrl"
                                             data-upgrade="@(client.IsUpgradeEnabled ? "true" : "false")"
                                             data-startwithwindows="@(client.StartWithWindows ? "true" : "false")"
                                             data-viewlogs="@(client.Permissions?.CanOperatorViewLogs == true ? "true" : "false")"
@@ -645,6 +687,37 @@
                             <option value="Production">Production (Παραγωγικό)</option>
                             <option value="Test">Test (Δοκιμαστικό)</option>
                         </select>
+                    </div>
+
+                    <div style="border-top: 1px dashed rgba(255,255,255,0.1); margin-top: 15px; padding-top: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div>
+                            <h4 style="margin: 0 0 10px 0; color: #10B981; font-size: 13px;">🟢 Παραγωγικό Περιβάλλον</h4>
+                            <div class="form-group">
+                                <label>API Key Παραγωγικού</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" name="apiKey" id="modalProductionApiKey" class="form-control" style="font-family: monospace;" required />
+                                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalProductionApiKey').value = generateRandomApiKeyJs();" title="Δημιουργία νέου κλειδιού" style="padding: 0 8px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white;">🔄</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Server URL Παραγωγικού</label>
+                                <input type="text" name="serverUrl" id="modalServerUrl" class="form-control" style="font-family: monospace;" placeholder="π.χ. https://prod.tms.gr" />
+                            </div>
+                        </div>
+                        <div>
+                            <h4 style="margin: 0 0 10px 0; color: #F59E0B; font-size: 13px;">🟡 Δοκιμαστικό Περιβάλλον</h4>
+                            <div class="form-group">
+                                <label>API Key Δοκιμαστικού</label>
+                                <div style="display: flex; gap: 5px;">
+                                    <input type="text" name="testApiKey" id="modalTestApiKey" class="form-control" style="font-family: monospace;" />
+                                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('modalTestApiKey').value = generateRandomApiKeyJs();" title="Δημιουργία νέου κλειδιού" style="padding: 0 8px; background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white;">🔄</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Server URL Δοκιμαστικού</label>
+                                <input type="text" name="testServerUrl" id="modalTestServerUrl" class="form-control" style="font-family: monospace;" placeholder="π.χ. https://test.tms.gr" />
+                            </div>
+                        </div>
                     </div>
 
                     <div class="toggle-group">
@@ -1835,6 +1908,15 @@
 </style>
 
 <script>
+    function generateRandomApiKeyJs() {
+        var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        var result = '';
+        for (var i = 0; i < 16; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return 'TMS-KEY-' + result;
+    }
+
     // Customer Modal Operations
     function openEditCustomerModal(btn) {
         var id = btn.getAttribute("data-id");
@@ -1913,76 +1995,6 @@
         });
     }
 
-    // Toggle showing add machine form under Customer card
-    function toggleAddMachineForm(customerId) {
-        var formDiv = document.getElementById('addMachineForm_' + customerId);
-        if (formDiv) {
-            if (formDiv.style.display === 'none') {
-                formDiv.style.display = 'block';
-            } else {
-                formDiv.style.display = 'none';
-            }
-        }
-    }
-
-    // Restore page tab on load
-    document.addEventListener('DOMContentLoaded', function() {
-        var activeTab = sessionStorage.getItem('activeClientsPageTab') || 'pageTabCustomers';
-        switchPageTab(activeTab);
-    });
-
-    // Copy Text to Clipboard Helper
-    function copyText(text, btnElement) {
-        navigator.clipboard.writeText(text).then(function() {
-            var originalText = btnElement.innerText;
-            btnElement.innerText = "✓";
-            btnElement.classList.add("copied");
-            btnElement.style.color = "var(--success)";
-            
-            setTimeout(function() {
-                btnElement.innerText = originalText;
-                btnElement.classList.remove("copied");
-                btnElement.style.color = "";
-            }, 1500);
-        }).catch(function(err) {
-            console.error("Could not copy text: ", err);
-        });
-    }
-
-    // Apply Client Table Filters
-    function applyFilters() {
-        var searchQuery = document.getElementById("searchFilter").value.toLowerCase();
-        var roleQuery = document.getElementById("roleFilter").value;
-        var upgradeQuery = document.getElementById("upgradeFilter").value;
-
-        var rows = document.querySelectorAll(".client-row");
-        rows.forEach(function(row) {
-            var name = row.getAttribute("data-name") || "";
-            var guid = row.getAttribute("data-guid") || "";
-            var key = row.getAttribute("data-key") || "";
-            var role = row.getAttribute("data-role") || "";
-            var upgrade = row.getAttribute("data-upgrade") || "";
-            var profiles = row.getAttribute("data-profiles") || "";
-            var afms = row.getAttribute("data-afms") || "";
-            var serials = row.getAttribute("data-serials") || "";
-
-            var matchesSearch = name.includes(searchQuery) || 
-                                guid.includes(searchQuery) || 
-                                key.includes(searchQuery) || 
-                                profiles.includes(searchQuery) || 
-                                afms.includes(searchQuery) || 
-                                serials.includes(searchQuery);
-            var matchesRole = roleQuery === "All" || role === roleQuery;
-            var matchesUpgrade = upgradeQuery === "All" || upgrade === upgradeQuery;
-
-            if (matchesSearch && matchesRole && matchesUpgrade) {
-                row.style.display = "";
-            } else {
-                row.style.display = "none";
-            }
-        });
-    }
-
      // Modal Operations from Button Data Attributes
     function openModalFromBtn(btn) {
         var id = btn.getAttribute("data-id");
@@ -1990,6 +2002,9 @@
         var role = btn.getAttribute("data-role");
         var guid = btn.getAttribute("data-guid");
         var apiKey = btn.getAttribute("data-apikey");
+        var testApiKey = btn.getAttribute("data-testapikey") || "";
+        var serverUrl = btn.getAttribute("data-serverurl") || "";
+        var testServerUrl = btn.getAttribute("data-testserverurl") || "";
         var isUpgradeEnabled = btn.getAttribute("data-upgrade") === "true";
         var canViewLogs = btn.getAttribute("data-viewlogs") === "true";
         var canRunUpdates = btn.getAttribute("data-runupdates") === "true";
@@ -2000,11 +2015,11 @@
         var customerId = btn.getAttribute("data-customerid") || "";
         var selectedEnv = btn.getAttribute("data-selectedenv") || "Production";
         
-        openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString, alias, customerId, selectedEnv);
+        openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString, alias, customerId, selectedEnv, testApiKey, serverUrl, testServerUrl);
     }
 
     // Modal Operations
-    function openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString, alias, customerId, selectedEnv) {
+    function openModal(id, name, role, guid, apiKey, isUpgradeEnabled, canViewLogs, canRunUpdates, startWithWindows, usersJsonString, profilesJsonString, alias, customerId, selectedEnv, testApiKey, serverUrl, testServerUrl) {
         document.getElementById("modalTitle").innerText = "⚙️ Διαχείριση Μηχανήματος: " + name;
         document.getElementById("modalGuid").innerText = guid;
         document.getElementById("modalApiKey").innerText = apiKey;
@@ -2024,6 +2039,12 @@
         document.getElementById("modalCanOperatorRunUpdates").checked = canRunUpdates;
         document.getElementById("modalStartWithWindows").checked = startWithWindows;
         document.getElementById("modalSelectedEnvironment").value = selectedEnv;
+
+        // Populate Keys and URLs Inputs
+        document.getElementById("modalProductionApiKey").value = apiKey;
+        document.getElementById("modalTestApiKey").value = testApiKey;
+        document.getElementById("modalServerUrl").value = serverUrl;
+        document.getElementById("modalTestServerUrl").value = testServerUrl;
 
         // Parse and Render Users
         var users = JSON.parse(usersJsonString || "[]");

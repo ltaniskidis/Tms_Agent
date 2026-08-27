@@ -480,6 +480,24 @@ using (var scope = app.Services.CreateScope())
                         alterCommand.ExecuteNonQuery();
                     }
                 }
+
+                if (!columns.Contains("TestApiKey", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN TestApiKey TEXT NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
+
+                if (!columns.Contains("TestServerUrl", StringComparer.OrdinalIgnoreCase))
+                {
+                    using (var alterCommand = connection.CreateCommand())
+                    {
+                        alterCommand.CommandText = "ALTER TABLE Clients ADD COLUMN TestServerUrl TEXT NULL;";
+                        alterCommand.ExecuteNonQuery();
+                    }
+                }
             }
         }
     }
@@ -3081,6 +3099,47 @@ GO
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Κάθετη στοίχιση των κουμπιών ενεργειών (ρυθμίσεις ⚙️ και διαγραφή 🗑️) στις κάρτες πελατών για αποφυγή υπερχείλισης της σελίδας όταν η επωνυμία της εταιρείας είναι μεγάλη." });
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Σχεδίαση των κουμπιών ως ομοιόμορφα τετράγωνα 28x28px." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.96"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.96",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη ξεχωριστών API Keys και Server URLs για Παραγωγικό και Δοκιμαστικό περιβάλλον, με δυνατότητα χειροκίνητης επεξεργασίας.",
+            BinaryFileUrl = "/packages/app_1.5.96.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Εισαγωγή TestApiKey και TestServerUrl στη βάση δεδομένων και στα endpoints του Central Server." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Ενημέρωση της κονσόλας διαχείρισης (Clients.cshtml) για προβολή και επεξεργασία των δύο κλειδιών/URLs." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Υποστήριξη dynamic key swap στον WPF Agent και στο Service ανάλογα με το επιλεγμένο περιβάλλον." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.97"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.97",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη οπτικής επισήμανσης (μπλε πλαίσιο) του ενεργού περιβάλλοντος στον WPF Agent και αμφίδρομος συγχρονισμός API Keys.",
+            BinaryFileUrl = "/packages/app_1.5.97.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη μπλε πλαισίου επισήμανσης (Active Highlight Border) γύρω από το ενεργό περιβάλλον (Prod / Test)." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη αμφίδρομου συγχρονισμού των API Keys ώστε οι αλλαγές στον Central να κατεβαίνουν αυτόματα στον Agent." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

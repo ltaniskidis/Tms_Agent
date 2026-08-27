@@ -47,7 +47,7 @@ namespace Tms.CentralManagement.Controllers
                 .Include(c => c.Databases)
                 .Include(c => c.LocalUsers)
                 .Include(c => c.Permissions)
-                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey);
+                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey || (c.TestApiKey != null && c.TestApiKey == request.ApiKey));
 
             if (client == null)
             {
@@ -65,7 +65,16 @@ namespace Tms.CentralManagement.Controllers
                 client.LastAgentUpgradeTime = DateTime.UtcNow;
             }
             client.AgentVersion = request.AgentVersion ?? "1.0.0";
-            client.ServerUrl = request.ServerUrl;
+            
+            if (string.Equals(request.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase))
+            {
+                client.TestServerUrl = request.ServerUrl;
+            }
+            else
+            {
+                client.ServerUrl = request.ServerUrl;
+            }
+
             if (string.IsNullOrEmpty(client.SelectedEnvironment))
             {
                 client.SelectedEnvironment = request.SelectedEnvironment ?? "Production";
@@ -573,7 +582,7 @@ namespace Tms.CentralManagement.Controllers
 
             // Fetch active broadcast messages for this client
             var broadcasts = await _context.BroadcastMessages
-                .Where(b => b.IsActive && (string.IsNullOrEmpty(b.TargetClientApiKey) || b.TargetClientApiKey == request.ApiKey))
+                .Where(b => b.IsActive && (string.IsNullOrEmpty(b.TargetClientApiKey) || b.TargetClientApiKey == client.ApiKey || (client.TestApiKey != null && b.TargetClientApiKey == client.TestApiKey)))
                 .OrderByDescending(b => b.CreatedDate)
                 .Select(b => new BroadcastMessageDto
                 {
@@ -629,6 +638,8 @@ namespace Tms.CentralManagement.Controllers
             }
 
             response.TargetEnvironment = client.SelectedEnvironment;
+            response.NewProductionApiKey = client.ApiKey;
+            response.NewTestApiKey = client.TestApiKey;
 
             response.HasUpdates = response.Updates.Any();
             return Ok(response);
@@ -645,7 +656,7 @@ namespace Tms.CentralManagement.Controllers
 
             var client = await _context.Clients
                 .Include(c => c.Profiles)
-                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey);
+                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey || (c.TestApiKey != null && c.TestApiKey == request.ApiKey));
 
             if (client == null)
             {
@@ -683,7 +694,7 @@ namespace Tms.CentralManagement.Controllers
 
             var client = await _context.Clients
                 .Include(c => c.Profiles)
-                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey);
+                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey || (c.TestApiKey != null && c.TestApiKey == request.ApiKey));
 
             if (client == null)
             {
@@ -828,7 +839,7 @@ namespace Tms.CentralManagement.Controllers
 
             var client = await _context.Clients
                 .Include(c => c.LocalUsers)
-                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey);
+                .FirstOrDefaultAsync(c => c.ApiKey == request.ApiKey || (c.TestApiKey != null && c.TestApiKey == request.ApiKey));
 
             if (client == null)
             {
@@ -871,7 +882,7 @@ namespace Tms.CentralManagement.Controllers
                 return BadRequest("Client ID is required.");
             }
 
-            var client = await _context.Clients.AnyAsync(c => c.ApiKey == apiKey);
+            var client = await _context.Clients.AnyAsync(c => c.ApiKey == apiKey || (c.TestApiKey != null && c.TestApiKey == apiKey));
             if (!client)
             {
                 return Unauthorized("Invalid API Key.");
@@ -905,7 +916,7 @@ namespace Tms.CentralManagement.Controllers
                 return BadRequest("API Key is required.");
             }
 
-            var clientExists = await _context.Clients.AnyAsync(c => c.ApiKey == apiKey);
+            var clientExists = await _context.Clients.AnyAsync(c => c.ApiKey == apiKey || (c.TestApiKey != null && c.TestApiKey == apiKey));
             if (!clientExists)
             {
                 return Unauthorized("Invalid API Key.");
@@ -949,7 +960,7 @@ namespace Tms.CentralManagement.Controllers
 
             var client = await _context.Clients
                 .Include(c => c.Profiles)
-                .FirstOrDefaultAsync(c => c.ApiKey == apiKey);
+                .FirstOrDefaultAsync(c => c.ApiKey == apiKey || (c.TestApiKey != null && c.TestApiKey == apiKey));
 
             if (client == null)
             {

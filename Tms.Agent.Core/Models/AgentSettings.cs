@@ -10,6 +10,8 @@ namespace Tms.Agent.Core.Models
         public string SelectedEnvironment { get; set; } = "Production"; // "Production" or "Test"
         public string MachineRole { get; set; } = "Both"; // SqlServer, Client, Both
         public string ApiKey { get; set; } = string.Empty;
+        public string ProductionApiKey { get; set; } = string.Empty;
+        public string TestApiKey { get; set; } = string.Empty;
         public string? SavedUsername { get; set; }
         public string? SavedPassword { get; set; }
         public bool RememberMe { get; set; }

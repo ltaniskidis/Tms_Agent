@@ -260,6 +260,8 @@ namespace Tms.Agent.Wpf
                     SelectedEnvironment = selectedEnv,
                     ServerUrl = selectedEnv == "Test" ? testUrl : prodUrl,
                     ApiKey = ApiKeyInput.Text.Trim(),
+                    ProductionApiKey = ApiKeyInput.Text.Trim(),
+                    TestApiKey = ApiKeyInput.Text.Trim(),
                     MachineRole = GetSelectedRole(),
                     StartWithWindows = StartWithWindowsCheckbox.IsChecked == true
                 };
@@ -332,7 +334,7 @@ namespace Tms.Agent.Wpf
                         catch (UnauthorizedAccessException)
                         {
                             // Relaunch self as administrator to complete setup and installation
-                            string args = $"--install-from \"{currentExe}\" --url \"{settings.ServerUrl}\" --key \"{settings.ApiKey}\" --role \"{settings.MachineRole}\" --startup-windows {(settings.StartWithWindows ? 1 : 0)} --prod-url \"{settings.ProductionServerUrl}\" --test-url \"{settings.TestServerUrl}\" --selected-env \"{settings.SelectedEnvironment}\"";
+                            string args = $"--install-from \"{currentExe}\" --url \"{settings.ServerUrl}\" --key \"{settings.ApiKey}\" --role \"{settings.MachineRole}\" --startup-windows {(settings.StartWithWindows ? 1 : 0)} --prod-url \"{settings.ProductionServerUrl}\" --test-url \"{settings.TestServerUrl}\" --selected-env \"{settings.SelectedEnvironment}\" --prod-key \"{settings.ProductionApiKey}\" --test-key \"{settings.TestApiKey}\"";
                             
                             var selfStartInfo = new System.Diagnostics.ProcessStartInfo
                             {

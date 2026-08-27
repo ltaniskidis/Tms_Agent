@@ -960,27 +960,73 @@
                                                  Foreground="#FFFFFF" FontSize="12" IsEnabled="{Binding IsOwner}"/>
                                 </StackPanel>
 
-                                <!-- Production Server URL -->
-                                <TextBlock Text="Διεύθυνση Παραγωγικού Server (Prod URL):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
-                                <TextBox Text="{Binding ProductionServerUrl, UpdateSourceTrigger=PropertyChanged}" 
-                                         Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
-                                         Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,15"
-                                         IsReadOnly="{Binding IsSettingsLocked}"/>
+                                <!-- Production Environment Block -->
+                                <Border CornerRadius="6" Padding="15" Background="#111116" Margin="0,0,0,15">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="#2B2B3C"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsProductionEnvironment}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="#3B82F6"/>
+                                                    <Setter Property="BorderThickness" Value="2"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel>
+                                        <TextBlock Text="🟢 Παραγωγικό Περιβάλλον (Production)" FontSize="12" FontWeight="SemiBold" Foreground="#10B981" Margin="0,0,0,12"/>
+                                        
+                                        <!-- Production Server URL -->
+                                        <TextBlock Text="Διεύθυνση Παραγωγικού Server (Prod URL):" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding ProductionServerUrl, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
+                                                 Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,12"
+                                                 IsReadOnly="{Binding IsSettingsLocked}"/>
 
-                                <!-- Test Server URL -->
-                                <TextBlock Text="Διεύθυνση Δοκιμαστικού Server (Test URL):" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
-                                <TextBox Text="{Binding TestServerUrl, UpdateSourceTrigger=PropertyChanged}" 
-                                         Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
-                                         Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,15"
-                                         IsReadOnly="{Binding IsSettingsLocked}"/>
+                                        <!-- Production API Key -->
+                                        <TextBlock Text="API Key Παραγωγικού (Prod Key):" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding ProductionApiKey, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
+                                                 Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,5"
+                                                 IsReadOnly="{Binding IsSettingsLocked}"/>
+                                    </StackPanel>
+                                </Border>
 
-                                <!-- API Key -->
-                                <TextBlock Text="API Key Πιστοποίησης:" FontSize="12" Foreground="#A0A0B0" Margin="0,0,0,5"/>
-                                <TextBox Text="{Binding ApiKey, UpdateSourceTrigger=PropertyChanged}" 
-                                         Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
-                                         Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,5"
-                                         IsReadOnly="{Binding IsSettingsLocked}"/>
-                                <TextBlock Text="Το API Key χρησιμοποιείται για την αναγνώριση και έγκριση του Agent από το Central Management." 
+                                <!-- Test Environment Block -->
+                                <Border CornerRadius="6" Padding="15" Background="#111116" Margin="0,0,0,15">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="#2B2B3C"/>
+                                            <Setter Property="BorderThickness" Value="1"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsTestEnvironment}" Value="True">
+                                                    <Setter Property="BorderBrush" Value="#3B82F6"/>
+                                                    <Setter Property="BorderThickness" Value="2"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <StackPanel>
+                                        <TextBlock Text="🟡 Δοκιμαστικό Περιβάλλον (Test / Staging)" FontSize="12" FontWeight="SemiBold" Foreground="#F59E0B" Margin="0,0,0,12"/>
+                                        
+                                        <!-- Test Server URL -->
+                                        <TextBlock Text="Διεύθυνση Δοκιμαστικού Server (Test URL):" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding TestServerUrl, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
+                                                 Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,12"
+                                                 IsReadOnly="{Binding IsSettingsLocked}"/>
+
+                                        <!-- Test API Key -->
+                                        <TextBlock Text="API Key Δοκιμαστικού (Test Key):" FontSize="11" Foreground="#A0A0B0" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding TestApiKey, UpdateSourceTrigger=PropertyChanged}" 
+                                                 Padding="10,8,10,8" FontSize="13" Background="#0F0F12" BorderBrush="#2B2B3C" 
+                                                 Foreground="#FFFFFF" CaretBrush="#6366F1" Margin="0,0,0,5"
+                                                 IsReadOnly="{Binding IsSettingsLocked}"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <TextBlock Text="Τα API Keys χρησιμοποιούνται για την αναγνώριση και έγκριση του Agent από το Central Management (ανά περιβάλλον)." 
                                            FontSize="11" Foreground="#6B7280" Margin="0,0,0,15"/>
                             </StackPanel>
                         </Border>

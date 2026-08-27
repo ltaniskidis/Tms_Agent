@@ -113,7 +113,7 @@ namespace Tms.CentralManagement.Pages
             // Find client profile emails to send response
             var client = await _context.Clients
                 .Include(c => c.Profiles)
-                .FirstOrDefaultAsync(c => c.ApiKey == ticket.ApiKey);
+                .FirstOrDefaultAsync(c => c.ApiKey == ticket.ApiKey || (c.TestApiKey != null && c.TestApiKey == ticket.ApiKey));
 
             var emailSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (client != null)

@@ -195,7 +195,11 @@
                                                 <span style="color: var(--text-secondary); font-size: 11px; margin-left: 5px;">(@client.MachineName)</span>
                                                 @if (!string.IsNullOrEmpty(client.ServerUrl))
                                                 {
-                                                    <span style="font-size: 10px; color: var(--text-secondary); margin-left: 8px; font-family: monospace; background-color: rgba(255,255,255,0.03); padding: 1px 4px; border-radius: 3px;" title="Διεύθυνση Central Server (URL)">🔗 @client.ServerUrl</span>
+                                                    <span style="font-size: 10px; color: #10B981; margin-left: 8px; font-family: monospace; background-color: rgba(16,185,129,0.05); padding: 1px 4px; border-radius: 3px;" title="Production Server URL">🟢 Prod: @client.ServerUrl</span>
+                                                }
+                                                @if (!string.IsNullOrEmpty(client.TestServerUrl))
+                                                {
+                                                    <span style="font-size: 10px; color: #F59E0B; margin-left: 8px; font-family: monospace; background-color: rgba(245,158,11,0.05); padding: 1px 4px; border-radius: 3px;" title="Test Server URL">🟡 Test: @client.TestServerUrl</span>
                                                 }
                                                 @if (!string.IsNullOrEmpty(client.SelectedEnvironment))
                                                 {

@@ -90,7 +90,11 @@ namespace Tms.Agent.Wpf
 
                     var profiles = profileManager.LoadProfiles();
 
-                    if (!string.IsNullOrEmpty(settings.ApiKey) && !string.IsNullOrEmpty(settings.ServerUrl))
+                    string activeApiKey = string.Equals(settings.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase)
+                        ? (string.IsNullOrEmpty(settings.TestApiKey) ? settings.ApiKey : settings.TestApiKey)
+                        : (string.IsNullOrEmpty(settings.ProductionApiKey) ? settings.ApiKey : settings.ProductionApiKey);
+
+                    if (!string.IsNullOrEmpty(activeApiKey) && !string.IsNullOrEmpty(settings.ServerUrl))
                     {
                         var response = await updateEngine.CheckForUpdatesAsync(
                             settings.ServerUrl,
@@ -98,7 +102,7 @@ namespace Tms.Agent.Wpf
                             machineName,
                             settings.MachineRole,
                             Tms.Agent.Core.AgentVersionInfo.Version, // Bumped version
-                            settings.ApiKey,
+                            activeApiKey,
                             profiles,
                             settings.StartWithWindows,
                             false,
@@ -126,6 +130,27 @@ namespace Tms.Agent.Wpf
                                 settingsChanged = true;
                             }
                             
+                            if (!string.IsNullOrEmpty(response.NewProductionApiKey) && response.NewProductionApiKey.Trim() != settings.ProductionApiKey)
+                            {
+                                settings.ProductionApiKey = response.NewProductionApiKey.Trim();
+                                settingsChanged = true;
+                            }
+                            if (!string.IsNullOrEmpty(response.NewTestApiKey) && response.NewTestApiKey.Trim() != settings.TestApiKey)
+                            {
+                                settings.TestApiKey = response.NewTestApiKey.Trim();
+                                settingsChanged = true;
+                            }
+                            
+                            string targetApiKey = string.Equals(settings.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase)
+                                ? settings.TestApiKey
+                                : settings.ProductionApiKey;
+
+                            if (!string.IsNullOrEmpty(targetApiKey) && targetApiKey.Trim() != settings.ApiKey)
+                            {
+                                settings.ApiKey = targetApiKey.Trim();
+                                settingsChanged = true;
+                            }
+
                             string targetUrl = string.Equals(settings.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase) 
                                 ? settings.TestServerUrl 
                                 : settings.ProductionServerUrl;

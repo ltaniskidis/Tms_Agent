@@ -77,6 +77,7 @@ namespace Tms.CentralManagement.Pages
                     MachineName = machineName,
                     MachineRole = machineRole ?? "Both",
                     ApiKey = GenerateRandomApiKey(),
+                    TestApiKey = GenerateRandomApiKey(),
                     IsUpgradeEnabled = true,
                     RegistrationDate = DateTime.UtcNow,
                     Permissions = new AgentPermissions
@@ -274,6 +275,7 @@ namespace Tms.CentralManagement.Pages
                     MachineName = machineName.Trim(),
                     MachineRole = machineRole ?? "Both",
                     ApiKey = GenerateRandomApiKey(),
+                    TestApiKey = GenerateRandomApiKey(),
                     IsUpgradeEnabled = true,
                     RegistrationDate = DateTime.UtcNow,
                     CustomerId = customerId,
@@ -364,7 +366,21 @@ namespace Tms.CentralManagement.Pages
             return RedirectToPage();
         }
 
-        public async Task<IActionResult> OnPostUpdateClientSettingsAsync(int id, string machineName, string machineRole, bool isUpgradeEnabled, bool canOperatorViewLogs, bool canOperatorRunUpdates, bool startWithWindows, string alias, int? customerId, string selectedEnvironment)
+        public async Task<IActionResult> OnPostUpdateClientSettingsAsync(
+            int id, 
+            string machineName, 
+            string machineRole, 
+            bool isUpgradeEnabled, 
+            bool canOperatorViewLogs, 
+            bool canOperatorRunUpdates, 
+            bool startWithWindows, 
+            string alias, 
+            int? customerId, 
+            string selectedEnvironment,
+            string apiKey,
+            string? testApiKey,
+            string? serverUrl,
+            string? testServerUrl)
         {
             try
             {
@@ -392,6 +408,11 @@ namespace Tms.CentralManagement.Pages
                 client.IsUpgradeEnabled = isUpgradeEnabled;
                 client.StartWithWindows = startWithWindows;
                 client.SelectedEnvironment = selectedEnvironment ?? "Production";
+
+                client.ApiKey = apiKey?.Trim() ?? string.Empty;
+                client.TestApiKey = testApiKey?.Trim();
+                client.ServerUrl = serverUrl?.Trim();
+                client.TestServerUrl = testServerUrl?.Trim();
 
                 if (client.Permissions == null)
                 {

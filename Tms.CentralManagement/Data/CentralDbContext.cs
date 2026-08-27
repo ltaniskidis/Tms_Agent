@@ -129,8 +129,10 @@ namespace Tms.CentralManagement.Data
         public Customer? Customer { get; set; }
         public string? Alias { get; set; }
         public string? ServerUrl { get; set; }
+        public string? TestServerUrl { get; set; }
 
         public string? SelectedEnvironment { get; set; } = "Production";
+        public string? TestApiKey { get; set; }
 
         public DateTime? LastCommunicationTime { get; set; }
         public DateTime? LastAgentUpgradeTime { get; set; }

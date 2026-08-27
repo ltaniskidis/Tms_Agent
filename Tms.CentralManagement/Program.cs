@@ -3038,10 +3038,49 @@ GO
             BinaryFileUrl = "/packages/app_1.5.92.zip",
             SecurityCode = "clever2026",
             IsActive = true,
-            IsCurrent = true,
+            IsCurrent = false,
             TargetType = "System"
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Διόρθωση σφάλματος επανεμφάνισης διαγραμμένων μηχανημάτων κατά το rebuild του Docker και προσθήκη cascade διαγραφής μηχανημάτων κατά τη διαγραφή πελάτη." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.94"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.94",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server & Client - Προσθήκη ενδείξεων κατάστασης περιβάλλοντος (Testing/Production) και διορθώσεις στο redirect των περιβαλλόντων.",
+            BinaryFileUrl = "/packages/app_1.5.94.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = false,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server & Client - Προσθήκη ενδείξεων κατάστασης περιβάλλοντος (Testing/Production) και διορθώσεις στο redirect των περιβαλλόντων." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.95"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.95",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Κάθετη στοίχιση των κουμπιών ενεργειών (ρυθμίσεις και διαγραφή) στις κάρτες πελατών για αποφυγή υπερχείλισης.",
+            BinaryFileUrl = "/packages/app_1.5.95.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Κάθετη στοίχιση των κουμπιών ενεργειών (ρυθμίσεις ⚙️ και διαγραφή 🗑️) στις κάρτες πελατών για αποφυγή υπερχείλισης της σελίδας όταν η επωνυμία της εταιρείας είναι μεγάλη." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Σχεδίαση των κουμπιών ως ομοιόμορφα τετράγωνα 28x28px." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

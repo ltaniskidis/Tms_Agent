@@ -246,29 +246,31 @@
                                                         </div>
                                                     }
                                                 </td>
-                                                <td style="white-space: nowrap;">
-                                                    <button type="button" class="btn btn-mini btn-action" 
-                                                            data-id="@client.Id"
-                                                            data-name="@client.MachineName"
-                                                            data-role="@client.MachineRole"
-                                                            data-guid="@client.ClientGuid"
-                                                            data-apikey="@client.ApiKey"
-                                                            data-upgrade="@(client.IsUpgradeEnabled ? "true" : "false")"
-                                                            data-startwithwindows="@(client.StartWithWindows ? "true" : "false")"
-                                                            data-viewlogs="@(client.Permissions?.CanOperatorViewLogs == true ? "true" : "false")"
-                                                            data-runupdates="@(client.Permissions?.CanOperatorRunUpdates == true ? "true" : "false")"
-                                                            data-users="@System.Text.Json.JsonSerializer.Serialize(client.LocalUsers)"
-                                                            data-profiles="@System.Text.Json.JsonSerializer.Serialize(client.Profiles)"
-                                                            data-alias="@client.Alias"
-                                                            data-customerid="@client.CustomerId"
-                                                            data-selectedenv="@client.SelectedEnvironment"
-                                                            onclick="openModalFromBtn(this)">
-                                                        ⚙️
-                                                    </button>
-                                                    <form method="post" asp-page-handler="DeleteClient" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το μηχάνημα;');" style="display: inline-block; margin: 0; margin-left: 4px;">
-                                                        <input type="hidden" name="id" value="@client.Id" />
-                                                        <button type="submit" class="btn btn-mini btn-danger-action" title="Διαγραφή">🗑️</button>
-                                                    </form>
+                                                <td>
+                                                    <div class="machine-actions-container">
+                                                        <button type="button" class="btn btn-mini btn-action" 
+                                                                data-id="@client.Id"
+                                                                data-name="@client.MachineName"
+                                                                data-role="@client.MachineRole"
+                                                                data-guid="@client.ClientGuid"
+                                                                data-apikey="@client.ApiKey"
+                                                                data-upgrade="@(client.IsUpgradeEnabled ? "true" : "false")"
+                                                                data-startwithwindows="@(client.StartWithWindows ? "true" : "false")"
+                                                                data-viewlogs="@(client.Permissions?.CanOperatorViewLogs == true ? "true" : "false")"
+                                                                data-runupdates="@(client.Permissions?.CanOperatorRunUpdates == true ? "true" : "false")"
+                                                                data-users="@System.Text.Json.JsonSerializer.Serialize(client.LocalUsers)"
+                                                                data-profiles="@System.Text.Json.JsonSerializer.Serialize(client.Profiles)"
+                                                                data-alias="@client.Alias"
+                                                                data-customerid="@client.CustomerId"
+                                                                data-selectedenv="@client.SelectedEnvironment"
+                                                                onclick="openModalFromBtn(this)">
+                                                            ⚙️
+                                                        </button>
+                                                        <form method="post" asp-page-handler="DeleteClient" onsubmit="return confirm('Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το μηχάνημα;');" style="margin: 0;">
+                                                            <input type="hidden" name="id" value="@client.Id" />
+                                                            <button type="submit" class="btn btn-mini btn-danger-action" title="Διαγραφή">🗑️</button>
+                                                        </form>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         }
@@ -1199,12 +1201,43 @@
         background-color: rgba(239, 68, 68, 0.1);
         border: 1px solid var(--danger);
         color: #EF4444;
-        padding: 5px;
     }
 
     .btn-danger-action:hover {
         background-color: var(--danger);
         color: white;
+    }
+
+    .btn-action {
+        background-color: #2D2D44;
+        border: 1px solid var(--border-color);
+        color: white;
+    }
+
+    .btn-action:hover {
+        background-color: #3B3B59;
+    }
+
+    .btn-action, .btn-danger-action {
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        border-radius: 6px;
+        cursor: pointer;
+        box-sizing: border-box;
+        transition: background-color 0.2s, color 0.2s;
+    }
+
+    .machine-actions-container {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        align-items: center;
+        justify-content: center;
     }
 
     /* Modal Overlay for Management */

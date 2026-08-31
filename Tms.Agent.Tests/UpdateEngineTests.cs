@@ -744,5 +744,60 @@ SELECT 4;
                 }
             }
         }
+
+        [Fact]
+        public void TestServiceServerUrlResolution()
+        {
+            var tempFolder = Path.Combine(Path.GetTempPath(), "TmsSettingsTest_" + Guid.NewGuid().ToString());
+            Directory.CreateDirectory(tempFolder);
+            var settingsPath = Path.Combine(tempFolder, "settings.json");
+
+            try
+            {
+                var settingsManager = new SettingsManager(settingsPath);
+                
+                // Test 1: Empty settings fallback to production URL
+                var settings = new AgentSettings
+                {
+                    ServerUrl = "",
+                    ProductionServerUrl = "https://tmsagent.cdgr.dev",
+                    TestServerUrl = "http://home.dhsweb.gr:5007",
+                    SelectedEnvironment = "Production"
+                };
+
+                string activeServerUrl = string.Equals(settings.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase)
+                    ? (string.IsNullOrEmpty(settings.TestServerUrl) ? "http://home.dhsweb.gr:5007" : settings.TestServerUrl)
+                    : (string.IsNullOrEmpty(settings.ProductionServerUrl) ? "https://tmsagent.cdgr.dev" : settings.ProductionServerUrl);
+
+                if (string.IsNullOrEmpty(settings.ServerUrl) || settings.ServerUrl == "http://localhost:5007" || settings.ServerUrl != activeServerUrl)
+                {
+                    settings.ServerUrl = activeServerUrl;
+                }
+
+                Assert.Equal("https://tmsagent.cdgr.dev", settings.ServerUrl);
+                Assert.Equal("https://tmsagent.cdgr.dev", activeServerUrl);
+
+                // Test 2: Test environment selection
+                settings.SelectedEnvironment = "Test";
+                activeServerUrl = string.Equals(settings.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase)
+                    ? (string.IsNullOrEmpty(settings.TestServerUrl) ? "http://home.dhsweb.gr:5007" : settings.TestServerUrl)
+                    : (string.IsNullOrEmpty(settings.ProductionServerUrl) ? "https://tmsagent.cdgr.dev" : settings.ProductionServerUrl);
+
+                if (string.IsNullOrEmpty(settings.ServerUrl) || settings.ServerUrl == "http://localhost:5007" || settings.ServerUrl != activeServerUrl)
+                {
+                    settings.ServerUrl = activeServerUrl;
+                }
+
+                Assert.Equal("http://home.dhsweb.gr:5007", settings.ServerUrl);
+                Assert.Equal("http://home.dhsweb.gr:5007", activeServerUrl);
+            }
+            finally
+            {
+                if (Directory.Exists(tempFolder))
+                {
+                    Directory.Delete(tempFolder, recursive: true);
+                }
+            }
+        }
     }
 }

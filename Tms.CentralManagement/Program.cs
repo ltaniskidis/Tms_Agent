@@ -3166,6 +3166,26 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.99"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.99",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Διόρθωση αυτόματης αναβάθμισης Agent μέσω Windows Service στο παρασκήνιο (χωρίς Login) και δυναμική επίλυση ενεργού Server URL.",
+            BinaryFileUrl = "/packages/app_1.5.99.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Δυναμική επίλυση και συγχρονισμός ενεργού Server URL στο Windows Service (TmsAgentService) ανάλογα με το επιλεγμένο περιβάλλον (Production / Test)." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Διασφάλιση αξιόπιστης αυτόματης αναβάθμισης συστήματος (Self-Upgrade) απευθείας από το Windows Service πριν από τη σύνδεση χρήστη (Login)." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     // Ensure only the latest System version is marked as current
     var systemVersions = context.Versions.Local.Concat(context.Versions).Where(v => v.TargetType == "System").ToList();
     if (systemVersions.Any())

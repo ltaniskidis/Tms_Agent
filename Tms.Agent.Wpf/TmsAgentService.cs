@@ -83,6 +83,16 @@ namespace Tms.Agent.Wpf
                         settings.SelectedEnvironment = "Production";
                         settingsNeedsInit = true;
                     }
+                    string activeServerUrl = string.Equals(settings.SelectedEnvironment, "Test", StringComparison.OrdinalIgnoreCase)
+                        ? (string.IsNullOrEmpty(settings.TestServerUrl) ? "http://home.dhsweb.gr:5007" : settings.TestServerUrl)
+                        : (string.IsNullOrEmpty(settings.ProductionServerUrl) ? "https://tmsagent.cdgr.dev" : settings.ProductionServerUrl);
+
+                    if (string.IsNullOrEmpty(settings.ServerUrl) || settings.ServerUrl == "http://localhost:5007" || settings.ServerUrl != activeServerUrl)
+                    {
+                        settings.ServerUrl = activeServerUrl;
+                        settingsNeedsInit = true;
+                    }
+
                     if (settingsNeedsInit)
                     {
                         settingsManager.SaveSettings(settings);
@@ -94,10 +104,10 @@ namespace Tms.Agent.Wpf
                         ? (string.IsNullOrEmpty(settings.TestApiKey) ? settings.ApiKey : settings.TestApiKey)
                         : (string.IsNullOrEmpty(settings.ProductionApiKey) ? settings.ApiKey : settings.ProductionApiKey);
 
-                    if (!string.IsNullOrEmpty(activeApiKey) && !string.IsNullOrEmpty(settings.ServerUrl))
+                    if (!string.IsNullOrEmpty(activeApiKey) && !string.IsNullOrEmpty(activeServerUrl))
                     {
                         var response = await updateEngine.CheckForUpdatesAsync(
-                            settings.ServerUrl,
+                            activeServerUrl,
                             clientId,
                             machineName,
                             settings.MachineRole,
@@ -171,7 +181,7 @@ namespace Tms.Agent.Wpf
                             if (!string.IsNullOrEmpty(response.CurrentSystemVersion) && response.CurrentSystemVersion != Tms.Agent.Core.AgentVersionInfo.Version && response.IsUpgradeAllowed && !string.IsNullOrEmpty(response.SystemBinaryUrl))
                             {
                                 System.Diagnostics.Debug.WriteLine($"Service triggers self upgrade to version {response.CurrentSystemVersion}...");
-                                await updateEngine.RunAgentSelfUpgradeAsync(settings.ServerUrl, response.SystemBinaryUrl, true, msg => System.Diagnostics.Debug.WriteLine(msg));
+                                await updateEngine.RunAgentSelfUpgradeAsync(activeServerUrl, response.SystemBinaryUrl, true, msg => System.Diagnostics.Debug.WriteLine(msg));
                                 return;
                             }
 
@@ -283,9 +293,15 @@ namespace Tms.Agent.Wpf
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // Ignored to prevent service crash
+                    try
+                    {
+                        var logFolder = PathHelper.GetAgentDataFolder();
+                        var logFile = Path.Combine(logFolder, "agent.log");
+                        File.AppendAllText(logFile, $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] [ServiceError] {ex.Message}{Environment.NewLine}");
+                    }
+                    catch { }
                 }
 
                 // Poll every 2 minutes

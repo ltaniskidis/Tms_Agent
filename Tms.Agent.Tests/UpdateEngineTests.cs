@@ -11,6 +11,29 @@ namespace Tms.Agent.Tests
     public class UpdateEngineTests
     {
         [Fact]
+        public void QuerySpecificApiKey()
+        {
+            var dbPath = @"c:\Users\Administrator\OneDrive - CLEVER DATA\sources\repos\Tms_Agent\data\central.db";
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}"))
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, MachineName, ApiKey, TestApiKey, SelectedEnvironment, ServerUrl, TestServerUrl FROM Clients;";
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            var info = string.Format("ID: {0} | Name: {1} | ApiKey: {2} | TestApiKey: {3} | Env: {4} | ProdURL: {5} | TestURL: {6}",
+                                reader.GetValue(0), reader.GetValue(1), reader.GetValue(2), reader.GetValue(3), reader.GetValue(4), reader.GetValue(5), reader.GetValue(6));
+                            Console.WriteLine("[DB_INSPECT] " + info);
+                        }
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void InspectFlessasClients()
         {
             var dbPath = @"C:\Users\Administrator\OneDrive - CLEVER DATA\sources\repos\Tms_Agent\Tms.CentralManagement\central.db";

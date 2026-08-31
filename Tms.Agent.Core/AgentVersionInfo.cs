@@ -2,7 +2,7 @@ namespace Tms.Agent.Core
 {
     public static class AgentVersionInfo
     {
-        public const string Version = "1.5.97";
+        public const string Version = "1.5.98";
     }
 }
 

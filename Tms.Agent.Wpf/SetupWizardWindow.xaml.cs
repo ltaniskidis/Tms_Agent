@@ -27,6 +27,7 @@ namespace Tms.Agent.Wpf
         public SetupWizardWindow()
         {
             InitializeComponent();
+            VersionText.Text = $"Έκδοση {Tms.Agent.Core.AgentVersionInfo.Version}";
             InitializeTempClientId();
             UpdateStepUi();
         }

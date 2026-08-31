@@ -3145,6 +3145,27 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.98"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.98",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Προσθήκη ScrollBar στον Οδηγό Εγκατάστασης (Setup Wizard), αύξηση διαστάσεων και δυνατότητα αλλαγής μεγέθους παραθύρου.",
+            BinaryFileUrl = "/packages/app_1.5.98.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη ScrollViewer στον Setup Wizard για πλήρη πρόσβαση στο πεδίο API Key σε οποιαδήποτε ανάλυση οθόνης ή DPI scaling." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Αύξηση προεπιλεγμένων διαστάσεων παραθύρου εγκατάστασης και ενεργοποίηση Resize with Grip." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Δυναμική προβολή της έκδοσης στην πλευρική στήλη του Setup Wizard." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     // Ensure only the latest System version is marked as current
     var systemVersions = context.Versions.Local.Concat(context.Versions).Where(v => v.TargetType == "System").ToList();
     if (systemVersions.Any())

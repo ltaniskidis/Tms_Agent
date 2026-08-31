@@ -340,9 +340,14 @@
                                                 <option value="SqlServer">SqlServer</option>
                                             </select>
                                         </div>
-                                        <button type="submit" class="btn btn-mini" style="background-color: var(--success); color: white; border: none; font-weight: bold; padding: 4px 12px;">
-                                            ⚡ Δημιουργία Key
-                                        </button>
+                                        <div style="display: flex; gap: 8px;">
+                                            <button type="button" onclick="toggleAddMachineForm(@customer.Id)" class="btn btn-mini" style="background-color: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 4px 10px;">
+                                                Ακύρωση
+                                            </button>
+                                            <button type="submit" class="btn btn-mini" style="background-color: var(--success); color: white; border: none; font-weight: bold; padding: 4px 12px;">
+                                                ⚡ Δημιουργία Key
+                                            </button>
+                                        </div>
                                     </div>
                                 </form>
                             </div>
@@ -1915,6 +1920,18 @@
             result += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return 'TMS-KEY-' + result;
+    }
+
+    function toggleAddMachineForm(customerId) {
+        var form = document.getElementById('addMachineForm_' + customerId);
+        if (!form) return;
+        if (form.style.display === 'none' || form.style.display === '') {
+            form.style.display = 'block';
+            var input = form.querySelector('input[name="machineName"]');
+            if (input) input.focus();
+        } else {
+            form.style.display = 'none';
+        }
     }
 
     // Customer Modal Operations

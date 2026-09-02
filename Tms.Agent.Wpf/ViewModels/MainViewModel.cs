@@ -824,6 +824,7 @@ namespace Tms.Agent.Wpf.ViewModels
         public ICommand CancelWizardCommand { get; }
         public ICommand SaveSettingsCommand { get; }
         public ICommand DiscardSettingsCommand { get; }
+        public ICommand TestServerConnectionCommand { get; }
 
         public MainViewModel()
         {
@@ -928,6 +929,7 @@ namespace Tms.Agent.Wpf.ViewModels
             CancelWizardCommand = new RelayCommand(CancelWizard);
             SaveSettingsCommand = new RelayCommand(SaveSettingsExecute);
             DiscardSettingsCommand = new RelayCommand(DiscardSettingsExecute);
+            TestServerConnectionCommand = new RelayCommand(async () => await TestServerConnectionExecuteAsync());
 
             SaveUserCommand = new RelayCommand(SaveLocalUser);
             DeleteUserCommand = new RelayCommand(DeleteLocalUser);
@@ -1094,6 +1096,101 @@ namespace Tms.Agent.Wpf.ViewModels
             {
                 await Task.Delay(5000);
                 if (SettingsAlertTitle == "Επαναφορά")
+                {
+                    HasSettingsAlert = false;
+                }
+            });
+        }
+
+        private async Task TestServerConnectionExecuteAsync()
+        {
+            HasSettingsAlert = true;
+            SettingsAlertTitle = "Έλεγχος Σύνδεσης...";
+            SettingsAlertMessage = "Γίνεται δοκιμή επικοινωνίας με τον διακομιστή...";
+            SettingsAlertIcon = "⏳";
+            SettingsAlertBackground = "#1E1B4B";
+            SettingsAlertBorderBrush = "#312E81";
+
+            string activeUrl = IsTestEnvironment ? TestServerUrl : ProductionServerUrl;
+            string activeKey = IsTestEnvironment 
+                ? (!string.IsNullOrEmpty(TestApiKey) ? TestApiKey : ApiKey) 
+                : (!string.IsNullOrEmpty(ProductionApiKey) ? ProductionApiKey : ApiKey);
+
+            if (string.IsNullOrWhiteSpace(activeUrl))
+            {
+                HasSettingsAlert = true;
+                SettingsAlertTitle = "Αποτυχία Σύνδεσης";
+                SettingsAlertMessage = "Η διεύθυνση URL του διακομιστή δεν μπορεί να είναι κενή.";
+                SettingsAlertIcon = "❌";
+                SettingsAlertBackground = "#450A0A";
+                SettingsAlertBorderBrush = "#DC2626";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(activeKey))
+            {
+                HasSettingsAlert = true;
+                SettingsAlertTitle = "Αποτυχία Σύνδεσης";
+                SettingsAlertMessage = "Το API Key πιστοποίησης δεν μπορεί να είναι κενό.";
+                SettingsAlertIcon = "❌";
+                SettingsAlertBackground = "#450A0A";
+                SettingsAlertBorderBrush = "#DC2626";
+                return;
+            }
+
+            try
+            {
+                var localProfilesList = Profiles.Select(p => p.Profile).ToList();
+                var response = await _updateEngine.CheckForUpdatesAsync(
+                    activeUrl,
+                    _clientId,
+                    _machineName,
+                    MachineRole,
+                    AppVersion,
+                    activeKey,
+                    localProfilesList,
+                    StartWithWindows,
+                    false,
+                    SelectedEnvironment
+                );
+
+                if (response != null)
+                {
+                    HasSettingsAlert = true;
+                    SettingsAlertTitle = "Επιτυχής Σύνδεση!";
+                    SettingsAlertMessage = "✅ Επιτυχής σύνδεση με τον διακομιστή! Το URL και το API Key είναι έγκυρα.";
+                    SettingsAlertIcon = "✅";
+                    SettingsAlertBackground = "#064E3B";
+                    SettingsAlertBorderBrush = "#059669";
+
+                    // Trigger general update check to refresh background status and profiles
+                    _ = CheckForUpdatesAsync();
+                }
+                else
+                {
+                    HasSettingsAlert = true;
+                    SettingsAlertTitle = "Αποτυχία Σύνδεσης";
+                    SettingsAlertMessage = "❌ Αποτυχία σύνδεσης. Ελέγξτε τη διεύθυνση URL, το API Key ή τη σύνδεσή σας στο δίκτυο.";
+                    SettingsAlertIcon = "❌";
+                    SettingsAlertBackground = "#450A0A";
+                    SettingsAlertBorderBrush = "#DC2626";
+                }
+            }
+            catch (Exception ex)
+            {
+                HasSettingsAlert = true;
+                SettingsAlertTitle = "Αποτυχία Σύνδεσης";
+                SettingsAlertMessage = $"❌ Σφάλμα κατά τη σύνδεση: {ex.Message}";
+                SettingsAlertIcon = "❌";
+                SettingsAlertBackground = "#450A0A";
+                SettingsAlertBorderBrush = "#DC2626";
+            }
+
+            // Auto-hide alert after 8 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(8000);
+                if (SettingsAlertTitle == "Επιτυχής Σύνδεση!" || SettingsAlertTitle == "Αποτυχία Σύνδεσης")
                 {
                     HasSettingsAlert = false;
                 }

@@ -3186,6 +3186,26 @@ GO
         hasChanges = true;
     }
 
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.100"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.100",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Client - Προσθήκη αυτόνομου ελέγχου σύνδεσης διακομιστή στις Ρυθμίσεις και άμεση οπτική απεικόνιση αποτελέσματος (alert banner) πάνω από τα κουμπιά ενεργειών.",
+            BinaryFileUrl = "/packages/app_1.5.100.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη εντολής TestServerConnectionCommand για άμεσο έλεγχο επικοινωνίας με τον διακομιστή και επικύρωση API Key από την καρτέλα Ρυθμίσεις Agent." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Τοποθέτηση banner ειδοποίησης απευθείας πάνω από τα κουμπιά ενεργειών (Έλεγχος Σύνδεσης, Επαναφορά, Αποθήκευση) για άμεση ορατότητα χωρίς ανάγκη κύλισης (scroll up)." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
     // Ensure only the latest System version is marked as current
     var systemVersions = context.Versions.Local.Concat(context.Versions).Where(v => v.TargetType == "System").ToList();
     if (systemVersions.Any())

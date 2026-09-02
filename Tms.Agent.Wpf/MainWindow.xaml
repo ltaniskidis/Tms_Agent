@@ -1064,11 +1064,39 @@
                             </StackPanel>
                         </Border>
 
+                        <!-- Settings Alert Banner (Bottom, directly above buttons) -->
+                        <Border CornerRadius="8" Padding="15" Margin="0,0,0,15"
+                                Background="{Binding SettingsAlertBackground}"
+                                BorderBrush="{Binding SettingsAlertBorderBrush}"
+                                BorderThickness="1">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding HasSettingsAlert}" Value="True">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding SettingsAlertIcon}" FontSize="18" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                <StackPanel Grid.Column="1">
+                                    <TextBlock Text="{Binding SettingsAlertTitle}" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF"/>
+                                    <TextBlock Text="{Binding SettingsAlertMessage}" FontSize="11" Foreground="#E0E7FF" Margin="0,2,0,0" TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+
                         <!-- Action Buttons -->
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,20">
                             <!-- Test Connection -->
                             <Button Content="Έλεγχος Σύνδεσης" Style="{StaticResource OutlineButton}" Width="150" Height="36" Margin="0,0,12,0" 
-                                    Command="{Binding CheckUpdatesCommand}"/>
+                                    Command="{Binding TestServerConnectionCommand}"/>
                             
                             <!-- Discard Changes -->
                             <Button Content="Επαναφορά" Style="{StaticResource OutlineButton}" Width="120" Height="36" Margin="0,0,12,0" 

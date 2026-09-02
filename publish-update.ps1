@@ -64,7 +64,14 @@ if (!(Test-Path $serverPackagesDev)) {
     New-Item -ItemType Directory -Path $serverPackagesDev | Out-Null
 }
 
-# 4. Compile and Publish updated Client/Agent binaries to temp directory
+# 4. Sync AgentVersionInfo.cs with target version
+$agentVersionFile = Join-Path $currentDir "Tms.Agent.Core\AgentVersionInfo.cs"
+if (Test-Path $agentVersionFile) {
+    Write-Host "Updating AgentVersionInfo.cs to $Version..." -ForegroundColor Yellow
+    (Get-Content $agentVersionFile) -replace 'public const string Version = ".*";', "public const string Version = `"$Version`";" | Set-Content $agentVersionFile
+}
+
+# 5. Compile and Publish updated Client/Agent binaries to temp directory
 Write-Host "Publishing WPF Agent binaries..." -ForegroundColor Yellow
 & "C:\Program Files\dotnet\dotnet.exe" publish Tms.Agent.Wpf\Tms.Agent.Wpf.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $tempDir
 

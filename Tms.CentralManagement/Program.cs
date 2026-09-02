@@ -50,6 +50,9 @@ builder.Services.AddAuthentication(Microsoft.AspNetCore.Authentication.Cookies.C
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
+// Register Server URL Validator
+builder.Services.AddSingleton<Tms.CentralManagement.Services.IServerUrlValidator, Tms.CentralManagement.Services.ServerUrlValidator>();
+
 // Register DbContext with SQLite
 builder.Services.AddDbContext<CentralDbContext>(options =>
 {
@@ -3201,6 +3204,27 @@ GO
         };
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Προσθήκη εντολής TestServerConnectionCommand για άμεσο έλεγχο επικοινωνίας με τον διακομιστή και επικύρωση API Key από την καρτέλα Ρυθμίσεις Agent." });
         systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Client - Τοποθέτηση banner ειδοποίησης απευθείας πάνω από τα κουμπιά ενεργειών (Έλεγχος Σύνδεσης, Επαναφορά, Αποθήκευση) για άμεση ορατότητα χωρίς ανάγκη κύλισης (scroll up)." });
+
+        context.Versions.Add(systemReleaseVersion);
+        hasChanges = true;
+    }
+
+    if (!context.Versions.Any(v => v.VersionNumber == "1.5.101"))
+    {
+        var systemReleaseVersion = new VersionInfo
+        {
+            VersionNumber = "1.5.101",
+            ReleaseDate = DateTime.UtcNow,
+            Description = "Αφορά: Server - Αυτόματος έλεγχος και επικύρωση διαθεσιμότητας URL ανακατεύθυνσης Agents πριν την αποθήκευση στις Ρυθμίσεις Συστήματος.",
+            BinaryFileUrl = "/packages/app_1.5.101.zip",
+            SecurityCode = "clever2026",
+            IsActive = true,
+            IsCurrent = true,
+            TargetType = "System"
+        };
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Προσθήκη ελέγχου εγκυρότητας σύνταξης (URL syntax) και πραγματικής διαθεσιμότητας/επικοινωνίας (HTTP reachability & TMS handshake) για τα URL ανακατεύθυνσης (Prod & Test) πριν την αποθήκευση." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Αποτροπή αποθήκευσης και εμφάνιση αναλυτικού μηνύματος σφάλματος σε περίπτωση που το URL δεν είναι έγκυρο ή ο διακομιστής δεν ανταποκρίνεται, προστατεύοντας τους Agents από απώλεια επικοινωνίας." });
+        systemReleaseVersion.ReleaseNotes.Add(new ReleaseNote { NotesContent = "Αφορά: Server - Προσθήκη κουμπιού άμεσου ελέγχου σύνδεσης (Έλεγχος) στη φόρμα Ρυθμίσεων Συστήματος και endpoints ελέγχου διαθεσιμότητας (/api/updates/ping και /api/updates/validate-url)." });
 
         context.Versions.Add(systemReleaseVersion);
         hasChanges = true;

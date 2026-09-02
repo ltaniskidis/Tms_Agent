@@ -15,11 +15,13 @@ namespace Tms.CentralManagement.Pages
     {
         private readonly CentralDbContext _context;
         private readonly ILogger<ClientsModel> _logger;
+        private readonly Tms.CentralManagement.Services.IServerUrlValidator _urlValidator;
 
-        public ClientsModel(CentralDbContext context, ILogger<ClientsModel> logger)
+        public ClientsModel(CentralDbContext context, ILogger<ClientsModel> logger, Tms.CentralManagement.Services.IServerUrlValidator urlValidator)
         {
             _context = context;
             _logger = logger;
+            _urlValidator = urlValidator;
         }
 
         public List<ClientMachine> Clients { get; set; } = new();
@@ -411,8 +413,36 @@ namespace Tms.CentralManagement.Pages
 
                 client.ApiKey = apiKey?.Trim() ?? string.Empty;
                 client.TestApiKey = testApiKey?.Trim();
-                client.ServerUrl = serverUrl?.Trim();
-                client.TestServerUrl = testServerUrl?.Trim();
+
+                if (!string.IsNullOrWhiteSpace(serverUrl))
+                {
+                    var vResult = await _urlValidator.ValidateAsync(serverUrl, allowEmpty: true);
+                    if (!vResult.IsValid)
+                    {
+                        ErrorMessage = $"❌ Αποτυχία ελέγχου Server URL: {vResult.ErrorMessage} Οι ρυθμίσεις του μηχανήματος δεν αποθηκεύτηκαν.";
+                        return RedirectToPage();
+                    }
+                    client.ServerUrl = vResult.NormalizedUrl;
+                }
+                else
+                {
+                    client.ServerUrl = null;
+                }
+
+                if (!string.IsNullOrWhiteSpace(testServerUrl))
+                {
+                    var vResult = await _urlValidator.ValidateAsync(testServerUrl, allowEmpty: true);
+                    if (!vResult.IsValid)
+                    {
+                        ErrorMessage = $"❌ Αποτυχία ελέγχου Test Server URL: {vResult.ErrorMessage} Οι ρυθμίσεις του μηχανήματος δεν αποθηκεύτηκαν.";
+                        return RedirectToPage();
+                    }
+                    client.TestServerUrl = vResult.NormalizedUrl;
+                }
+                else
+                {
+                    client.TestServerUrl = null;
+                }
 
                 if (client.Permissions == null)
                 {

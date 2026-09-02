@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Tms.Agent.Core\Tms.Agent.Core.csproj" />
     <ProjectReference Include="..\Tms.Shared\Tms.Shared.csproj" />
+    <ProjectReference Include="..\Tms.CentralManagement\Tms.CentralManagement.csproj" />
   </ItemGroup>
 
 </Project>

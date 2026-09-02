@@ -72,18 +72,33 @@
             <span>Ρυθμίσεις Επικοινωνίας & Redirection</span>
         </div>
 
-        <form method="post">
+        <div id="clientValidationAlert" style="display: none; background-color: rgba(239, 68, 68, 0.15); border: 1.5px solid var(--danger); color: var(--danger); padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 14px;">
+        </div>
+
+        <form method="post" id="settingsForm">
             <div class="form-group" style="margin-bottom: 20px;">
-                <label style="font-weight: bold;">Διεύθυνση Ανακατεύθυνσης Agents (Παραγωγικό Περιβάλλον / Prod URL)</label>
-                <input type="url" asp-for="AgentRedirectServerUrl" class="form-control" placeholder="π.χ. https://tmsagent.cdgr.dev" />
+                <label style="font-weight: bold; margin-bottom: 6px; display: block;">Διεύθυνση Ανακατεύθυνσης Agents (Παραγωγικό Περιβάλλον / Prod URL)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="url" asp-for="AgentRedirectServerUrl" id="agentRedirectServerUrl" class="form-control" placeholder="π.χ. https://tmsagent.cdgr.dev" style="flex: 1; font-family: monospace;" />
+                    <button type="button" class="btn btn-outline" id="btnTestProd" onclick="testUrl('agentRedirectServerUrl', 'prodTestResult', 'btnTestProd')" style="padding: 8px 16px; white-space: nowrap; font-size: 13px; cursor: pointer;">
+                        🔍 Έλεγχος
+                    </button>
+                </div>
+                <div id="prodTestResult" style="display: none; margin-top: 8px; font-size: 13px; padding: 10px 14px; border-radius: 6px; line-height: 1.4;"></div>
                 <p style="color: var(--text-secondary); font-size: 12px; margin-top: 6px; line-height: 1.5;">
                     💡 <strong>Πώς λειτουργεί:</strong> Διεύθυνση ανακατεύθυνσης για τους Agents που λειτουργούν σε <strong>Παραγωγικό</strong> (Production) περιβάλλον. Αφήστε κενό για απενεργοποίηση της ανακατεύθυνσης.
                 </p>
             </div>
 
             <div class="form-group" style="margin-bottom: 20px;">
-                <label style="font-weight: bold;">Διεύθυνση Ανακατεύθυνσης Agents (Δοκιμαστικό Περιβάλλον / Test URL)</label>
-                <input type="url" asp-for="AgentRedirectTestServerUrl" class="form-control" placeholder="π.χ. http://home.dhsweb.gr:5007" />
+                <label style="font-weight: bold; margin-bottom: 6px; display: block;">Διεύθυνση Ανακατεύθυνσης Agents (Δοκιμαστικό Περιβάλλον / Test URL)</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="url" asp-for="AgentRedirectTestServerUrl" id="agentRedirectTestServerUrl" class="form-control" placeholder="π.χ. http://home.dhsweb.gr:5007" style="flex: 1; font-family: monospace;" />
+                    <button type="button" class="btn btn-outline" id="btnTestTest" onclick="testUrl('agentRedirectTestServerUrl', 'testTestResult', 'btnTestTest')" style="padding: 8px 16px; white-space: nowrap; font-size: 13px; cursor: pointer;">
+                        🔍 Έλεγχος
+                    </button>
+                </div>
+                <div id="testTestResult" style="display: none; margin-top: 8px; font-size: 13px; padding: 10px 14px; border-radius: 6px; line-height: 1.4;"></div>
                 <p style="color: var(--text-secondary); font-size: 12px; margin-top: 6px; line-height: 1.5;">
                     💡 <strong>Πώς λειτουργεί:</strong> Διεύθυνση ανακατεύθυνσης για τους Agents που λειτουργούν σε <strong>Δοκιμαστικό</strong> (Test) περιβάλλον. Αφήστε κενό για απενεργοποίηση της ανακατεύθυνσης.
                 </p>
@@ -91,7 +106,9 @@
 
             <div style="display: flex; gap: 15px; justify-content: flex-end; margin-top: 25px;">
                 <a href="/Index" class="btn btn-outline" style="text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">Ακύρωση</a>
-                <button type="submit" class="btn">💾 Αποθήκευση Ρυθμίσεων</button>
+                <button type="submit" id="btnSaveSettings" class="btn" style="display: inline-flex; align-items: center; gap: 6px;">
+                    💾 Αποθήκευση Ρυθμίσεων
+                </button>
             </div>
         </form>
     </div>
@@ -163,3 +180,130 @@
         }
     </div>
 </div>
+
+<script>
+    async function testUrl(inputId, resultDivId, btnId) {
+        var input = document.getElementById(inputId);
+        var resultDiv = document.getElementById(resultDivId);
+        var btn = document.getElementById(btnId);
+        var val = (input.value || '').trim();
+
+        if (!val) {
+            resultDiv.style.display = 'block';
+            resultDiv.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+            resultDiv.style.border = '1px solid var(--warning)';
+            resultDiv.style.color = 'var(--warning)';
+            resultDiv.innerHTML = 'ℹ️ Το πεδίο είναι κενό (απενεργοποίηση ανακατεύθυνσης).';
+            input.style.borderColor = 'var(--border-color)';
+            return { isValid: true, empty: true };
+        }
+
+        var origBtnText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Έλεγχος...';
+
+        resultDiv.style.display = 'block';
+        resultDiv.style.backgroundColor = 'rgba(99, 102, 241, 0.15)';
+        resultDiv.style.border = '1px solid var(--accent)';
+        resultDiv.style.color = '#A5B4FC';
+        resultDiv.innerHTML = '🔄 Δοκιμή σύνδεσης με ' + encodeHtml(val) + '...';
+
+        try {
+            var response = await fetch('/SystemSettings?handler=ValidateUrl&url=' + encodeURIComponent(val));
+            if (!response.ok) {
+                throw new Error('Σφάλμα επικοινωνίας διακομιστή (' + response.status + ')');
+            }
+            var data = await response.json();
+            if (data.isValid) {
+                resultDiv.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+                resultDiv.style.border = '1px solid var(--success)';
+                resultDiv.style.color = 'var(--success)';
+                var verInfo = data.serverVersion ? ' [v' + data.serverVersion + ']' : '';
+                resultDiv.innerHTML = '✅ <strong>Επιτυχής Σύνδεση!</strong> Έγκυρος διακομιστής TMS Central' + verInfo + ' (' + data.responseTimeMs + 'ms).';
+                input.style.borderColor = 'var(--success)';
+                return { isValid: true, data: data };
+            } else {
+                resultDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+                resultDiv.style.border = '1px solid var(--danger)';
+                resultDiv.style.color = 'var(--danger)';
+                resultDiv.innerHTML = '❌ <strong>Αποτυχία:</strong> ' + encodeHtml(data.errorMessage || 'Μη έγκυρο URL');
+                input.style.borderColor = 'var(--danger)';
+                return { isValid: false, data: data };
+            }
+        } catch (err) {
+            resultDiv.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+            resultDiv.style.border = '1px solid var(--danger)';
+            resultDiv.style.color = 'var(--danger)';
+            resultDiv.innerHTML = '❌ <strong>Σφάλμα:</strong> ' + encodeHtml(err.message);
+            input.style.borderColor = 'var(--danger)';
+            return { isValid: false, error: err };
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origBtnText;
+        }
+    }
+
+    function encodeHtml(str) {
+        return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        var form = document.getElementById('settingsForm');
+        var alertDiv = document.getElementById('clientValidationAlert');
+
+        if (form) {
+            form.addEventListener('submit', async function(e) {
+                var saveBtn = document.getElementById('btnSaveSettings');
+                var prodInput = document.getElementById('agentRedirectServerUrl');
+                var testInput = document.getElementById('agentRedirectTestServerUrl');
+
+                var prodVal = (prodInput ? prodInput.value : '').trim();
+                var testVal = (testInput ? testInput.value : '').trim();
+
+                if (!prodVal && !testVal) {
+                    return; // Both empty -> allow submit to clear redirection
+                }
+
+                e.preventDefault();
+                alertDiv.style.display = 'none';
+                alertDiv.innerHTML = '';
+
+                var originalBtnHtml = saveBtn.innerHTML;
+                saveBtn.disabled = true;
+                saveBtn.innerHTML = '⏳ Έλεγχος URLs &amp; Αποθήκευση...';
+
+                var prodValid = true;
+                var testValid = true;
+                var failedMessages = [];
+
+                if (prodVal) {
+                    var pRes = await testUrl('agentRedirectServerUrl', 'prodTestResult', 'btnTestProd');
+                    if (!pRes.isValid) {
+                        prodValid = false;
+                        failedMessages.push('Παραγωγικό URL: ' + ((pRes.data && pRes.data.errorMessage) || 'Αδυναμία σύνδεσης'));
+                    }
+                }
+
+                if (testVal) {
+                    var tRes = await testUrl('agentRedirectTestServerUrl', 'testTestResult', 'btnTestTest');
+                    if (!tRes.isValid) {
+                        testValid = false;
+                        failedMessages.push('Δοκιμαστικό URL: ' + ((tRes.data && tRes.data.errorMessage) || 'Αδυναμία σύνδεσης'));
+                    }
+                }
+
+                if (prodValid && testValid) {
+                    form.submit();
+                } else {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnHtml;
+                    alertDiv.style.display = 'block';
+                    alertDiv.innerHTML = '❌ <strong>Αδυναμία Αποθήκευσης:</strong> Τα URL δεν μπόρεσαν να επικυρωθούν.<br/>' + 
+                        failedMessages.map(function(m) { return '• ' + encodeHtml(m); }).join('<br/>') + 
+                        '<br/><small style="margin-top: 4px; display: block; opacity: 0.9;">Η αποθήκευση ακυρώθηκε για να μην αποσυνδεθούν οι Agents.</small>';
+                    alertDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            });
+        }
+    });
+</script>

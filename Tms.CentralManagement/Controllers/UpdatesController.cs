@@ -23,13 +23,41 @@ namespace Tms.CentralManagement.Controllers
         private readonly CentralDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly ILogger<UpdatesController> _logger;
+        private readonly Tms.CentralManagement.Services.IServerUrlValidator _urlValidator;
         private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, string> _scriptIdentCache = new();
 
-        public UpdatesController(CentralDbContext context, IConfiguration configuration, ILogger<UpdatesController> logger)
+        public UpdatesController(CentralDbContext context, IConfiguration configuration, ILogger<UpdatesController> logger, Tms.CentralManagement.Services.IServerUrlValidator urlValidator)
         {
             _context = context;
             _configuration = configuration;
             _logger = logger;
+            _urlValidator = urlValidator;
+        }
+
+        // 0. Health / Connectivity Ping endpoint
+        [HttpGet("ping")]
+        public async Task<IActionResult> Ping()
+        {
+            var ver = await _context.Versions
+                .Where(v => v.TargetType == "System" && v.IsCurrent)
+                .Select(v => v.VersionNumber)
+                .FirstOrDefaultAsync() ?? "1.5.0";
+
+            return Ok(new
+            {
+                status = "ok",
+                service = "Tms.CentralManagement",
+                version = ver,
+                timestamp = DateTime.UtcNow
+            });
+        }
+
+        // Live URL validation endpoint
+        [HttpGet("validate-url")]
+        public async Task<IActionResult> ValidateUrl([FromQuery] string? url)
+        {
+            var result = await _urlValidator.ValidateAsync(url, allowEmpty: false);
+            return Ok(result);
         }
 
         // 1. Check for updates from Agents
